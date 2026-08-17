@@ -1,0 +1,138 @@
+#{C 
+,aRH
+,aRH
+              
+((((
+    
+XXXX
+      
+8888888
+XXXX
+]]]]
+ Printrangeeee
+scap
+dFit t
+Ask u
+ and
+444444444
+Save OP-
+ Prin
+ddmm
+elle
+ Ens
+     
+.pdf
+.pdf
+.pdf
+ Exp
+FFFFFFF
+rin P
+Se@e
+Bas@
+0{00020820-
+0046}
+Global
+Spac
+False
+Creatabl
+Predecla
+Trumm
+Expose
+TemplateDeriv
+ustomiz
+ Sub btn
+ntOP72_Click()
+
+    Dim ws As Works
+Falrng
+FaRang 
+pdfPathtablS
+ saveDialo
+Fil()
+
+ e
+ESet
+= This
+book.
+s("OP-72"
+ =   .
+("A1:Y55") ' 
+atabl
+' lrngPage) ' up for Landscape l
+' Fit to One  
+ws.tablng up
+.pose
+000.Address55") ' 
+Orientation
+TemplatelrngPage) 'Zoom  
+OnFaRan
+Tomiz
+sWid
+atabl
+000.AddTall5")) ' 
+OrieCWorerHorizoP72llyati 
+TVerticand'Zoom  
+9End 
+k user
+q= App
+2llya.
+(mso
+dPSap
+OnFaR
+000.A 
+Tit	
+r PDF Report7_
+ One  
+Init
+OnFaR_" & Format(D
+, "ddmmyy
+00terIndex("O2
+Viewy
+atabl
+Listmat(D
+, "AllowMultiSelect
+Expos
+ViIf 
+ow <> -1
+en "AllowMul
+As#MsgBox "ieCW
+rt cancelled.", vbEx
+, "AllowMultiSEx
+Sublled.", vbfPatIf
+.pdf
+rt7_
+edItems(1 upCW
+rt c' Ensure On
+Right(LC
+(Box "ieC), 4)it	
+"edIt"t	
+rt c' EnF
+"edIt"t	&  On
+pdMultiSEx
+ViedMul
+x "ieCOn Err
+.Resu
+Nexd
+&  On
+AsFixed' 
+ Type:=xl' 
+E:=, vbfPat, _
+.pdf
+Qualityrr
+.pdfSt{00ard, IncludeDocProp
+es:=
+& Ignore$
+, OpenAf
+Publish_
+.pPatIf
+abGoTo 0 
+Shup
+ Ignor
+arint
+
+elec
+000.
+s("on
+(ByVal Targ
+Ch.Calcu
+enAf

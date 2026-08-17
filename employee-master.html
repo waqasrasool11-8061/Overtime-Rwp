@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee master</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Employee master</h1>
+    <p>Editable table sheet for employee details. Aap baad me data modify kar sakte hain.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link active" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <h2>Employee Sheet</h2>
+      <div class="actions" style="margin-bottom: 12px;">
+        <button id="addRow" class="btn-outline" type="button">+ Add Row</button>
+        <button id="saveSheet" class="btn-primary" type="button">Save Sheet</button>
+      </div>
+
+      <p id="saveStateTag" class="change-tag" aria-live="polite">No unsaved changes.</p>
+
+      <div class="sheet-wrap">
+        <table id="employeeTable">
+          <colgroup id="employeeTableColgroup"></colgroup>
+          <thead id="employeeTableHead"></thead>
+          <tbody id="employeeTableBody"></tbody>
+        </table>
+      </div>
+      <p id="saveMsg" class="helper-text" style="margin-top: 10px;">Changes not saved yet.</p>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="Employee_Master.data.js"></script>
+  <script src="employee-master.js"></script>
+</body>
+</html>

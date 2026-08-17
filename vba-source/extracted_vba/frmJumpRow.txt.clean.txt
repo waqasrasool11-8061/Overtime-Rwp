@@ -1,0 +1,139 @@
+kkkkkkk
+oooo
+XXXXXXXXXXXXXXXXXXXXXXXXX
+Xoooo
+XXXXXXX`
+%%%%
+0000
+XXXXoo
+````
+XXXX
+XXXXX
+XXXX
+oooo
+XXXX
+XXXXXXXXXXX
+XXXX
+XXXX
+ooooo@
+    XX
+%%%%
+0000
+XXXX
+XXXXX
+XXXX
+````````````
+`````````````````
+%oooo
+XXXX
+XXXXXXXXXXX
+XXXX
+XXXX
+ooooo@
+%oooo
+    XX
+%%%%
+`````````````````
+XXXXX
+----
+````````````
+XXXX
+%oooo
+XXXX
+XXXXXXXXXXX
+XXXX
+XXXX
+ooooo@
+%oooo
+    XX
+XXXXXXX
+`````````````````
+````
+?? Row Finder - ANY SHEET pe kaam karega!
+RawData
+ ? CRITICAL LINE!
+RawData
+?? Last: 
+Attribut
+e VB_Nam
+e = "frm
+JumpRow"D
+
+
+{ACEA08E
+5-6DB9-4
+43D-8E42
+-5B31DBA
+55BA8}{7
+523A16A-
+3BDE-4FD
+8-9A1D-4
+B3D4A3DD
+79A}dGlo
+SpacA
+oFalse
+reatabl
+Predecla
+TruB
+Expose
+Template Deriv
+Cu@stomiz
+DO@ption 
+icit
+
+
+& Sub 
+btnGo_C
+@k()
+ 
+Last
+`Label
+	
+End
+	&tx
+_Key
+Down(ByV
+Code
+ As MSFo
+rms.Retu
+rnIntege
+ShifNtA	
+D#IfF
+ vb@
+%= 0
+A4If!V6User
+nitializ
+KMe.Ca
+?? @H Fi
+nder - A
+NY SHEET
+ pe kaam
+rega!
+or Resu@
+Nex@~
+YWork
+sheet, ra
+Long
+SDetA
+= S
+	s@("RawD
+fws.Acti
+ ' ? C
+RITICAL `LINE!
+pTPrim(
+ Or Not 
+IsN@
+sA= Xit
+CLngN
+@Cells(
+).Selec
+\&'GoTo
+/r/l
+l+0}/
+:= 4.C
+coun@:"A"
+(xlUp
+C"@0lbl
+: " &
+Repai
+nD'Y$

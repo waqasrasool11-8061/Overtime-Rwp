@@ -1,0 +1,8 @@
+oooo
+e VB_Name = "MultiEntryformOpener"
+
+Sub 
+`()
+    frmo
+.Show vbModeless
+End o

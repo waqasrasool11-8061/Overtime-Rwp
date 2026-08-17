@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>OverTime</title>
+	<link rel="stylesheet" href="app.css">
+</head>
+<body>
+	<div class="bg-shape bg-shape-one"></div>
+	<div class="bg-shape bg-shape-two"></div>
+
+	<button id="loginToggleBtn" class="login-toggle-btn" type="button">Login</button>
+
+	<dialog id="loginDialog" class="login-dialog">
+		<form method="dialog" class="login-dialog-head">
+			<strong>User Login</strong>
+			<button id="closeLoginDialog" type="submit" class="btn-outline">Close</button>
+		</form>
+		<form id="homeLoginForm" class="login-form" autocomplete="off">
+			<label>
+				User ID
+				<input type="text" id="loginUserId" name="loginUserId" placeholder="Admin or Employee name" required>
+			</label>
+			<label>
+				Password
+				<input type="password" id="loginPassword" name="loginPassword" placeholder="Enter password" required>
+			</label>
+			<div class="login-actions">
+				<button type="submit" class="btn-primary">Sign In</button>
+				<button type="button" id="logoutBtn" class="btn-outline">Logout</button>
+			</div>
+		</form>
+		<p id="loginStateText" class="helper-text">Not signed in.</p>
+	</dialog>
+
+	<header class="site-header">
+		<img class="site-banner" src="website banner.jpg" alt="Website banner">
+		<h1>Mileage OverTime of Rwp Shed Running Staff</h1>
+		<p>Data entry portal with editable modules for future forms and reports.</p>
+	</header>
+
+	<nav class="nav-bar">
+		<a class="nav-link active" href="index.html">Home</a>
+		<a class="nav-link" href="employee-master.html">Employee master</a>
+		<a class="nav-link" href="group-master.html">Group Master</a>
+		<a class="nav-link" href="holidays.html">Holidays</a>
+		<a class="nav-link" href="op-72.html">OP-72</a>
+		<a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+		<a class="nav-link" href="genl-164.html">GENL-164</a>
+		<a class="nav-link" href="loco-18.html">Loco-18</a>
+		<a class="nav-link" href="amount-summary.html">Amount Summary</a>
+		<a class="nav-link" href="raw-data.html">RawData</a>
+		<a class="nav-link" href="raw-data-search.html">RawData Search</a>
+	</nav>
+
+	<main class="simple-page home-form-page">
+		<section class="panel">
+			<h2>Data Entry Form</h2>
+			<form id="mileageForm" class="entry-form">
+				<div class="field-grid">
+					<label>
+						Start Date
+						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
+					</label>
+					<label>
+						End Date
+						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
+					</label>
+					<label>
+						Employee 1 Name
+						<input type="text" name="employee1Name" list="employeeNameOptions" placeholder="Type to filter employee name" autocomplete="off" required>
+					</label>
+					<label>
+						Employee 2 Name
+						<input type="text" name="employee2Name" list="employeeNameOptions" placeholder="Type to filter employee name" autocomplete="off">
+					</label>
+					<label>
+						OverTime (OT)
+						<input type="text" name="overTimeOt" placeholder="h:mm" autocomplete="off">
+					</label>
+					<label>
+						Mileage
+						<input type="number" name="mileageKm" min="0" step="1" inputmode="numeric">
+					</label>
+					<label>
+						DutyType
+						<select name="dutyType">
+							<option value="">Select DutyType</option>
+							<option value="M">M</option>
+							<option value="P">P</option>
+							<option value="OP">OP</option>
+							<option value="G">G</option>
+							<option value="LEAVE">LEAVE</option>
+							<option value="SCHOOL">SCHOOL</option>
+							<option value="WALTON">WALTON</option>
+							<option value="SICK">SICK</option>
+							<option value="LHP">LHP</option>
+							<option value="SUSPEND">SUSPEND</option>
+							<option value="ENQ">ENQ</option>
+							<option value="PVT">PVT</option>
+							<option value="ON HAND">ON HAND</option>
+							<option value="AT RWP">AT RWP</option>
+							<option value="AT LLM">AT LLM</option>
+							<option value="AT MKW">AT MKW</option>
+							<option value="AT SRQ">AT SRQ</option>
+							<option value="BC">BC</option>
+							<option value="IN OFFICE">IN OFFICE</option>
+							<option value="F. OFFICE">F. OFFICE</option>
+							<option value="PRC">PRC</option>
+							<option value="C.OFFICE">C.OFFICE</option>
+							<option value="SHEDMAN">SHEDMAN</option>
+							<option value="FORSHIFT">FORSHIFT</option>
+							<option value="DI">DI</option>
+							<option value="BOOK OFF">BOOK OFF</option>
+							<option value="HQ ENQ &amp; SEE TO DME">HQ ENQ &amp; SEE TO DME</option>
+						</select>
+					</label>
+				</div>
+
+				<datalist id="employeeNameOptions"></datalist>
+
+				<div class="journey-pair">
+					<div class="journey-block journey-outward compact-journey">
+						<h3 class="journey-title">OUTWARD Journey</h3>
+						<div class="journey-grid">
+							<label>
+								Duty
+								<input type="text" name="outwardDuty">
+							</label>
+							<label>
+								Duty Commenced
+								<input type="text" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off">
+							</label>
+							<label>
+								Duration
+								<input type="number" name="outwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+							</label>
+							<label>
+								Duty Terminated
+								<input type="text" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off">
+							</label>
+						</div>
+					</div>
+
+					<div class="journey-block journey-inward compact-journey">
+						<h3 class="journey-title">INWARD Journey</h3>
+						<div class="journey-grid">
+							<label>
+								Duty
+								<input type="text" name="inwardDuty">
+							</label>
+							<label>
+								Duty Commenced
+								<input type="text" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off">
+							</label>
+							<label>
+								Duration
+								<input type="number" name="inwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+							</label>
+							<label>
+								Duty Terminated
+								<input type="text" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off">
+							</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="journey-block remarks-block">
+					<label class="journey-remarks">
+						Remarks
+						<textarea name="remarks" rows="2" placeholder="Optional remarks"></textarea>
+					</label>
+				</div>
+
+				<div class="actions">
+					<button type="submit" class="btn-primary">Submit</button>
+					<button type="button" id="downloadLoco18" class="btn-outline">Download Loco-18</button>
+					<button type="button" id="clearForm" class="btn-outline">Clear Form</button>
+				</div>
+			</form>
+		</section>
+	</main>
+
+	<script src="auth-guard.js"></script>
+	<script src="Employee_Master.data.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>

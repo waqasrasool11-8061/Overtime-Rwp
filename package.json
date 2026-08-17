@@ -1,0 +1,21 @@
+{
+  "name": "mileage-over-time-rwp-shed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Raw Data backend foundation with SQLite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "migrate:raw-data": "node scripts/migrate-raw-data.js",
+    "create:op72-raw-data": "node scripts/create-op72-raw-data-db.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "cfb": "^1.2.2"
+  }
+}

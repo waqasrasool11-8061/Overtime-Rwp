@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holidays</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .holidays-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .holidays-add-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .holidays-add-panel h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+    }
+
+    .holidays-month-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      margin-top: 8px;
+    }
+
+    .hcal-day-header {
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-subtle);
+      padding: 4px 0;
+    }
+
+    .hcal-day {
+      text-align: center;
+      font-size: 0.8rem;
+      padding: 6px 2px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      user-select: none;
+      transition: background 160ms;
+      min-width: 0;
+    }
+
+    .hcal-day:empty {
+      cursor: default;
+    }
+
+    .hcal-day.sunday {
+      color: #1a5ca8;
+      font-weight: 700;
+    }
+
+    .hcal-day:not(:empty):hover {
+      background: #dbeafb;
+      border-color: #8ab0d5;
+    }
+
+    .hcal-day.is-holiday {
+      background: #ffe0b0;
+      border-color: #e8a04a;
+      font-weight: 800;
+      color: #7a4000;
+    }
+
+    .hcal-day.sunday.is-holiday {
+      background: #b8d8f8;
+      border-color: #5598d8;
+      color: #0a3060;
+    }
+
+    .hcal-day.today {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
+    .holidays-cal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .holidays-cal-nav strong {
+      font-size: 1rem;
+    }
+
+    .holidays-list-panel h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .holidays-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .holidays-filter-row label {
+      font-size: 0.86rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .holidays-filter-row input[type="month"] {
+      min-height: 32px;
+      width: auto;
+    }
+
+    .holidays-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    #holidaysTable {
+      width: 100%;
+      min-width: 380px;
+      border-collapse: collapse;
+    }
+
+    #holidaysTable th,
+    #holidaysTable td {
+      border: 1px solid var(--line);
+      padding: 7px 10px;
+      font-size: 0.87rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    #holidaysTable th {
+      background: #e9f2fb;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    #holidaysTable td.hol-day-type {
+      font-weight: 700;
+    }
+
+    #holidaysTable td.hol-day-type.sunday {
+      color: #1a5ca8;
+    }
+
+    #holidaysTable td.hol-day-type.gazetted {
+      color: #7a4000;
+    }
+
+    #holidaysTable td.hol-day-type.both {
+      color: #0a3060;
+    }
+
+    .hol-delete-btn {
+      border: none;
+      background: #fde8e8;
+      color: #b21f2d;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .hol-delete-btn:hover {
+      background: #f5c0c0;
+    }
+
+    .holidays-bulk-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 860px) {
+      .holidays-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Holidays</h1>
+    <p>Official Gazetted Holidays calendar.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link active" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h2 style="margin:0;">Holidays — Gazetted Calendar</h2>
+        <p id="holidaysStatus" class="helper-text" style="margin:0;">Loading…</p>
+      </div>
+
+      <div class="holidays-layout">
+
+        <!-- LEFT: Calendar picker -->
+        <div class="panel holidays-add-panel">
+          <h3>Select Month &amp; Mark Dates</h3>
+
+          <div class="holidays-cal-nav">
+            <button id="holCalPrev" class="btn-outline" type="button" style="padding:4px 10px;">&laquo;</button>
+            <strong id="holCalTitle"></strong>
+            <button id="holCalNext" class="btn-outline" type="button" style="padding:4px 10px;">&raquo;</button>
+          </div>
+
+          <div class="holidays-month-grid" id="holCalGrid"></div>
+
+          <p class="helper-text" style="font-size:0.78rem;margin:6px 0 0;">
+            Orange = Gazetted holiday &nbsp;|&nbsp; Blue = Sunday &nbsp;|&nbsp; Click a date to toggle holiday.
+          </p>
+
+          <div class="holidays-bulk-row">
+            <button id="holSaveBtn" class="btn-primary" type="button">Save Changes</button>
+            <button id="holClearMonthBtn" class="btn-outline" type="button">Clear This Month</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Full list -->
+        <div class="panel holidays-list-panel">
+          <h3>All Gazetted Holidays</h3>
+
+          <div class="holidays-filter-row">
+            <label>Filter by month
+              <input type="month" id="holFilterMonth">
+            </label>
+            <button id="holFilterApply" class="btn-outline" type="button">Filter</button>
+            <button id="holFilterClear" class="btn-outline" type="button">Show All</button>
+            <span id="holCountLabel" class="helper-text"></span>
+          </div>
+
+          <div class="holidays-table-wrap">
+            <table id="holidaysTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Day</th>
+                  <th>Type</th>
+                  <th style="width:60px;">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="holidaysTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="holidays.js"></script>
+</body>
+</html>

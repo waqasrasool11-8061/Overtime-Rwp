@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Portal</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1 id="employeePageTitle">Employee Portal</h1>
+    <p id="employeePageSubtitle">Signed-in employee view</p>
+  </header>
+
+  <main class="simple-page">
+    <section class="panel">
+      <div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 id="employeeNameHeading" style="margin: 0;">Employee</h2>
+        <button id="employeeLogoutBtn" class="btn-outline" type="button">Logout</button>
+      </div>
+      <p class="helper-text">Aap employee mode me signed in hain. Filhal sirf ye page accessible hai.</p>
+      <p class="helper-text">Next step me isi page par employee-specific functions aur restrictions add karenge.</p>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="employee-home.js"></script>
+</body>
+</html>

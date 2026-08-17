@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OP-72</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>OP-72</h1>
+    <p>Yeh page future design aur settings ke liye tayar hai.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link active" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <div class="op72-heading-row">
+        <h2>OP-72 Sheet</h2>
+        <div id="op72Toolbar" class="actions op72-toolbar">
+          <button id="clearOp72Sheet" class="btn-outline" type="button">Clear Sheet Cells</button>
+          <label for="op72GroupSelect" class="op72-group-tag">Load Group
+            <select id="op72GroupSelect" aria-label="Load group from Group Master">
+              <option value="">Select Group</option>
+            </select>
+          </label>
+          <label for="op72MonthPicker" class="op72-month-tag">Month
+            <input id="op72MonthPicker" type="month" aria-label="Select month for OP-72 dates">
+          </label>
+          <button id="op72LoadAllBtn" class="btn-primary" type="button" title="OP72 Raw Data se sabhi employees ka data load karo">&#x21E9; Load All Employees</button>
+          <button id="op72ZoomOut" class="btn-outline" type="button">Zoom Out</button>
+          <button id="op72ZoomIn" class="btn-outline" type="button">Zoom In</button>
+          <button id="op72ZoomReset" class="btn-outline" type="button">Reset Zoom</button>
+          <span id="op72ZoomValue" class="helper-text" style="align-self: center;">100%</span>
+        </div>
+        <p id="op72SaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
+      </div>
+      <div class="sheet-wrap">
+        <table id="op72Table">
+          <colgroup id="op72Colgroup"></colgroup>
+          <thead id="op72Head"></thead>
+          <tbody id="op72Body"></tbody>
+        </table>
+      </div>
+      <p id="op72Msg" class="helper-text" style="margin-top: 10px;">OP-72 layout loaded. All data cells are editable.</p>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="Group_Master.data.js"></script>
+  <script src="op-72.js"></script>
+</body>
+</html>

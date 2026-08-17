@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group Master</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Group Master</h1>
+    <p>Group Master setup page.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link active" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <h2>Group Master Sheet</h2>
+      <div class="actions" style="margin-bottom: 12px;">
+        <button id="addGroupRow" class="btn-outline" type="button">+ Add Row</button>
+        <button id="saveGroupSheet" class="btn-primary" type="button">Save Sheet</button>
+      </div>
+      <p id="groupSaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
+      <div class="sheet-wrap">
+        <table id="groupMasterTable">
+          <colgroup id="groupMasterColgroup"></colgroup>
+          <thead id="groupMasterHead"></thead>
+          <tbody id="groupMasterBody"></tbody>
+        </table>
+      </div>
+      <p id="groupMasterMsg" class="helper-text" style="margin-top: 10px;">Loading Group Master sheet...</p>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="Group_Master.data.js"></script>
+  <script src="group-master.js"></script>
+</body>
+</html>

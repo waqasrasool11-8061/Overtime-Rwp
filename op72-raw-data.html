@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OP72 Raw Data</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>OP72 Raw Data</h1>
+    <p>OP72 records stored in the separate OP72 database.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link active" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <h2>OP72 Raw Data Sheet</h2>
+      <div class="actions" style="margin-bottom: 12px;">
+        <button id="toggleAddOp72Record" class="btn-outline" type="button">+ Add Record</button>
+        <button id="togglePasteOp72Records" class="btn-outline" type="button">Paste from Excel</button>
+        <button id="deleteOp72Rows" class="btn-outline" type="button">Delete Selected</button>
+        <button id="cleanupOp72Rows" class="btn-outline" type="button">Cleanup Empty Rows</button>
+        <button id="saveOp72Sheet" class="btn-primary" type="button">Save Sheet</button>
+      </div>
+      <section id="op72EntryPanel" class="panel" style="display: none; margin-bottom: 12px;">
+        <h3 style="margin-top: 0;">Add New OP72 Raw Data Record (A:M)</h3>
+        <div id="op72EntryFields" class="sheet-wrap" style="padding: 10px;"></div>
+        <div class="actions" style="margin-top: 10px;">
+          <button id="submitOp72Record" class="btn-primary" type="button">Insert Record</button>
+          <button id="cancelOp72Record" class="btn-outline" type="button">Cancel</button>
+        </div>
+      </section>
+      <section id="op72PastePanel" class="panel" style="display: none; margin-bottom: 12px;">
+        <h3 style="margin-top: 0;">Paste OP72 Raw Data from Excel (A:M)</h3>
+        <p class="helper-text" style="margin-top: 0;">Copy A:M range from Excel, then paste below with Ctrl+V.</p>
+        <textarea id="op72PasteInput" class="field-input" rows="8" placeholder="Paste Excel rows here (tab-separated columns A:M)." style="width: 100%; resize: vertical;"></textarea>
+        <p id="op72PasteValidationMsg" class="helper-text" style="margin-top: 8px;"></p>
+        <div id="op72PastePreview" class="sheet-wrap" style="display: none; margin-top: 10px; padding: 10px;"></div>
+        <div class="actions" style="margin-top: 10px;">
+          <button id="previewOp72Paste" class="btn-outline" type="button">Preview</button>
+          <button id="importOp72Paste" class="btn-primary" type="button" disabled>Import</button>
+          <button id="cancelOp72Paste" class="btn-outline" type="button">Cancel</button>
+        </div>
+      </section>
+      <p id="op72SaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
+      <div class="sheet-wrap">
+        <table id="op72RawDataTable">
+          <colgroup id="op72Colgroup"></colgroup>
+          <thead id="op72Head"></thead>
+          <tbody id="op72Body"></tbody>
+        </table>
+      </div>
+      <p id="op72Message" class="helper-text" style="margin-top: 10px;">Loading OP72 Raw Data sheet...</p>
+    </section>
+  </main>
+  <script src="auth-guard.js"></script>
+  <script src="op72-raw-data.js"></script>
+</body>
+</html>

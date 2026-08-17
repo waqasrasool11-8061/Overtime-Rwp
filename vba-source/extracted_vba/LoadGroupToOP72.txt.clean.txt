@@ -1,0 +1,106 @@
+Group_Master 
+OP-72
+No groups found in Group_Master sheet. 
+A2:A 
+ Get the UserForm we created
+ Populate ComboBox
+$C@(
+$C@(
+$C@(
+$C@(
+form $
+$C@(
+%%%%%
+%%%%%
+A2A2A2 $
+Group '
+B o 
+%%%%%
+form $
+))))
+))))
+))))
+))))
+))))
+$C@(
+Group '
+' loaded successfully into OP-72!
+Attribut
+e VB_Nam
+e = "Loa
+dGroupTo
+OP72"
+S
+T()
+
+Dim ws
+\ As Wor
+ksheet	:
+gList
+@Varian
+electe
+Lo	/lastR
+targe
+tCells
+DDuf
+G"
+
+1Set
+This
+~boo
+:er"
+hs.count
+, "A").E
+nd(xlUp)#
+!If 
+#< 22
+gBox "No" 
+Ts f@
+d (in 	0 
+, vbExcl@amatio
+Epxit 
+@! |If
+"A2:A" &
+().Value
+Ythe
+ UserFor
+e crea
+h= ufC
+Popul
+ Combo
+With
+.Cle
+arC	
+1 To UB
+4, 1Dv
+[Trim
+	) <> ""
+_ .AddItpem C
+N ext i
+atchEntr2y
+7pl|et
+8GAS
+vbModal
+' Find
+N row
+(What:=
+okIn:
+xlWhole
+Is Not0hing
+X+ & "' n
+j_gb
+Offset(0
+0)) 
+' B to K
+ (10 colpumns@
+ Array("1
+AC1a
+
+Eg0Ag9c
+(i)O
+1,`p+
+
+"AG`
+[7!\e
+Tuccessfpully
+!7Su

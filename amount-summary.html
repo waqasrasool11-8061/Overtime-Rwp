@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amount Summary</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    /* ─────────────────────────────────────────────
+       Amount Summary — PDF-exact layout
+    ───────────────────────────────────────────── */
+
+    /* Top-right "STATIONARY STAFF" badge */
+    .amts-badge {
+      position: absolute;
+      top: 8px;
+      right: 16px;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: #5b4fcf;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    .amts-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .amts-toolbar h2 { margin: 0; }
+    .amts-status {
+      font-size: 0.82rem;
+      color: var(--text-subtle);
+    }
+
+    .amts-wrap {
+      position: relative;
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 220px);
+      border: 1px solid #b0c8e0;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    /* ── Main table ──────────────────────────────── */
+    #amtTable {
+      border-collapse: collapse;
+      font-size: 7.5pt;
+      font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    #amtTable td {
+      border: 1px solid #9ab5d0;
+      padding: 2px 3px;
+      vertical-align: middle;
+      white-space: nowrap;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* ── Column widths (14 cols total + 1 sep = 14)
+         Per employee: label | sublbl | count | rate | amt | running-total
+         Left(6) | sep(1) | Right(6) = 13 columns per pair
+    ──────────────────────────────────────────── */
+    col.c-lbl   { width: 8%;   }
+    col.c-sub   { width: 4%;   }
+    col.c-cnt   { width: 4.5%; }
+    col.c-rate  { width: 5%;   }
+    col.c-amt   { width: 5.5%; }
+    col.c-run   { width: 3%;   }
+    col.c-sep   { width: 0.8%; }
+
+    /* ── Employee block thick border ── */
+    tbody.amt-emp-block tr:first-child td               { border-top:    2px solid #000; }
+    tbody.amt-emp-block tr:last-child  td               { border-bottom: 2px solid #000; }
+    tbody.amt-emp-block tr td:first-child               { border-left:   2px solid #000; }
+    tbody.amt-emp-block tr td:last-child                { border-right:  2px solid #000; }
+    /* separator column keeps its own thick left/right */
+    tbody.amt-emp-block tr td.amt-sep                   { border-left: 2px solid #000; border-right: 2px solid #000; }
+
+    /* ── Title row ── */
+    .amt-title-row td {
+      background: #1f4e79;
+      color: #fff;
+      font-weight: 800;
+      font-style: italic;
+      font-size: 9pt;
+      text-align: center;
+      padding: 7px 6px;
+      letter-spacing: 0.03em;
+      border-color: #1f4e79;
+    }
+
+    /* ── Employee name row ── */
+    .amt-empname {
+      background: #bdd7ee;
+      font-weight: 800;
+      color: #1f3864;
+      font-size: 9pt;
+      text-align: left;
+      padding: 4px 5px;
+    }
+    .amt-meta-lbl {
+      background: #dce6f1;
+      font-weight: 700;
+      color: #1f3864;
+      font-size: 6.5pt;
+      text-align: center;
+    }
+    .amt-meta-val {
+      background: #fff;
+      font-weight: 700;
+      color: #1f3864;
+      text-align: center;
+    }
+
+    /* ── Row labels ── */
+    td.amt-lbl {
+      background: #dce6f1;
+      font-weight: 700;
+      color: #1f3864;
+      text-align: center;
+    }
+    td.amt-lbl-blue {
+      background: #dce6f1;
+      font-weight: 700;
+      color: #1f3864;
+      text-align: right;
+      padding-right: 2px;
+      border-right: none;
+    }
+    td.amt-sublbl {
+      background: #dce6f1;
+      font-weight: 600;
+      color: #1f3864;
+      text-align: left;
+      padding-left: 2px;
+      border-left: none;
+    }
+
+    /* ── Count cells ── */
+    td.amt-cnt {
+      background: #fff;
+      text-align: center;
+      color: #1f3864;
+      font-weight: 600;
+    }
+
+    /* ── Rate cells — RED ── */
+    td.amt-rate-red {
+      background: #fff;
+      text-align: center;
+      color: #c00000;
+      font-weight: 700;
+    }
+
+    /* ── Amount cells ── */
+    td.amt-amt {
+      background: #fff;
+      text-align: right;
+      font-weight: 600;
+      color: #1f3864;
+      padding-right: 4px;
+    }
+
+    /* ── Running total — dark navy, VERTICAL text, rowspan 10 ── */
+    td.amt-running {
+      background: #1f4e79;
+      color: #fff;
+      font-weight: 800;
+      text-align: center;
+      vertical-align: middle;
+      padding: 0;
+      border: 1px solid #9ab5d0;
+    }
+    td.amt-running .run-inner {
+      display: block;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      font-size: 7.5pt;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      padding: 4px 2px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* ── MILEAGE label cell (light yellow) ── */
+    td.amt-mile-lbl {
+      background: #ffeb9c;
+      font-weight: 700;
+      color: #9c5700;
+      text-align: center;
+      font-size: 6.5pt;
+    }
+
+    /* ── 55% row ── */
+    td.amt-lbl-55 {
+      background: #ffc000;
+      color: #000;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    /* ── Grand total / mileage total cell (green) ── */
+    td.amt-grand {
+      background: #00b050;
+      color: #fff;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    /* ── Separator column ── */
+    td.amt-sep {
+      background: #fff;
+      padding: 0;
+    }
+
+    /* ── Footer ── */
+    .amt-footer td {
+      background: #dce6f1;
+      font-weight: 700;
+      color: #1f3864;
+      text-align: center;
+      padding: 14px 8px;
+      font-size: 8.5pt;
+      border-top: 2px solid #1f4e79;
+    }
+
+    /* ── Spacer row between employee pairs ── */
+    .amt-spacer td { height: 5px; background: #eef4fb; border: none; }
+
+    /* ─────────────────────────────────────────────
+       PRINT — A3 landscape, all 5 pairs on one page
+    ───────────────────────────────────────────── */
+    @media print {
+      .amts-toolbar   { display: none !important; }
+      .amts-badge     { display: none !important; }
+      .site-header, .nav-bar { display: none !important; }
+      .bg-shape       { display: none !important; }
+      .amts-wrap      { max-height: none; overflow: visible; border: none; border-radius: 0; }
+      .simple-page, .panel { width: 100%; padding: 4px; margin: 0; box-shadow: none; border: none; background: none; }
+      body            { background: #fff; }
+      #amtTable       { font-size: 6.5pt; width: 100%; }
+      #amtTable td    { padding: 1px 2px; }
+      td.amt-running .run-inner { font-size: 6pt; }
+      .amt-title-row td { font-size: 8pt; padding: 4px; }
+      .amt-empname    { font-size: 7.5pt; }
+      @page           { size: A3 landscape; margin: 6mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Amount Summary</h1>
+    <p>Monthly overtime &amp; mileage amount summary — PDF-exact layout.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link active" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel" style="position:relative;">
+
+      <!-- Top-right badge -->
+      <div class="amts-badge">STATIONARY STAFF</div>
+
+      <div class="amts-toolbar">
+        <h2>Amount Summary</h2>
+        <button id="amtsLoadBtn" class="btn-primary" type="button">&#x21E9; Load from OP-72</button>
+        <button id="amtsPrintBtn" class="btn-outline" type="button">&#x1F5A8; Print / Save PDF</button>
+        <span id="amtsStatus" class="amts-status">OP-72 page pe Load All Employees chalayein, phir yahan load karein.</span>
+      </div>
+
+      <div class="amts-wrap">
+        <table id="amtTable">
+          <!-- colgroup: 13 cols × 5 pairs, but single colgroup describes one repeat unit -->
+          <!-- Label | SubLbl | Count | Rate | Amt | RunTotal | Sep | Label | SubLbl | Count | Rate | Amt | RunTotal -->
+          <colgroup>
+            <col class="c-lbl">  <col class="c-sub">  <col class="c-cnt">
+            <col class="c-rate"> <col class="c-amt">   <col class="c-run">
+            <col class="c-sep">
+            <col class="c-lbl">  <col class="c-sub">  <col class="c-cnt">
+            <col class="c-rate"> <col class="c-amt">   <col class="c-run">
+          </colgroup>
+          <tbody id="amtBody"></tbody>
+        </table>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="Employee_Master.data.js"></script>
+  <script src="Group_Master.data.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="amount-summary.js"></script>
+</body>
+</html>

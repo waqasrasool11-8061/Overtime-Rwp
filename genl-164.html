@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GENL-164</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>GENL-164</h1>
+    <p>Excel-style GENL-164 view for monthly duty, rest calculations, and print export.</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link active" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+  </nav>
+
+  <main class="simple-page">
+    <section class="panel">
+      <div class="genl-toolbar">
+        <h2>GENL-164</h2>
+        <div class="actions">
+          <label class="genl-inline-field" for="genlEmployeeSelect">
+            Employee
+            <select id="genlEmployeeSelect" aria-label="Select employee">
+              <option value="">Select Employee</option>
+            </select>
+          </label>
+          <label class="genl-inline-field" for="genlMonthPicker">
+            Month
+            <input id="genlMonthPicker" type="month" aria-label="Select month">
+          </label>
+          <button id="genlLoadBtn" class="btn-primary" type="button">Load Genl-164</button>
+          <label class="genl-inline-field" for="genlPageSize">
+            Page Size
+            <select id="genlPageSize" aria-label="Select print page size">
+              <option value="A4">A4</option>
+              <option value="A3">A3</option>
+              <option value="Legal" selected>Legal</option>
+            </select>
+          </label>
+          <button id="genlPrintBtn" class="btn-outline" type="button">Preview &amp; Quick Save</button>
+          <button id="genlMissingBtn" class="btn-outline" type="button">Empty Date List</button>
+        </div>
+      </div>
+
+      <p id="genlStatus" class="helper-text">Ready.</p>
+
+      <div class="genl-layout" id="genlPrintArea">
+        <div class="genl-print-header" id="genlPrintHeader">
+          <div class="genl-print-header-top">
+            <div class="genl-print-title-center">HOURS OF EMPLOYMENT REGULATIONS.</div>
+            <div class="genl-print-title-right">Genl. 164</div>
+          </div>
+
+          <div class="genl-print-body">
+            <div class="genl-print-left">
+              <div class="genl-print-row">
+                <span class="genl-print-label">Name</span>
+                <span class="genl-print-value" id="genlHeaderEmployee">—</span>
+              </div>
+              <div class="genl-print-row">
+                <span class="genl-print-label">Designation, grade and pay</span>
+                <span class="genl-print-value" id="genlHeaderDesignation">—</span>
+              </div>
+              <div class="genl-print-row">
+                <span class="genl-print-label">Station</span>
+                <span class="genl-print-value" id="genlHeaderStation">—</span>
+              </div>
+            </div>
+
+            <div class="genl-print-right">
+              <div class="genl-print-row genl-print-row-right">
+                <span class="genl-print-label-right">Work performed and rest taken during the</span>
+              </div>
+              <div class="genl-print-row genl-print-row-right">
+                <span class="genl-print-label-right">month of</span>
+              </div>
+              <div class="genl-print-row genl-print-row-right">
+                <span class="genl-print-value-right" id="genlPrintMonth">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-wrap genl-sheet-wrap">
+          <table id="genlTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Outward Duty</th>
+                <th>Out Commenced</th>
+                <th>Out Terminated</th>
+                <th>Worked Hours</th>
+                <th>Outstation Rest</th>
+                <th>Inward Duty</th>
+                <th>In Commenced</th>
+                <th>In Terminated</th>
+                <th>Worked Hours</th>
+                <th>Home Rest</th>
+                <th>Progressive Total</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="genlRowsBody"></tbody>
+          </table>
+        </div>
+
+        <aside class="panel genl-missing-panel">
+          <h3>Missing Dates (R7:R46)</h3>
+          <ul id="genlMissingDates" class="genl-missing-list"></ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="Employee_Master.data.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="genl-164.js"></script>
+</body>
+</html>
