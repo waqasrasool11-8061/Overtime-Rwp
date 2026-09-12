@@ -52,6 +52,9 @@
 		<a class="nav-link" href="amount-summary.html">Amount Summary</a>
 		<a class="nav-link" href="raw-data.html">RawData</a>
 		<a class="nav-link" href="raw-data-search.html">RawData Search</a>
+		<a class="nav-link" href="employee-home.html">Employee Portal</a>
+		<a class="nav-link" href="video.html">Video</a>
+		<a class="nav-link" href="user-management.html">User Management</a>
 	</nav>
 
 	<main class="simple-page home-form-page">
@@ -60,20 +63,26 @@
 			<form id="mileageForm" class="entry-form">
 				<div class="field-grid">
 					<label>
-						Start Date
+						Start Date <span class="required-star">*</span>
 						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
 					</label>
 					<label>
-						End Date
+						End Date <span class="required-star">*</span>
 						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
 					</label>
 					<label>
-						Employee 1 Name
-						<input type="text" name="employee1Name" list="employeeNameOptions" placeholder="Type to filter employee name" autocomplete="off" required>
+						Employee 1 Name <span class="required-star">*</span>
+						<div class="autocomplete-wrapper">
+							<input type="text" name="employee1Name" placeholder="Type or use Up/Down arrow" autocomplete="off" required>
+							<ul class="employee-dropdown-list" id="employee1Dropdown" role="listbox" hidden></ul>
+						</div>
 					</label>
 					<label>
 						Employee 2 Name
-						<input type="text" name="employee2Name" list="employeeNameOptions" placeholder="Type to filter employee name" autocomplete="off">
+						<div class="autocomplete-wrapper">
+							<input type="text" name="employee2Name" placeholder="Type or use Up/Down arrow" autocomplete="off">
+							<ul class="employee-dropdown-list" id="employee2Dropdown" role="listbox" hidden></ul>
+						</div>
 					</label>
 					<label>
 						OverTime (OT)
@@ -84,8 +93,8 @@
 						<input type="number" name="mileageKm" min="0" step="1" inputmode="numeric">
 					</label>
 					<label>
-						DutyType
-						<select name="dutyType">
+						DutyType <span class="required-star">*</span>
+						<select name="dutyType" required>
 							<option value="">Select DutyType</option>
 							<option value="M">M</option>
 							<option value="P">P</option>
@@ -174,10 +183,12 @@
 				</div>
 
 				<div class="actions">
-					<button type="submit" class="btn-primary">Submit</button>
-					<button type="button" id="downloadLoco18" class="btn-outline">Download Loco-18</button>
+					<button type="submit" id="submitBtn" class="btn-primary" title="Click or press Shift+Enter to submit">Submit</button>
+					<span class="submit-hint">(Click or Shift+Enter to submit)</span>
+					<button type="button" id="linkLoco18Btn" class="btn-outline btn-link-loco" aria-pressed="false" title="Click to permanently link data entries with Loco-18 sheet">Link with Loco-18</button>
 					<button type="button" id="clearForm" class="btn-outline">Clear Form</button>
 				</div>
+				<p id="formStatusNotice" style="display:none; margin-top:12px; padding:10px 14px; border-radius:6px; font-weight:600; font-size:0.95rem;"></p>
 			</form>
 		</section>
 	</main>

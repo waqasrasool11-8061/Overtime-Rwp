@@ -34,6 +34,18 @@ let holidaysList = loadHolidaysFromDisk();
 const { getDb } = require("./backend/db");
 const { migrateRawDataIfNeeded } = require("./backend/rawDataMigration");
 const { createOp72Database, getOp72Db, OP72_WORKBOOK_CODE } = require("./backend/op72Db");
+const { getEmployeeDb } = require("./backend/employeeDb");
+const { migrateEmployeeMasterIfNeeded } = require("./backend/employeeMigration");
+const {
+  getEmployeeMasterWorkbook,
+  getAllPayRevisions,
+  saveEmployeeAndRevision,
+  deletePayRevision,
+  replaceEmployeeMasterRows,
+  getEmployeePostingStationStatus,
+  updateEmployeePostingStation,
+  resetPostingStationLock,
+} = require("./backend/employeeRepository");
 const {
   appendDataRows,
   batchUpdateDataRowsById,
@@ -94,15 +106,72 @@ const PERMISSIONS = Object.freeze([
   "userManagement",
 ]);
 const FULL_ADMIN_PERMISSIONS = Object.freeze([...PERMISSIONS]);
-const ADMIN_ACCOUNTS = Object.freeze([
-  { userId: "Vicky Ch", password: "Suit@1002", role: "admin", permissions: FULL_ADMIN_PERMISSIONS },
-  {
-    userId: "Vicky Raja",
-    password: "Suit@1002",
-    role: "restricted-admin",
-    permissions: ["dataEntry", "rawDataSearch", "rawDataEdit", "general164", "loco18", "employeeMaster"],
-  },
-]);
+const USER_CREDENTIALS_JSON_PATH = path.join(__dirname, "backend", "user_credentials.json");
+
+function readUserCredentials() {
+  try {
+    if (!fs.existsSync(USER_CREDENTIALS_JSON_PATH)) {
+      const initial = {
+        admins: {
+          "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin" },
+          "vicky raja": { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" },
+        },
+        employees: {},
+      };
+      fs.writeFileSync(USER_CREDENTIALS_JSON_PATH, JSON.stringify(initial, null, 2), "utf8");
+      return initial;
+    }
+    const raw = fs.readFileSync(USER_CREDENTIALS_JSON_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!parsed.admins) parsed.admins = {};
+    if (!parsed.employees) parsed.employees = {};
+    if (!parsed.admins["vicky ch"]) {
+      parsed.admins["vicky ch"] = { userId: "Vicky Ch", password: "Suit@1002", role: "admin" };
+    }
+    if (!parsed.admins["vicky raja"]) {
+      parsed.admins["vicky raja"] = { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" };
+    }
+    return parsed;
+  } catch (err) {
+    console.error("Failed to read user credentials:", err);
+    return {
+      admins: {
+        "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin" },
+        "vicky raja": { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" },
+      },
+      employees: {},
+    };
+  }
+}
+
+function saveUserCredentials(data) {
+  try {
+    fs.writeFileSync(USER_CREDENTIALS_JSON_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to save user credentials:", err);
+  }
+}
+
+function getAdminAccounts() {
+  const creds = readUserCredentials();
+  const vickyCh = creds.admins["vicky ch"] || { userId: "Vicky Ch", password: "Suit@1002", role: "admin" };
+  const vickyRaja = creds.admins["vicky raja"] || { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" };
+
+  return [
+    {
+      userId: vickyCh.userId || "Vicky Ch",
+      password: vickyCh.password || "Suit@1002",
+      role: "admin",
+      permissions: FULL_ADMIN_PERMISSIONS,
+    },
+    {
+      userId: vickyRaja.userId || "Vicky Raja",
+      password: vickyRaja.password || "Waqas@1002",
+      role: "restricted-admin",
+      permissions: ["dataEntry", "rawDataSearch", "rawDataEdit", "general164", "loco18", "employeeMaster"],
+    },
+  ];
+}
 
 function getCookieValue(req, name) {
   const cookies = String(req.headers.cookie || "").split(";");
@@ -111,7 +180,7 @@ function getCookieValue(req, name) {
 }
 
 function publicUser(user) {
-  return { userId: user.userId, role: user.role, permissions: [...user.permissions] };
+  return { userId: user.userId, sapId: user.sapId || "", role: user.role, permissions: [...user.permissions] };
 }
 
 function findEmployeeAccount(userId, password) {
@@ -121,13 +190,21 @@ function findEmployeeAccount(userId, password) {
   const parsed = JSON.parse(sourceText);
   const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
   const headerRows = Number(parsed?.headerRows || 4);
+  const creds = readUserCredentials();
 
   for (const row of rows.slice(headerRows)) {
     if (!Array.isArray(row)) continue;
-    const employeeId = normalizeText(row[1]);
-    const employeePassword = normalizeText(row[0]);
-    if (employeeId.toLowerCase() === normalizedId && employeePassword === normalizedPassword) {
-      return { userId: employeeId, password: employeePassword, role: "employee", permissions: [] };
+    const sapId = normalizeText(row[0]);
+    const employeeName = normalizeText(row[1]);
+    if (!sapId || !employeeName) continue;
+
+    if (employeeName.toLowerCase() === normalizedId || sapId.toLowerCase() === normalizedId) {
+      const customCred = creds.employees[sapId] || creds.employees[employeeName.toLowerCase()];
+      const effectivePassword = customCred?.password ? String(customCred.password).trim() : sapId;
+
+      if (effectivePassword === normalizedPassword) {
+        return { userId: employeeName, sapId, password: effectivePassword, role: "employee", permissions: [] };
+      }
     }
   }
 
@@ -137,7 +214,8 @@ function findEmployeeAccount(userId, password) {
 function authenticateAccount(userId, password) {
   const normalizedId = normalizeText(userId).toLowerCase();
   const normalizedPassword = normalizeText(password);
-  const admin = ADMIN_ACCOUNTS.find(
+  const admins = getAdminAccounts();
+  const admin = admins.find(
     (account) => account.userId.toLowerCase() === normalizedId && account.password === normalizedPassword
   );
   return admin || findEmployeeAccount(userId, password);
@@ -157,8 +235,17 @@ function currentSession(req) {
 function permissionForRequest(req) {
   const url = String(req.originalUrl || req.path).split("?")[0];
   if (url.startsWith("/api/auth/")) return null;
-  if (url.startsWith("/api/holidays")) return "holidays";
+  if (url.startsWith("/api/chat")) return null;
+  if (url === "/api/employee/posting-station") return null;
+  if (url === "/api/admin/reset-posting-station-lock") return "employeeMaster";
+  if (url === "/api/op72/search") return null;
+  if (url.startsWith("/api/holidays")) return null;
+  if (url.startsWith("/api/admin/users")) return "userManagement";
   if (url.startsWith("/api/op72/")) return "op72RawData";
+  if (url.startsWith("/api/employee-master/")) {
+    if (req.method === "GET") return null;
+    return "employeeMaster";
+  }
   if (url === "/api/raw-data/search") return "rawDataSearch";
   if (url === "/api/raw-data/search-updates") return "rawDataEdit";
   if (url === "/api/raw-data/workbook") return ["rawDataSearch", "rawDataEdit", "general164"];
@@ -226,8 +313,20 @@ function parseDateValue(value) {
   return null;
 }
 
+const FULL_MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+
+function normalizeMonthTo3(value) {
+  const v = toUpper(value);
+  if (MONTHS.includes(v)) return v;
+  const idx = FULL_MONTHS.indexOf(v);
+  if (idx >= 0) return MONTHS[idx];
+  const shortIdx = MONTHS.findIndex((m) => v.startsWith(m));
+  if (shortIdx >= 0) return MONTHS[shortIdx];
+  return "";
+}
+
 function isValidMonthLabel(value) {
-  return MONTHS.includes(toUpper(value));
+  return Boolean(normalizeMonthTo3(value));
 }
 
 function isValidClockTime(value) {
@@ -290,6 +389,34 @@ function getEmployeeNameSet() {
   return names;
 }
 
+function normalizeOtValueToHhMm(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  const num = typeof value === "number" ? value : (typeof value === "string" && /^\d*\.\d+$/.test(value.trim()) ? parseFloat(value.trim()) : NaN);
+  if (Number.isFinite(num) && num > 0 && num <= 1) {
+    const totalMinutes = Math.round(num * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.abs(totalMinutes % 60);
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  const text = normalizeText(value);
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2]}`;
+  }
+  return text;
+}
+
+function normalizeDataRowValues(row) {
+  if (!Array.isArray(row)) return row;
+  const newRow = [...row];
+  if (newRow.length > 4) {
+    newRow[4] = normalizeOtValueToHhMm(newRow[4]);
+  }
+  return newRow;
+}
+
 function rowValuesToSearchRecord(id, rowIndex, rowValues) {
   const values = Array.isArray(rowValues) ? rowValues : [];
   return {
@@ -300,7 +427,7 @@ function rowValuesToSearchRecord(id, rowIndex, rowValues) {
     employee1: normalizeText(values[1]),
     employee2: normalizeText(values[2]),
     dutyType: normalizeText(values[3]),
-    ot: normalizeText(values[4]),
+    ot: normalizeOtValueToHhMm(values[4]),
     mileage: normalizeText(values[5]),
     outwardDuty: normalizeText(values[6]),
     outwardCommenced: normalizeText(values[7]),
@@ -316,6 +443,9 @@ function searchRecordToRowValues(record) {
   return RAW_DATA_SEARCH_COLUMNS.map((key) => {
     if (key === "remarks") {
       return "M";
+    }
+    if (key === "ot") {
+      return normalizeOtValueToHhMm(record?.[key]);
     }
     return normalizeText(record?.[key]);
   });
@@ -386,6 +516,7 @@ app.post("/api/auth/login", (req, res) => {
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, {
     userId: user.userId,
+    sapId: user.sapId || "",
     role: user.role,
     permissions: [...user.permissions],
     expiresAt: Date.now() + SESSION_TTL_MS,
@@ -410,8 +541,273 @@ app.post("/api/auth/logout", (req, res) => {
   return res.status(204).end();
 });
 
+app.post("/api/auth/change-password", (req, res) => {
+  const session = currentSession(req);
+  if (!session) {
+    return res.status(401).json({ message: "Authentication required." });
+  }
+
+  const currentPassword = String(req.body?.currentPassword || "").trim();
+  const newPassword = String(req.body?.newPassword || "").trim();
+
+  if (!currentPassword) {
+    return res.status(400).json({ message: "Current password is required." });
+  }
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ message: "New password must be at least 4 characters long." });
+  }
+
+  // Check if session user is admin
+  if (session.role === "admin" || session.role === "restricted-admin") {
+    const creds = readUserCredentials();
+    const key = session.userId.toLowerCase();
+    const admin = creds.admins[key];
+    if (!admin || admin.password !== currentPassword) {
+      return res.status(400).json({ message: "Current password is incorrect." });
+    }
+    admin.password = newPassword;
+    saveUserCredentials(creds);
+    return res.json({ message: "Admin password changed successfully." });
+  }
+
+  // Session user is employee
+  const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
+  const parsed = JSON.parse(sourceText);
+  const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+  const headerRows = Number(parsed?.headerRows || 4);
+  const normalizedUser = session.userId.toLowerCase();
+  const row = rows.slice(headerRows).find((r) => normalizeText(r?.[1]).toLowerCase() === normalizedUser);
+
+  if (!row) {
+    return res.status(404).json({ message: "Employee record not found." });
+  }
+
+  const sapId = normalizeText(row[0]);
+  const employeeName = normalizeText(row[1]);
+  const creds = readUserCredentials();
+  const customCred = creds.employees[sapId];
+  const effectivePassword = customCred?.password ? String(customCred.password).trim() : sapId;
+
+  if (effectivePassword !== currentPassword) {
+    return res.status(400).json({ message: "Current password is incorrect." });
+  }
+
+  creds.employees[sapId] = {
+    sapId,
+    name: employeeName,
+    password: newPassword,
+    updatedAt: new Date().toISOString(),
+  };
+  saveUserCredentials(creds);
+  return res.json({ message: "Your password has been changed successfully." });
+});
+
+// ── Chat Messages Storage & Endpoints ─────────────────────────────────────────
+const CHAT_STORAGE_PATH = path.join(__dirname, "backend", "chat_messages.json");
+
+function readChatMessages() {
+  try {
+    if (!fs.existsSync(CHAT_STORAGE_PATH)) {
+      const initial = [
+        {
+          id: "msg_welcome",
+          sender: "Vicky Ch",
+          senderRole: "admin",
+          receiver: "ALL",
+          text: "Welcome to Employee Portal! If you notice any overtime calculation discrepancy, wrong duty type, or leave error, please send a message here.",
+          timestamp: new Date().toISOString(),
+        }
+      ];
+      fs.writeFileSync(CHAT_STORAGE_PATH, JSON.stringify(initial, null, 2), "utf8");
+      return initial;
+    }
+    const raw = fs.readFileSync(CHAT_STORAGE_PATH, "utf8");
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveChatMessages(messages) {
+  try {
+    fs.writeFileSync(CHAT_STORAGE_PATH, JSON.stringify(messages, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to save chat messages:", err);
+  }
+}
+
+app.get("/api/chat/messages", (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+
+  const all = readChatMessages();
+  const employeeFilter = req.query.employee ? normalizeText(req.query.employee).toLowerCase() : "";
+
+  if (session.role === "employee") {
+    const empName = session.userId.toLowerCase();
+    const userMsgs = all.filter((m) => 
+      m.receiver === "ALL" || 
+      String(m.sender || "").toLowerCase() === empName || 
+      String(m.receiver || "").toLowerCase() === empName
+    );
+    return res.json({ messages: userMsgs });
+  }
+
+  // Admin view
+  if (employeeFilter) {
+    const threadMsgs = all.filter((m) => 
+      m.receiver === "ALL" ||
+      String(m.sender || "").toLowerCase() === employeeFilter || 
+      String(m.receiver || "").toLowerCase() === employeeFilter
+    );
+    return res.json({ messages: threadMsgs });
+  }
+
+  return res.json({ messages: all });
+});
+
+app.post("/api/chat/messages", (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+
+  const text = normalizeText(req.body?.text);
+  if (!text) return res.status(400).json({ message: "Message text is required." });
+
+  const receiver = normalizeText(req.body?.receiver) || (session.role === "employee" ? "Vicky Ch" : "ALL");
+
+  const newMsg = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    sender: session.userId,
+    senderRole: session.role,
+    receiver: receiver,
+    text: text,
+    timestamp: new Date().toISOString(),
+  };
+
+  const all = readChatMessages();
+  all.push(newMsg);
+  saveChatMessages(all);
+
+  return res.status(201).json({ message: newMsg });
+});
+
 app.use("/api", requireApiPermission);
 app.use(express.static(path.join(__dirname)));
+
+// Serve Trainz HTML page folder from sibling directory "TRS DEP PAK"
+const trsDepPakPath = path.resolve(__dirname, "..", "TRS DEP PAK");
+if (fs.existsSync(trsDepPakPath)) {
+  app.use("/trs-dep-pak", express.static(trsDepPakPath, { index: ["Pak-Trainz.html", "index.html"] }));
+}
+
+// ── Admin User & Password Management Endpoints (Requires 'userManagement') ─────
+app.get("/api/admin/users", (req, res) => {
+  try {
+    const creds = readUserCredentials();
+    const admins = getAdminAccounts().map((a) => ({
+      userId: a.userId,
+      role: a.role,
+      password: a.password,
+      permissions: a.permissions,
+    }));
+
+    const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
+    const parsed = JSON.parse(sourceText);
+    const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+    const headerRows = Number(parsed?.headerRows || 4);
+
+    const employees = [];
+    for (const row of rows.slice(headerRows)) {
+      if (!Array.isArray(row)) continue;
+      const sapId = normalizeText(row[0]);
+      const name = normalizeText(row[1]);
+      const designation = normalizeText(row[2]);
+      if (!sapId || !name) continue;
+
+      const customCred = creds.employees[sapId] || creds.employees[name.toLowerCase()];
+      const isCustom = Boolean(customCred?.password);
+      const password = isCustom ? String(customCred.password) : sapId;
+
+      employees.push({
+        sapId,
+        name,
+        designation: designation || "Running Staff",
+        password,
+        isCustomPassword: isCustom,
+      });
+    }
+
+    return res.json({ admins, employees });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch users.", detail: error.message });
+  }
+});
+
+app.put("/api/admin/users/password", (req, res) => {
+  try {
+    const { type, id, newPassword } = req.body || {};
+    const cleanedPassword = String(newPassword || "").trim();
+    if (!cleanedPassword) {
+      return res.status(400).json({ message: "Password cannot be empty." });
+    }
+
+    const creds = readUserCredentials();
+
+    if (type === "admin") {
+      const key = normalizeText(id).toLowerCase();
+      if (!creds.admins[key]) {
+        return res.status(404).json({ message: `Admin user '${id}' not found.` });
+      }
+      creds.admins[key].password = cleanedPassword;
+      saveUserCredentials(creds);
+      return res.json({ message: `Password for admin '${creds.admins[key].userId}' updated successfully.` });
+    }
+
+    if (type === "employee") {
+      const sapId = normalizeText(id);
+      if (!sapId) {
+        return res.status(400).json({ message: "Employee SAP ID is required." });
+      }
+      const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
+      const parsed = JSON.parse(sourceText);
+      const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+      const headerRows = Number(parsed?.headerRows || 4);
+      const row = rows.slice(headerRows).find((r) => normalizeText(r?.[0]) === sapId);
+      const employeeName = row ? normalizeText(row[1]) : "";
+
+      creds.employees[sapId] = {
+        sapId,
+        name: employeeName,
+        password: cleanedPassword,
+        updatedAt: new Date().toISOString(),
+      };
+      saveUserCredentials(creds);
+      return res.json({ message: `Password for employee '${employeeName || sapId}' updated successfully.` });
+    }
+
+    return res.status(400).json({ message: "Invalid user type. Must be 'admin' or 'employee'." });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to update password.", detail: error.message });
+  }
+});
+
+app.post("/api/admin/users/reset-default", (req, res) => {
+  try {
+    const sapId = normalizeText(req.body?.sapId);
+    if (!sapId) {
+      return res.status(400).json({ message: "Employee SAP ID is required." });
+    }
+
+    const creds = readUserCredentials();
+    delete creds.employees[sapId];
+    saveUserCredentials(creds);
+
+    return res.json({ message: `Password for employee SAP ID ${sapId} reset to default (SAP ID).` });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to reset password.", detail: error.message });
+  }
+});
 
 app.get("/api/raw-data/workbook", async (req, res) => {
   try {
@@ -454,6 +850,7 @@ app.put("/api/raw-data/data-rows", async (req, res) => {
   if (!Array.isArray(submittedRows)) {
     return res.status(400).json({ message: "rows array is required." });
   }
+  const normalizedRows = submittedRows.map(normalizeDataRowValues);
 
   try {
     const db = await getDb();
@@ -465,10 +862,10 @@ app.put("/api/raw-data/data-rows", async (req, res) => {
 
     await db.exec("BEGIN TRANSACTION");
     try {
-      const savedRowCount = await replaceDataRows(db, workbook.id, workbook.headerRowCount, submittedRows);
+      const savedRowCount = await replaceDataRows(db, workbook.id, workbook.headerRowCount, normalizedRows);
       const maxColumns = Math.max(
         workbook.maxColumns,
-        ...submittedRows.map((row) => (Array.isArray(row) ? row.length : 0))
+        ...normalizedRows.map((row) => (Array.isArray(row) ? row.length : 0))
       );
       await updateWorkbookMaxColumns(db, workbook.id, Math.max(1, maxColumns));
       await db.exec("COMMIT");
@@ -487,6 +884,7 @@ app.post("/api/raw-data/data-rows", async (req, res) => {
   if (!Array.isArray(submittedRows) || !submittedRows.length) {
     return res.status(400).json({ message: "rows array is required." });
   }
+  const normalizedRows = submittedRows.map(normalizeDataRowValues);
 
   try {
     const db = await getDb();
@@ -505,16 +903,16 @@ app.post("/api/raw-data/data-rows", async (req, res) => {
     await db.exec("BEGIN TRANSACTION");
     await op72Db.exec("BEGIN TRANSACTION");
     try {
-      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, submittedRows);
-      await appendDataRows(op72Db, op72Workbook.id, op72Workbook.headerRowCount, submittedRows);
+      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, normalizedRows);
+      await appendDataRows(op72Db, op72Workbook.id, op72Workbook.headerRowCount, normalizedRows);
       const maxColumns = Math.max(
         workbook.maxColumns,
-        ...submittedRows.map((row) => (Array.isArray(row) ? row.length : 0))
+        ...normalizedRows.map((row) => (Array.isArray(row) ? row.length : 0))
       );
       await updateWorkbookMaxColumns(db, workbook.id, Math.max(1, maxColumns));
       const op72MaxColumns = Math.max(
         op72Workbook.maxColumns,
-        ...submittedRows.map((row) => (Array.isArray(row) ? row.length : 0))
+        ...normalizedRows.map((row) => (Array.isArray(row) ? row.length : 0))
       );
       await updateWorkbookMaxColumns(op72Db, op72Workbook.id, Math.max(1, op72MaxColumns));
       await db.exec("COMMIT");
@@ -535,6 +933,7 @@ app.post("/api/raw-data/data-row", async (req, res) => {
   if (!Array.isArray(submittedRow)) {
     return res.status(400).json({ message: "row array is required." });
   }
+  const normalizedRow = normalizeDataRowValues(submittedRow);
 
   try {
     const db = await getDb();
@@ -553,17 +952,17 @@ app.post("/api/raw-data/data-row", async (req, res) => {
     await db.exec("BEGIN TRANSACTION");
     await op72Db.exec("BEGIN TRANSACTION");
     try {
-      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, [submittedRow]);
+      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, [normalizedRow]);
       await cleanupEmptyDataRows(db, workbook.id);
-      await appendDataRows(op72Db, op72Workbook.id, op72Workbook.headerRowCount, [submittedRow]);
+      await appendDataRows(op72Db, op72Workbook.id, op72Workbook.headerRowCount, [normalizedRow]);
       await cleanupEmptyDataRows(op72Db, op72Workbook.id);
 
-      const maxColumns = Math.max(workbook.maxColumns, submittedRow.length || 0);
+      const maxColumns = Math.max(workbook.maxColumns, normalizedRow.length || 0);
       await updateWorkbookMaxColumns(db, workbook.id, Math.max(1, maxColumns));
       await updateWorkbookMaxColumns(
         op72Db,
         op72Workbook.id,
-        Math.max(op72Workbook.maxColumns, submittedRow.length || 0)
+        Math.max(op72Workbook.maxColumns, normalizedRow.length || 0)
       );
       await op72Db.exec("COMMIT");
       await db.exec("COMMIT");
@@ -603,6 +1002,7 @@ app.put("/api/op72/data-rows", async (req, res) => {
   if (!Array.isArray(submittedRows)) {
     return res.status(400).json({ message: "rows array is required." });
   }
+  const normalizedRows = submittedRows.map(normalizeDataRowValues);
 
   try {
     const db = await getOp72Db();
@@ -613,10 +1013,10 @@ app.put("/api/op72/data-rows", async (req, res) => {
 
     await db.exec("BEGIN TRANSACTION");
     try {
-      const savedRowCount = await replaceDataRows(db, workbook.id, workbook.headerRowCount, submittedRows);
+      const savedRowCount = await replaceDataRows(db, workbook.id, workbook.headerRowCount, normalizedRows);
       const maxColumns = Math.max(
         workbook.maxColumns,
-        ...submittedRows.map((row) => (Array.isArray(row) ? row.length : 0))
+        ...normalizedRows.map((row) => (Array.isArray(row) ? row.length : 0))
       );
       await updateWorkbookMaxColumns(db, workbook.id, Math.max(1, maxColumns));
       await db.exec("COMMIT");
@@ -635,6 +1035,7 @@ app.post("/api/op72/data-row", async (req, res) => {
   if (!Array.isArray(submittedRow)) {
     return res.status(400).json({ message: "row array is required." });
   }
+  const normalizedRow = normalizeDataRowValues(submittedRow);
 
   try {
     const db = await getOp72Db();
@@ -645,9 +1046,9 @@ app.post("/api/op72/data-row", async (req, res) => {
 
     await db.exec("BEGIN TRANSACTION");
     try {
-      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, [submittedRow]);
+      const appendResult = await appendDataRows(db, workbook.id, workbook.headerRowCount, [normalizedRow]);
       await cleanupEmptyDataRows(db, workbook.id);
-      await updateWorkbookMaxColumns(db, workbook.id, Math.max(workbook.maxColumns, submittedRow.length || 0));
+      await updateWorkbookMaxColumns(db, workbook.id, Math.max(workbook.maxColumns, normalizedRow.length || 0));
       await db.exec("COMMIT");
       return res.status(201).json({ message: "OP72 Raw Data record added.", savedRowCount: appendResult.savedRowCount });
     } catch (innerError) {
@@ -786,13 +1187,13 @@ app.post("/api/raw-data/cleanup-empty-rows", async (req, res) => {
 
 app.get("/api/raw-data/search", async (req, res) => {
   const employee = normalizeText(req.query?.employee);
-  const month = toUpper(req.query?.month);
+  const month = normalizeMonthTo3(req.query?.month);
   const year = Number(req.query?.year);
 
   if (!employee) {
     return res.status(400).json({ message: "employee is required." });
   }
-  if (!isValidMonthLabel(month)) {
+  if (!month) {
     return res.status(400).json({ message: "month is required and must be JAN-DEC." });
   }
   if (!Number.isInteger(year) || year <= 0) {
@@ -897,13 +1298,13 @@ app.put("/api/raw-data/search-updates", async (req, res) => {
 
 app.get("/api/op72/search", async (req, res) => {
   const employee = normalizeText(req.query?.employee);
-  const month = toUpper(req.query?.month);
+  const month = normalizeMonthTo3(req.query?.month);
   const year = Number(req.query?.year);
 
   if (!employee) {
     return res.status(400).json({ message: "employee is required." });
   }
-  if (!isValidMonthLabel(month)) {
+  if (!month) {
     return res.status(400).json({ message: "month is required and must be JAN-DEC." });
   }
   if (!Number.isInteger(year) || year <= 0) {
@@ -1048,6 +1449,132 @@ app.delete("/api/holidays", (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Employee Master & Pay Revisions API (SQLite backed) ─────────────────────
+app.get("/api/employee-master/workbook", async (req, res) => {
+  try {
+    const db = await getEmployeeDb();
+    const result = await getEmployeeMasterWorkbook(db);
+    if (!result) {
+      return res.status(404).json({ message: "Employee Master workbook not found." });
+    }
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load Employee Master workbook.", detail: error.message });
+  }
+});
+
+app.get("/api/employee-master/pay-revisions", async (req, res) => {
+  try {
+    const db = await getEmployeeDb();
+    const revisions = await getAllPayRevisions(db);
+    return res.json({ revisions });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load pay revisions.", detail: error.message });
+  }
+});
+
+app.post("/api/employee-master/employee", async (req, res) => {
+  try {
+    const db = await getEmployeeDb();
+    const result = await saveEmployeeAndRevision(db, req.body || {});
+    return res.json({ message: "Employee and pay revision saved successfully.", ...result });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to save employee record.", detail: error.message });
+  }
+});
+
+app.delete("/api/employee-master/pay-revision", async (req, res) => {
+  try {
+    const { empKey, effectiveMonth } = req.body || {};
+    if (!empKey || !effectiveMonth) {
+      return res.status(400).json({ message: "empKey and effectiveMonth are required." });
+    }
+    const db = await getEmployeeDb();
+    const result = await deletePayRevision(db, empKey, effectiveMonth);
+    return res.json({ message: "Pay revision deleted successfully.", ...result });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete pay revision.", detail: error.message });
+  }
+});
+
+app.put("/api/employee-master/data-rows", async (req, res) => {
+  const submittedRows = req.body?.rows;
+  if (!Array.isArray(submittedRows)) {
+    return res.status(400).json({ message: "rows array is required." });
+  }
+  try {
+    const db = await getEmployeeDb();
+    const result = await replaceEmployeeMasterRows(db, submittedRows);
+    return res.json({ message: "Employee Master data rows saved.", ...result });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to save Employee Master data rows.", detail: error.message });
+  }
+});
+
+// ── Employee Posting Station (1-Time Modification) Endpoints ───────────────
+app.get("/api/employee/posting-station", async (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+
+  const queryEmp = req.query.employee || session.sapId || session.userId;
+  try {
+    const db = await getEmployeeDb();
+    const status = await getEmployeePostingStationStatus(db, queryEmp);
+    if (!status.found) {
+      return res.status(404).json({ message: `Employee '${queryEmp}' not found.` });
+    }
+    return res.json(status);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch posting station.", detail: error.message });
+  }
+});
+
+app.post("/api/employee/posting-station", async (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+
+  const isEmployee = session.role === "employee";
+  // If employee role, they can only edit their own station
+  const targetEmp = isEmployee ? (session.sapId || session.userId) : (req.body?.employee || session.userId);
+  const postingStation = String(req.body?.postingStation || "").trim();
+
+  if (!postingStation) {
+    return res.status(400).json({ message: "Posting station is required." });
+  }
+
+  try {
+    const db = await getEmployeeDb();
+    const result = await updateEmployeePostingStation(db, targetEmp, postingStation, isEmployee);
+    return res.json({
+      message: "Posting station updated successfully.",
+      ...result
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.post("/api/admin/reset-posting-station-lock", async (req, res) => {
+  const session = currentSession(req);
+  if (!session || session.role === "employee") {
+    return res.status(403).json({ message: "Administrator permission required." });
+  }
+
+  const targetEmp = req.body?.employee;
+  if (!targetEmp) {
+    return res.status(400).json({ message: "employee parameter is required." });
+  }
+
+  try {
+    const db = await getEmployeeDb();
+    const result = await resetPostingStationLock(db, targetEmp);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to reset posting station lock.", detail: error.message });
+  }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.use((req, res) => {
   res.status(404).json({ message: "Not found." });
 });
@@ -1056,8 +1583,12 @@ app.use((req, res) => {
   try {
     const migrationResult = await migrateRawDataIfNeeded();
     await createOp72Database();
+    const empMigrationResult = await migrateEmployeeMasterIfNeeded();
     console.log(
       `[raw-data] migration status: ${migrationResult.imported ? "imported" : "already-initialized"}, source rows=${migrationResult.rowCountInSource}`
+    );
+    console.log(
+      `[employee-master] migration status: ${empMigrationResult.imported ? "imported" : "already-initialized"}, source rows=${empMigrationResult.existingRows}`
     );
     app.listen(PORT, () => {
       console.log(`[server] MileageOverTimeRWPShed running at http://localhost:${PORT}`);

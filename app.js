@@ -8,14 +8,21 @@ const HOME_RAW_DATA_API_PATHS = {
 };
 
 const form = document.getElementById("mileageForm");
-const downloadBtn = document.getElementById("downloadLoco18");
+const linkLocoBtn = document.getElementById("linkLoco18Btn") || document.getElementById("downloadLoco18");
+const downloadBtn = linkLocoBtn;
 const clearFormBtn = document.getElementById("clearForm");
+const formStatusNotice = document.getElementById("formStatusNotice");
 const startDateInput = form.querySelector("input[name='startDate']");
 const endDateInput = form.querySelector("input[name='endDate']");
 const employee1NameInput = form.querySelector("input[name='employee1Name']");
 const employee2NameInput = form.querySelector("input[name='employee2Name']");
+const employee1Dropdown = document.getElementById("employee1Dropdown");
+const employee2Dropdown = document.getElementById("employee2Dropdown");
+const submitBtn = document.getElementById("submitBtn") || form.querySelector("button[type='submit']");
+let canSubmitForm = false;
 const overTimeOtInput = form.querySelector("input[name='overTimeOt']");
 const mileageInput = form.querySelector("input[name='mileageKm']");
+const dutyTypeSelect = form.querySelector("select[name='dutyType']");
 const employeeNameOptions = document.getElementById("employeeNameOptions");
 const outwardDutyCommencedInput = form.querySelector("input[name='outwardDutyCommenced']");
 const outwardDutyTerminatedInput = form.querySelector("input[name='outwardDutyTerminated']");
@@ -70,6 +77,7 @@ function applyNavigationPermissions(user) {
     "amount-summary.html": "amountSummary",
     "group-master.html": "groupMaster",
     "holidays.html": "holidays",
+    "user-management.html": "userManagement",
   };
   document.querySelectorAll(".nav-link").forEach((link) => {
     const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
@@ -94,6 +102,7 @@ function setHomeAccessByRole(user) {
 }
 
 function renderAuthState() {
+  updateLocoLinkButtonUI();
   if (!activeUser) {
     loginStateText.textContent = "Not signed in.";
     loginToggleBtn.textContent = "Login";
@@ -166,7 +175,14 @@ function parseDateInput(value) {
     return null;
   }
 
+  const monthMap = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  };
+
+  // 8 digits: ddmmyyyy or yyyymmdd
   if (/^\d{8}$/.test(raw)) {
+    // Try ddmmyyyy first (e.g. 10082026)
     const dd = Number(raw.slice(0, 2));
     const mm = Number(raw.slice(2, 4));
     const yyyy = Number(raw.slice(4, 8));
@@ -174,47 +190,67 @@ function parseDateInput(value) {
     if (parsed.getFullYear() === yyyy && parsed.getMonth() === mm - 1 && parsed.getDate() === dd) {
       return parsed;
     }
+
+    // Try yyyymmdd (e.g. 20260810)
+    const yyyy2 = Number(raw.slice(0, 4));
+    const mm2 = Number(raw.slice(4, 6));
+    const dd2 = Number(raw.slice(6, 8));
+    if (yyyy2 >= 1900 && yyyy2 <= 2100) {
+      const parsed2 = new Date(yyyy2, mm2 - 1, dd2);
+      if (parsed2.getFullYear() === yyyy2 && parsed2.getMonth() === mm2 - 1 && parsed2.getDate() === dd2) {
+        return parsed2;
+      }
+    }
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const parsed = new Date(`${raw}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const numericMatch = raw.match(/^(\d{1,2})[-/\s](\d{1,2})[-/\s](\d{4})$/);
-  if (numericMatch) {
-    const dd = Number(numericMatch[1]);
-    const mm = Number(numericMatch[2]);
-    const yyyy = Number(numericMatch[3]);
+  // 6 digits: ddmmyy
+  if (/^\d{6}$/.test(raw)) {
+    const dd = Number(raw.slice(0, 2));
+    const mm = Number(raw.slice(2, 4));
+    let yyyy = Number(raw.slice(4, 6));
+    if (yyyy < 100) yyyy += 2000;
     const parsed = new Date(yyyy, mm - 1, dd);
     if (parsed.getFullYear() === yyyy && parsed.getMonth() === mm - 1 && parsed.getDate() === dd) {
       return parsed;
     }
   }
 
-  const match = raw.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/);
-  if (!match) {
-    return null;
+  // ISO: yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const parsed = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
-  const monthMap = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-  };
-
-  const dd = Number(match[1]);
-  const mon = monthMap[match[2].toLowerCase()];
-  const yyyy = Number(match[3]);
-  if (!Number.isFinite(dd) || mon === undefined || !Number.isFinite(yyyy)) {
-    return null;
+  // Text month: e.g. 10-Aug-2026, 10-Aug-26, 10 Aug 2026, 10-August-2026, 10.Aug.2026
+  const textMonthMatch = raw.match(/^(\d{1,2})[-/\s.]([A-Za-z]{3,9})[-/\s.](\d{2,4})$/);
+  if (textMonthMatch) {
+    const dd = Number(textMonthMatch[1]);
+    const monKey = textMonthMatch[2].slice(0, 3).toLowerCase();
+    const mon = monthMap[monKey];
+    let yyyy = Number(textMonthMatch[3]);
+    if (yyyy < 100) yyyy += 2000;
+    if (Number.isFinite(dd) && mon !== undefined) {
+      const parsed = new Date(yyyy, mon, dd);
+      if (parsed.getFullYear() === yyyy && parsed.getMonth() === mon && parsed.getDate() === dd) {
+        return parsed;
+      }
+    }
   }
 
-  const parsed = new Date(yyyy, mon, dd);
-  if (parsed.getFullYear() !== yyyy || parsed.getMonth() !== mon || parsed.getDate() !== dd) {
-    return null;
+  // Numeric: e.g. 10-08-2026, 10/08/26, 10.08.2026, 10.08.26
+  const numericMatch = raw.match(/^(\d{1,2})[-/\s.](\d{1,2})[-/\s.](\d{2,4})$/);
+  if (numericMatch) {
+    const dd = Number(numericMatch[1]);
+    const mm = Number(numericMatch[2]);
+    let yyyy = Number(numericMatch[3]);
+    if (yyyy < 100) yyyy += 2000;
+    const parsed = new Date(yyyy, mm - 1, dd);
+    if (parsed.getFullYear() === yyyy && parsed.getMonth() === mm - 1 && parsed.getDate() === dd) {
+      return parsed;
+    }
   }
 
-  return parsed;
+  return null;
 }
 
 function normalizeDateInput(inputElement) {
@@ -235,29 +271,13 @@ function normalizeDateInput(inputElement) {
   return normalized;
 }
 
-function autoFormatDateTyping(inputElement) {
-  const raw = String(inputElement.value || "");
-  if (/[A-Za-z]/.test(raw)) {
-    return;
-  }
-
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  if (!digits) {
-    inputElement.value = "";
-    return;
-  }
-
-  if (digits.length <= 2) {
-    inputElement.value = digits;
-    return;
-  }
-
-  if (digits.length <= 4) {
-    inputElement.value = `${digits.slice(0, 2)}-${digits.slice(2)}`;
-    return;
-  }
-
-  inputElement.value = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+function showFormNotice(text, isError = false) {
+  if (!formStatusNotice) return;
+  formStatusNotice.textContent = text;
+  formStatusNotice.style.display = text ? "block" : "none";
+  formStatusNotice.style.color = isError ? "#b42318" : "#027a48";
+  formStatusNotice.style.backgroundColor = isError ? "#fef3f2" : "#ecfdf3";
+  formStatusNotice.style.border = `1px solid ${isError ? "#fda29b" : "#6ce9a6"}`;
 }
 
 function toHhMm(timeValue) {
@@ -473,13 +493,191 @@ function collectEmployeeNames() {
 
 function renderEmployeeNameOptions() {
   const names = collectEmployeeNames();
-  employeeNameOptions.innerHTML = "";
+  if (employeeNameOptions) {
+    employeeNameOptions.innerHTML = "";
+    names.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      employeeNameOptions.appendChild(option);
+    });
+  }
+}
 
-  names.forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    employeeNameOptions.appendChild(option);
+function setupEmployeeAutocomplete(inputElement, dropdownElement) {
+  if (!inputElement || !dropdownElement) return;
+
+  let currentItems = [];
+  let selectedIndex = -1;
+
+  function closeDropdown() {
+    dropdownElement.hidden = true;
+    dropdownElement.innerHTML = "";
+    currentItems = [];
+    selectedIndex = -1;
+  }
+
+  function setHighlight(index) {
+    if (!currentItems.length) {
+      selectedIndex = -1;
+      return;
+    }
+    const total = currentItems.length;
+    selectedIndex = (index + total) % total;
+
+    const children = dropdownElement.children;
+    for (let i = 0; i < children.length; i++) {
+      if (i === selectedIndex) {
+        children[i].classList.add("is-selected");
+        children[i].scrollIntoView({ block: "nearest" });
+      } else {
+        children[i].classList.remove("is-selected");
+      }
+    }
+  }
+
+  function selectName(name) {
+    inputElement.value = name;
+    inputElement.setCustomValidity("");
+    closeDropdown();
+    inputElement.dispatchEvent(new Event("input", { bubbles: true }));
+    inputElement.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function renderList(matchedNames, defaultSelectIdx = -1) {
+    dropdownElement.innerHTML = "";
+    currentItems = matchedNames;
+
+    if (!matchedNames.length) {
+      const emptyLi = document.createElement("li");
+      emptyLi.className = "employee-dropdown-empty";
+      emptyLi.textContent = "No matching employee found";
+      dropdownElement.appendChild(emptyLi);
+      dropdownElement.hidden = false;
+      selectedIndex = -1;
+      return;
+    }
+
+    matchedNames.forEach((name, idx) => {
+      const li = document.createElement("li");
+      li.className = "employee-dropdown-item";
+      li.setAttribute("role", "option");
+      li.textContent = name;
+      if (idx === defaultSelectIdx) {
+        li.classList.add("is-selected");
+      }
+
+      li.addEventListener("mouseenter", () => {
+        selectedIndex = idx;
+        const siblings = dropdownElement.children;
+        for (let j = 0; j < siblings.length; j++) {
+          siblings[j].classList.toggle("is-selected", j === idx);
+        }
+      });
+
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectName(name);
+      });
+
+      dropdownElement.appendChild(li);
+    });
+
+    selectedIndex = defaultSelectIdx;
+    dropdownElement.hidden = false;
+    if (defaultSelectIdx >= 0 && dropdownElement.children[defaultSelectIdx]) {
+      dropdownElement.children[defaultSelectIdx].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function openDropdown() {
+    const allNames = collectEmployeeNames();
+    const query = inputElement.value.trim().toLowerCase();
+    let matched = allNames;
+    let initialHighlight = -1;
+
+    if (query) {
+      matched = allNames.filter((n) => n.toLowerCase().includes(query));
+      const exactIdx = matched.findIndex((n) => n.toLowerCase() === query);
+      initialHighlight = exactIdx >= 0 ? exactIdx : (matched.length > 0 ? 0 : -1);
+    } else {
+      initialHighlight = -1;
+    }
+
+    renderList(matched, initialHighlight);
+  }
+
+  inputElement.addEventListener("focus", () => {
+    openDropdown();
   });
+
+  inputElement.addEventListener("click", () => {
+    if (dropdownElement.hidden) {
+      openDropdown();
+    }
+  });
+
+  inputElement.addEventListener("input", () => {
+    inputElement.setCustomValidity("");
+    openDropdown();
+  });
+
+  inputElement.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (dropdownElement.hidden) {
+        openDropdown();
+        if (currentItems.length) {
+          setHighlight(0);
+        }
+      } else {
+        setHighlight(selectedIndex + 1);
+      }
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (dropdownElement.hidden) {
+        openDropdown();
+        if (currentItems.length) {
+          setHighlight(currentItems.length - 1);
+        }
+      } else {
+        setHighlight(selectedIndex - 1);
+      }
+    } else if (event.key === "Enter") {
+      if (!dropdownElement.hidden && selectedIndex >= 0 && selectedIndex < currentItems.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectName(currentItems[selectedIndex]);
+      } else if (!dropdownElement.hidden) {
+        closeDropdown();
+      }
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeDropdown();
+    } else if (event.key === "Tab") {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!inputElement.contains(event.target) && !dropdownElement.contains(event.target)) {
+      closeDropdown();
+    }
+  });
+}
+
+async function loadEmployeeMasterDataForForm() {
+  try {
+    const res = await fetch("/api/employee-master/workbook", {
+      headers: { Accept: "application/json" },
+      credentials: "include"
+    });
+    if (res.ok) {
+      window.employeeMasterWorkbookData = await res.json();
+      renderEmployeeNameOptions();
+    }
+  } catch {
+    // fallback to local data
+  }
 }
 
 function parseClockToMinutes(value) {
@@ -566,7 +764,7 @@ function buildRawDataRowsFromEntry(entry) {
     throw new Error("End Date must be after Start Date.");
   }
 
-  const baseRowCount = Math.floor((endOnly.getTime() - startOnly.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  const baseRowCount = Math.round((endOnly.getTime() - startOnly.getTime()) / (24 * 60 * 60 * 1000)) + 1;
 
   const outStartMinutes = parseClockToMinutes(entry.outwardDutyCommenced);
   const outEndMinutes = parseClockToMinutes(entry.outwardDutyTerminated);
@@ -609,9 +807,6 @@ function buildRawDataRowsFromEntry(entry) {
   const totalRowCount = Math.max(...candidateRowCounts);
 
   const remarksParts = parseRemarksParts(entry.remarks);
-  if (remarksParts.length && remarksParts.length !== totalRowCount) {
-    throw new Error(`Remarks contains ${remarksParts.length} parts, but ${totalRowCount} rows are required.`);
-  }
 
   const rows = Array.from({ length: totalRowCount }, (_, index) => {
     const rowDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + index);
@@ -627,8 +822,8 @@ function buildRawDataRowsFromEntry(entry) {
     return row;
   });
 
-  // OT and mileage are saved only on the first base row, matching VBA behavior.
-  rows[0][4] = parseOtToDayFraction(entry.overTimeOt);
+  // OT and mileage are saved only on the first base row.
+  rows[0][4] = entry.overTimeOt ? toHhMm(entry.overTimeOt) : "";
   rows[0][5] = entry.mileageKm === 0 ? 0 : (entry.mileageKm || "");
 
   if (entry.outwardDuty) {
@@ -651,9 +846,17 @@ function buildRawDataRowsFromEntry(entry) {
     rows[inTermOffset][11] = toHhMm(entry.inwardDutyTerminated);
   }
 
-  if (remarksParts.length) {
+  if (remarksParts.length === 1) {
+    // If a single remark is given for multi-row or single-row, apply to all rows
+    rows.forEach((row) => {
+      row[12] = remarksParts[0];
+    });
+  } else if (remarksParts.length > 1) {
+    // If multiple comma-separated remarks are given, assign each to its row
     remarksParts.forEach((part, index) => {
-      rows[index][12] = part;
+      if (index < rows.length) {
+        rows[index][12] = part;
+      }
     });
   }
 
@@ -682,10 +885,46 @@ async function appendRawDataRows(rows) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!activeUser) {
-    loginStateText.textContent = "Please sign in first.";
+  if (!canSubmitForm) {
+    event.stopImmediatePropagation();
     return;
   }
+  canSubmitForm = false;
+
+  if (!activeUser) {
+    loginStateText.textContent = "Please sign in first.";
+    openLoginDialog();
+    return;
+  }
+
+  // Mandatory fields restriction: Start date, End date, Employee 1 name & Dutytype must be filled
+  if (!startDateInput.value.trim()) {
+    startDateInput.setCustomValidity("Please enter Start Date.");
+    startDateInput.reportValidity();
+    return;
+  }
+  startDateInput.setCustomValidity("");
+
+  if (!endDateInput.value.trim()) {
+    endDateInput.setCustomValidity("Please enter End Date.");
+    endDateInput.reportValidity();
+    return;
+  }
+  endDateInput.setCustomValidity("");
+
+  if (!employee1NameInput.value.trim()) {
+    employee1NameInput.setCustomValidity("Please enter Employee 1 Name.");
+    employee1NameInput.reportValidity();
+    return;
+  }
+  employee1NameInput.setCustomValidity("");
+
+  if (!dutyTypeSelect.value.trim()) {
+    dutyTypeSelect.setCustomValidity("Please select DutyType.");
+    dutyTypeSelect.reportValidity();
+    return;
+  }
+  dutyTypeSelect.setCustomValidity("");
 
   const normalizedStartDate = normalizeDateInput(startDateInput);
   const normalizedEndDate = normalizeDateInput(endDateInput);
@@ -715,11 +954,22 @@ form.addEventListener("submit", async (event) => {
 
   const parsedStartDate = parseDateInput(normalizedStartDate);
   const parsedEndDate = parseDateInput(normalizedEndDate);
-  if (!parsedStartDate || !parsedEndDate || parsedEndDate < parsedStartDate) {
-    endDateInput.setCustomValidity("End Date must be after Start Date");
-    form.reportValidity();
+  if (!parsedStartDate) {
+    startDateInput.setCustomValidity("Please enter a valid Start Date (dd-mmm-yyyy).");
+    startDateInput.reportValidity();
     return;
   }
+  if (!parsedEndDate) {
+    endDateInput.setCustomValidity("Please enter a valid End Date (dd-mmm-yyyy).");
+    endDateInput.reportValidity();
+    return;
+  }
+  if (parsedEndDate < parsedStartDate) {
+    endDateInput.setCustomValidity("End Date cannot be before Start Date.");
+    endDateInput.reportValidity();
+    return;
+  }
+  startDateInput.setCustomValidity("");
   endDateInput.setCustomValidity("");
 
   if (!Number.isInteger(mileageNumber)) {
@@ -736,8 +986,15 @@ form.addEventListener("submit", async (event) => {
   const employee2Name = String(formData.get("employee2Name") || "").trim();
   const dutyType = String(formData.get("dutyType") || "").trim();
 
-  if (!employee1Name || !dutyType) {
-    loginStateText.textContent = "Employee 1 and Duty Type are required.";
+  if (!employee1Name) {
+    employee1NameInput.setCustomValidity("Please enter Employee 1 Name.");
+    employee1NameInput.reportValidity();
+    return;
+  }
+
+  if (!dutyType) {
+    dutyTypeSelect.setCustomValidity("Please select DutyType.");
+    dutyTypeSelect.reportValidity();
     return;
   }
 
@@ -772,17 +1029,109 @@ form.addEventListener("submit", async (event) => {
   try {
     const rows = buildRawDataRowsFromEntry(entry);
     const result = await appendRawDataRows(rows);
-    loginStateText.textContent = `Entries saved successfully (${result.savedRowCount} row${result.savedRowCount === 1 ? "" : "s"}).`;
+
+    let locoNote = "";
+    if (localStorage.getItem("Loco18LinkActive") === "true") {
+      const locoResult = syncEntryToLoco18(entry, parsedStartDate, parsedEndDate);
+      if (locoResult && locoResult.placedRows > 0) {
+        locoNote = ` & placed in Loco-18 (${locoResult.placedRows} row${locoResult.placedRows === 1 ? "" : "s"})`;
+      }
+    }
+
+    const successMsg = `Entries saved successfully (${result.savedRowCount} row${result.savedRowCount === 1 ? "" : "s"}${locoNote}).`;
+    loginStateText.textContent = successMsg;
+    showFormNotice(successMsg, false);
     clearFormBtn.click();
   } catch (error) {
     loginStateText.textContent = error.message;
+    showFormNotice(error.message, true);
   }
 });
 
+function syncEntryToLoco18(entry, parsedStartDate, parsedEndDate) {
+  try {
+    const isPendingFirstDate = localStorage.getItem("Loco18LinkPendingFirstDate") === "true";
+    if (isPendingFirstDate && parsedStartDate) {
+      const yyyy = parsedStartDate.getFullYear();
+      const mm = String(parsedStartDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(parsedStartDate.getDate()).padStart(2, "0");
+      const isoDate = `${yyyy}-${mm}-${dd}`;
+      localStorage.setItem("Loco18SelectedDate", isoDate);
+      localStorage.setItem("Loco18LinkPendingFirstDate", "false");
+    }
+
+    const startOnly = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), parsedStartDate.getDate());
+    const endOnly = new Date(parsedEndDate.getFullYear(), parsedEndDate.getMonth(), parsedEndDate.getDate());
+    const baseRowCount = Math.floor((endOnly.getTime() - startOnly.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+    let locoGrid = [];
+    try {
+      const raw = localStorage.getItem("Loco18CurrentData");
+      if (raw) locoGrid = JSON.parse(raw);
+    } catch {}
+
+    if (!Array.isArray(locoGrid) || locoGrid.length === 0) {
+      locoGrid = Array.from({ length: 40 }, () => ["", "", "", "", "", ""]);
+    }
+
+    const rowsToPlace = [];
+    for (let i = 0; i < baseRowCount; i++) {
+      const curDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + i);
+      const rowDateStr = formatDateDdMmmYyyy(curDate);
+      const otVal = i === 0 ? (entry.overTimeOt ? toHhMm(entry.overTimeOt) : "") : "";
+      const mileageVal = i === 0 ? (entry.mileageKm === 0 ? "0" : (entry.mileageKm ? String(entry.mileageKm) : "")) : "";
+
+      rowsToPlace.push([
+        rowDateStr,
+        entry.employee1Name || "",
+        entry.employee2Name || "",
+        otVal,
+        mileageVal,
+        entry.dutyType || "",
+      ]);
+    }
+
+    rowsToPlace.forEach((newRow) => {
+      const emptyIdx = locoGrid.findIndex(
+        (r) => Array.isArray(r) && r.every((c) => !c || String(c).trim() === "")
+      );
+      if (emptyIdx !== -1) {
+        locoGrid[emptyIdx] = newRow;
+      } else {
+        locoGrid.push(newRow);
+      }
+    });
+
+    localStorage.setItem("Loco18CurrentData", JSON.stringify(locoGrid));
+    return { placedRows: rowsToPlace.length };
+  } catch (err) {
+    console.error("Loco-18 sync error:", err);
+    return null;
+  }
+}
+
+function updateLocoLinkButtonUI() {
+  if (!linkLocoBtn) return;
+  const isActive = localStorage.getItem("Loco18LinkActive") === "true";
+  linkLocoBtn.setAttribute("aria-pressed", isActive ? "true" : "false");
+  linkLocoBtn.classList.toggle("is-active", isActive);
+  if (isActive) {
+    linkLocoBtn.innerHTML = `&#128279; Link with Loco-18 <span class="badge-linked">Linked</span>`;
+    linkLocoBtn.title = "Loco-18 is Linked (Active). Entries will automatically be placed into Loco-18 sheet. Click to unlink.";
+  } else {
+    linkLocoBtn.innerHTML = `Link with Loco-18`;
+    linkLocoBtn.title = "Click to link entries with Loco-18 sheet (persistent pressed mode)";
+  }
+}
+
 clearFormBtn.addEventListener("click", () => {
   form.reset();
+  showFormNotice("");
   startDateInput.setCustomValidity("");
   endDateInput.setCustomValidity("");
+  employee1NameInput.setCustomValidity("");
+  employee2NameInput.setCustomValidity("");
+  dutyTypeSelect.setCustomValidity("");
   overTimeOtInput.setCustomValidity("");
   mileageInput.setCustomValidity("");
   outwardDutyCommencedInput.setCustomValidity("");
@@ -795,20 +1144,81 @@ clearFormBtn.addEventListener("click", () => {
   inwardDurationInput.value = "0";
 });
 
-downloadBtn.addEventListener("click", () => {
-  if (!activeUser || activeUser.role !== "admin") {
-    loginStateText.textContent = "Only admin users can open Loco-18.";
-    return;
-  }
-  window.location.href = "loco-18.html";
-});
+if (linkLocoBtn) {
+  linkLocoBtn.addEventListener("click", () => {
+    if (!activeUser || (activeUser.role !== "admin" && activeUser.role !== "restricted-admin")) {
+      loginStateText.textContent = "Only admin users can toggle Loco-18 linking.";
+      return;
+    }
 
-startDateInput.addEventListener("blur", () => normalizeDateInput(startDateInput));
-endDateInput.addEventListener("blur", () => normalizeDateInput(endDateInput));
+    const currentActive = localStorage.getItem("Loco18LinkActive") === "true";
+    const nextActive = !currentActive;
+    localStorage.setItem("Loco18LinkActive", nextActive ? "true" : "false");
+
+    if (nextActive) {
+      localStorage.setItem("Loco18LinkPendingFirstDate", "true");
+      loginStateText.textContent = "Loco-18 link activated. Entries will be placed into Loco-18 sheet.";
+    } else {
+      loginStateText.textContent = "Loco-18 link deactivated.";
+    }
+
+    updateLocoLinkButtonUI();
+  });
+}
+
+startDateInput.addEventListener("blur", () => {
+  normalizeDateInput(startDateInput);
+  if (startDateInput.value.trim() && !endDateInput.value.trim()) {
+    endDateInput.value = startDateInput.value;
+  }
+});
+endDateInput.addEventListener("blur", () => {
+  normalizeDateInput(endDateInput);
+});
 overTimeOtInput.addEventListener("blur", () => normalizeOtInput(overTimeOtInput));
 
-startDateInput.addEventListener("input", () => autoFormatDateTyping(startDateInput));
-endDateInput.addEventListener("input", () => autoFormatDateTyping(endDateInput));
+startDateInput.addEventListener("input", () => {
+  startDateInput.setCustomValidity("");
+  endDateInput.setCustomValidity("");
+});
+endDateInput.addEventListener("input", () => {
+  endDateInput.setCustomValidity("");
+  startDateInput.setCustomValidity("");
+});
+
+// Enforce submit restriction: Only Shift + Enter or mouse click can submit form
+form.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    if (event.shiftKey) {
+      event.preventDefault();
+      canSubmitForm = true;
+      form.requestSubmit();
+    } else {
+      if (event.target.tagName !== "TEXTAREA") {
+        event.preventDefault();
+      }
+    }
+  }
+});
+
+if (submitBtn) {
+  submitBtn.addEventListener("pointerdown", () => {
+    canSubmitForm = true;
+  });
+  submitBtn.addEventListener("click", (event) => {
+    if (event.detail > 0) {
+      canSubmitForm = true;
+    }
+  });
+  submitBtn.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+    }
+    if (event.key === " ") {
+      event.preventDefault();
+    }
+  });
+}
 overTimeOtInput.addEventListener("input", () => autoFormatOtTyping(overTimeOtInput));
 outwardDutyCommencedInput.addEventListener("input", () => autoFormatJourneyTimeTyping(outwardDutyCommencedInput));
 outwardDutyTerminatedInput.addEventListener("input", () => autoFormatJourneyTimeTyping(outwardDutyTerminatedInput));
@@ -833,6 +1243,8 @@ mileageInput.addEventListener("input", () => {
 
 employee1NameInput.addEventListener("input", () => employee1NameInput.setCustomValidity(""));
 employee2NameInput.addEventListener("input", () => employee2NameInput.setCustomValidity(""));
+dutyTypeSelect.addEventListener("change", () => dutyTypeSelect.setCustomValidity(""));
+dutyTypeSelect.addEventListener("input", () => dutyTypeSelect.setCustomValidity(""));
 
 homeLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -884,6 +1296,10 @@ loginToggleBtn.addEventListener("click", () => {
 });
 
 renderEmployeeNameOptions();
+setupEmployeeAutocomplete(employee1NameInput, employee1Dropdown);
+setupEmployeeAutocomplete(employee2NameInput, employee2Dropdown);
+loadEmployeeMasterDataForForm();
+updateLocoLinkButtonUI();
 restoreAuthSession().then(() => {
   if (!activeUser) {
     setLandingMode(true);

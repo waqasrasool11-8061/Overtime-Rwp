@@ -14,6 +14,12 @@ const op72ZoomOutBtn = document.getElementById("op72ZoomOut");
 const op72ZoomInBtn = document.getElementById("op72ZoomIn");
 const op72ZoomResetBtn = document.getElementById("op72ZoomReset");
 const op72ZoomValue = document.getElementById("op72ZoomValue");
+const op72PageSizeSelect = document.getElementById("op72PageSize");
+const op72PrintBtn = document.getElementById("op72PrintBtn");
+const op72PrintArea = document.getElementById("op72PrintArea");
+const op72PrintHeader = document.getElementById("op72PrintHeader");
+const op72PrintGroup = document.getElementById("op72PrintGroup");
+const op72PrintMonth = document.getElementById("op72PrintMonth");
 
 const employeeCount = 10;
 const dailyFields = ["Duty", "OT", "Mileage"];
@@ -536,38 +542,79 @@ function buildOp72Layout() {
   buildSummarySection();
 }
 
-function getEditableCells() {
-  return Array.from(op72Table.querySelectorAll('[data-editable="true"]'));
-}
+function getAllSheetCells() {
+  const result = [];
 
-function readEditableValue(element) {
-  if (element instanceof HTMLInputElement) {
-    return element.value;
+  // 1. Employee header names (indices 0..9)
+  for (let i = 1; i <= employeeCount; i += 1) {
+    const th = op72Head.querySelector(`th[data-role="employee-main-header"][data-employee-index="${i}"]`);
+    result.push(th ? String(th.textContent || "").trim() : "");
   }
-  return element.textContent || "";
-}
 
-function writeEditableValue(element, value) {
-  if (element instanceof HTMLInputElement) {
-    const next = String(value || "");
-    if (element.type === "month" && /^\d{4}-\d{2}$/.test(next)) {
-      element.value = next;
-      return;
+  // 2. 31 Daily rows + 4 Fixed empty rows = 35 rows (30 cells each: [Duty, OT, Mileage] * 10)
+  const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"], tr[data-row-type="fixed-empty"]'));
+  dailyRows.forEach((row) => {
+    const cells = Array.from(row.querySelectorAll("td"));
+    // index 0 is date cell, take indices 1 to 30
+    for (let c = 1; c <= employeeCount * dailyFields.length; c += 1) {
+      result.push(cells[c] ? String(cells[c].textContent || "").trim() : "");
     }
-    element.value = formatMonthInputValue(seedDate);
-    return;
-  }
+  });
 
-  element.textContent = String(value ?? "");
+  // 3. Summary section rows (11 fixed summary rows + tail rows)
+  const summaryTrs = Array.from(op72Body.querySelectorAll("tr")).filter((tr) =>
+    tr.querySelector("td.op72-summary-label") || tr.querySelector("td.op72-summary-tail")
+  );
+  summaryTrs.forEach((tr) => {
+    const labels = Array.from(tr.querySelectorAll("td.op72-summary-label, td.op72-summary-tail"));
+    const values = Array.from(tr.querySelectorAll("td.op72-summary-value, td.op72-summary-tail-value"));
+    for (let e = 0; e < employeeCount; e += 1) {
+      result.push(labels[e] ? String(labels[e].textContent || "").trim() : "");
+      result.push(values[e] ? String(values[e].textContent || "").trim() : "");
+    }
+  });
+
+  return result;
 }
 
 function saveSheetData() {
-  const editableValues = getEditableCells().map((cell) => readEditableValue(cell));
-  localStorage.setItem(op72StorageKey, JSON.stringify(editableValues));
+  const cellArray = getAllSheetCells();
+  localStorage.setItem(op72StorageKey, JSON.stringify(cellArray));
   localStorage.setItem(op72MonthStorageKey, formatMonthInputValue(seedDate));
   localStorage.setItem(op72GroupStorageKey, String(op72GroupSelect?.value || ""));
+
+  // Also save late entries map for click-date feature
+  if (_lateEntriesByEmployee && _lateEntriesByEmployee.size) {
+    const serializableLate = [];
+    _lateEntriesByEmployee.forEach((entries, emp) => {
+      serializableLate.push([emp, entries.map(e => ({
+        dateObjStr: e.dateObj ? e.dateObj.toISOString() : "",
+        dutyType: e.dutyType || "",
+        otMins: e.otMins || 0,
+        mileage: e.mileage || 0,
+      }))]);
+    });
+    localStorage.setItem("OP72LateEntriesData", JSON.stringify(serializableLate));
+  } else {
+    localStorage.removeItem("OP72LateEntriesData");
+  }
+
+  // Save row styles & date texts of daily & fixed rows
+  const rowStyles = [];
+  const allDailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"], tr[data-row-type="fixed-empty"]'));
+  allDailyRows.forEach((tr) => {
+    const dateCell = tr.querySelector("td.op72-date-cell");
+    const cellBgs = Array.from(tr.querySelectorAll("td")).map(td => td.style.backgroundColor || "");
+    const dateClasses = dateCell ? Array.from(dateCell.classList).filter(c => c.startsWith("op72-date-")) : [];
+    rowStyles.push({
+      dateText: dateCell ? dateCell.textContent : "",
+      dateClasses,
+      cellBgs
+    });
+  });
+  localStorage.setItem("OP72RowStylesData", JSON.stringify(rowStyles));
+
   setDirtyState(false);
-  op72Msg.textContent = `Saved ${editableValues.length} editable cells.`;
 }
 
 function restoreFixedSummaryLabels() {
@@ -586,24 +633,7 @@ function restoreFixedSummaryLabels() {
 
 function loadSheetData() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(op72StorageKey) || "[]");
-    if (!Array.isArray(parsed) || !parsed.length) {
-      restoreFixedSummaryLabels();
-      return;
-    }
-
-    const cells = getEditableCells();
-    if (parsed.length > cells.length) {
-      op72Msg.textContent = "Old OP-72 saved format detected. Use Clear Saved Data once and save again.";
-      restoreFixedSummaryLabels();
-      return;
-    }
-
-    const count = Math.min(cells.length, parsed.length);
-    for (let i = 0; i < count; i += 1) {
-      writeEditableValue(cells[i], parsed[i]);
-    }
-
+    // 1. Restore Month
     const savedMonth = String(localStorage.getItem(op72MonthStorageKey) || "").trim();
     if (op72MonthPicker && /^\d{4}-\d{2}$/.test(savedMonth)) {
       op72MonthPicker.value = savedMonth;
@@ -612,13 +642,108 @@ function loadSheetData() {
       refreshDateColumnFromSeed();
     }
 
-    const selectedGroup = String(op72GroupSelect?.value || localStorage.getItem(op72GroupStorageKey) || "").trim();
-    applyGroupToSheet(selectedGroup);
+    // 2. Restore Group & Employee Headers
+    const savedGroup = String(localStorage.getItem(op72GroupStorageKey) || "").trim();
+    if (savedGroup && op72GroupSelect) {
+      op72GroupSelect.value = savedGroup;
+      applyGroupToSheet(savedGroup);
+    }
+
+    // 3. Restore Cell Contents
+    const rawCells = localStorage.getItem(op72StorageKey);
+    if (!rawCells) {
+      restoreFixedSummaryLabels();
+      return;
+    }
+    const cellArray = JSON.parse(rawCells);
+    if (!Array.isArray(cellArray) || !cellArray.length) {
+      restoreFixedSummaryLabels();
+      return;
+    }
+
+    // Fill Daily & Fixed Empty rows (35 rows × 30 cells = indices 10..1059)
+    const allDailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"], tr[data-row-type="fixed-empty"]'));
+    allDailyRows.forEach((tr, rowIdx) => {
+      const cells = Array.from(tr.querySelectorAll("td"));
+      for (let c = 1; c <= employeeCount * dailyFields.length; c += 1) {
+        const idx = 10 + rowIdx * 30 + (c - 1);
+        if (idx < cellArray.length && cells[c]) {
+          cells[c].textContent = cellArray[idx] || "";
+          cells[c].contentEditable = "false";
+          cells[c].classList.remove("op72-locked-cell");
+        }
+      }
+    });
+
+    // Fill Summary rows (11 fixed + tail rows)
+    const summaryTrs = Array.from(op72Body.querySelectorAll("tr")).filter((tr) =>
+      tr.querySelector("td.op72-summary-label") || tr.querySelector("td.op72-summary-tail")
+    );
+    const summaryStart = 10 + 35 * 30; // 1060
+    summaryTrs.forEach((tr, trIdx) => {
+      const labels = Array.from(tr.querySelectorAll("td.op72-summary-label, td.op72-summary-tail"));
+      const values = Array.from(tr.querySelectorAll("td.op72-summary-value, td.op72-summary-tail-value"));
+      for (let e = 0; e < employeeCount; e++) {
+        const lblIdx = summaryStart + trIdx * 20 + e * 2;
+        const valIdx = lblIdx + 1;
+        if (lblIdx < cellArray.length && labels[e]) {
+          labels[e].textContent = cellArray[lblIdx] || "";
+        }
+        if (valIdx < cellArray.length && values[e]) {
+          values[e].textContent = cellArray[valIdx] || "";
+        }
+      }
+    });
+
+    // Restore Late entries map if saved
+    const rawLate = localStorage.getItem("OP72LateEntriesData");
+    if (rawLate) {
+      try {
+        const parsedLate = JSON.parse(rawLate);
+        _lateEntriesByEmployee = new Map();
+        parsedLate.forEach(([emp, entries]) => {
+          _lateEntriesByEmployee.set(emp, entries.map(e => ({
+            ...e,
+            dateObj: e.dateObjStr ? new Date(e.dateObjStr) : null
+          })));
+        });
+      } catch {}
+    }
+
+    // Restore row styles (backgrounds, dateClasses, date text)
+    const rawStyles = localStorage.getItem("OP72RowStylesData");
+    if (rawStyles) {
+      try {
+        const parsedStyles = JSON.parse(rawStyles);
+        allDailyRows.forEach((tr, rIdx) => {
+          const styleObj = parsedStyles[rIdx];
+          if (!styleObj) return;
+          const tds = Array.from(tr.querySelectorAll("td"));
+          if (styleObj.cellBgs && Array.isArray(styleObj.cellBgs)) {
+            tds.forEach((td, cIdx) => {
+              if (styleObj.cellBgs[cIdx]) td.style.backgroundColor = styleObj.cellBgs[cIdx];
+            });
+          }
+          const dateCell = tds[0];
+          if (dateCell && styleObj.dateClasses) {
+            dateCell.classList.remove("op72-date-blue", "op72-date-orange");
+            styleObj.dateClasses.forEach(cls => dateCell.classList.add(cls));
+            if (tr.dataset.rowType === "fixed-empty" && styleObj.dateText) {
+              dateCell.textContent = styleObj.dateText;
+            }
+          }
+        });
+      } catch {}
+    }
+
     restoreFixedSummaryLabels();
-    op72Msg.textContent = "Loaded saved OP-72 data.";
-  } catch {
+    setDirtyState(false);
+    if (op72Msg) {
+      op72Msg.textContent = savedGroup ? `Loaded saved OP-72 data for ${savedGroup}.` : "Loaded saved OP-72 data.";
+    }
+  } catch (err) {
+    console.error("loadSheetData error:", err);
     restoreFixedSummaryLabels();
-    op72Msg.textContent = "Saved OP-72 data could not be loaded.";
   }
 }
 
@@ -626,6 +751,8 @@ function clearSavedData() {
   localStorage.removeItem(op72StorageKey);
   localStorage.removeItem(op72MonthStorageKey);
   localStorage.removeItem(op72GroupStorageKey);
+  localStorage.removeItem("OP72LateEntriesData");
+  localStorage.removeItem("OP72RowStylesData");
   buildOp72Layout();
   seedDate = new Date(2026, 5, 1);
   if (op72GroupSelect) {
@@ -639,12 +766,19 @@ function clearSavedData() {
 
 function clearSheetCellsOnly() {
   // 1. Daily rows: Clear Duty, OT, Mileage cells & inline highlights
-  const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
+  const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"], tr[data-row-type="fixed-empty"]'));
   dailyRows.forEach((row) => {
-    row.querySelectorAll("td.op72-edit-cell").forEach((cell) => {
-      cell.textContent = "";
+    row.querySelectorAll("td").forEach((cell, idx) => {
+      if (idx > 0) cell.textContent = "";
       cell.style.backgroundColor = "";
+      cell.classList.remove("op72-date-blue", "op72-date-orange");
     });
+    if (row.dataset.rowType === "fixed-empty") {
+      const dateCell = row.querySelector("td.op72-date-cell");
+      if (dateCell) dateCell.textContent = "";
+      delete row.dataset.lateSymbol;
+      delete row.dataset.lateRowIndex;
+    }
   });
 
   // 2. Reset summary value cells (OT to Operating Gds) to default 0:00 / 0
@@ -655,10 +789,7 @@ function clearSheetCellsOnly() {
     }
   });
 
-  // 3. Ensure fixed summary tags (OT (hh:mm) to Operating (Gds)) are intact and never blanked
-  restoreFixedSummaryLabels();
-
-  // 4. Clear tail rows below Operating (Gds)
+  // 3. Clear tail rows
   const tailRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="summary-tail"]'));
   tailRows.forEach((tr) => {
     tr.querySelectorAll("td").forEach((cell) => {
@@ -666,10 +797,14 @@ function clearSheetCellsOnly() {
     });
   });
 
-  // 5. Restore date column
-  refreshDateColumnFromSeed();
+  _lateEntriesByEmployee = new Map();
+  localStorage.removeItem(op72StorageKey);
+  localStorage.removeItem("OP72LateEntriesData");
+  localStorage.removeItem("OP72RowStylesData");
 
-  setDirtyState(true);
+  restoreFixedSummaryLabels();
+  refreshDateColumnFromSeed();
+  setDirtyState(false);
   op72Msg.textContent = "Sheet cells cleared. Summary tags and group selection retained.";
 }
 
@@ -1288,10 +1423,11 @@ async function loadAllEmployees() {
     // 7. Auto-calculate summary — includes late entries via _lateEntriesByEmployee cache
     calculateAndFillSummary(holidaySet, employees);
 
-    // 8. Mark dirty so user knows to save
-    setDirtyState(true);
+    // 8. Auto-save sheet data to localStorage immediately
+    saveSheetData();
+    setDirtyState(false);
     const lateCount = Array.from(lateEntriesByEmployee.values()).reduce((s, v) => s + v.length, 0);
-    op72Msg.textContent = `${loadedCount}/${employees.length} employees loaded for ${monthLabel} ${year}. Holidays: ${holidaySet.size}. Late entries: ${lateCount}. Save Sheet to persist.`;
+    op72Msg.textContent = `${loadedCount}/${employees.length} employees loaded for ${monthLabel} ${year}. Holidays: ${holidaySet.size}. Late entries: ${lateCount}. Sheet data saved.`;
 
   } catch (err) {
     op72Msg.textContent = `Load failed: ${err.message}`;
@@ -1676,3 +1812,336 @@ op72Table.addEventListener("click", (event) => {
       : "";
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OP-72 Preview & Quick Save (jsPDF & html2canvas) — matching GENL-164 pattern
+// ─────────────────────────────────────────────────────────────────────────────
+function buildOp72PdfFilename(group, selectedMonth) {
+  const groupName = String(group || "SHEET").replace(/[\\/:*?"<>|]/g, "").trim().toUpperCase();
+  const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(selectedMonth).toUpperCase();
+  const yearValue = selectedMonth.getFullYear();
+  const safeGroup = groupName || "SHEET";
+  return `OP-72 ${safeGroup} ${monthName}-${yearValue}.pdf`;
+}
+
+function getPrintClass(pageSize) {
+  const map = {
+    A4: "op72-print-a4",
+    A3: "op72-print-a3",
+    Legal: "op72-print-legal",
+  };
+  return map[pageSize] || "op72-print-legal";
+}
+
+function applyPrintSize(pageSize) {
+  document.body.classList.remove("op72-print-a4", "op72-print-a3", "op72-print-legal");
+  document.body.classList.add(getPrintClass(pageSize));
+}
+
+let _savedDirHandle = null;
+
+function buildDuplicateDialog(filename) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = [
+      "position:fixed;inset:0;z-index:9999",
+      "background:rgba(10,25,42,0.55);backdrop-filter:blur(4px)",
+      "display:flex;align-items:center;justify-content:center",
+    ].join(";");
+
+    const card = document.createElement("div");
+    card.style.cssText = [
+      "background:#fff;border-radius:16px;padding:24px 28px 20px",
+      "box-shadow:0 20px 60px rgba(8,24,45,0.32)",
+      "max-width:420px;width:90vw;font-family:Segoe UI,sans-serif",
+    ].join(";");
+
+    card.innerHTML = `
+      <p style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#0a233b">File already exists</p>
+      <p style="margin:0 0 18px;font-size:0.88rem;color:#355a7f;word-break:break-all">
+        <strong>${filename}</strong> already exists in the selected folder.
+      </p>
+      <p style="margin:0 0 14px;font-size:0.86rem;color:#183a5c;font-weight:600">
+        What would you like to do?
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="dupUpdate" style="flex:1;padding:9px 14px;border-radius:10px;border:none;
+          background:linear-gradient(125deg,#e0631d,#b64207);color:#fff;
+          font:700 0.9rem Segoe UI,sans-serif;cursor:pointer">
+          Update (Overwrite)
+        </button>
+        <button id="dupNew" style="flex:1;padding:9px 14px;border-radius:10px;
+          border:1px solid #7ea6cd;background:#fff;color:#0a233b;
+          font:700 0.9rem Segoe UI,sans-serif;cursor:pointer">
+          Save as New Copy
+        </button>
+        <button id="dupCancel" style="width:100%;padding:7px 14px;border-radius:10px;
+          border:1px solid #ccc;background:#f4f7fa;color:#355a7f;
+          font:600 0.85rem Segoe UI,sans-serif;cursor:pointer;margin-top:2px">
+          Cancel
+        </button>
+      </div>`;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    function cleanup(result) {
+      document.body.removeChild(overlay);
+      resolve(result);
+    }
+
+    card.querySelector("#dupUpdate").addEventListener("click", () => cleanup("update"));
+    card.querySelector("#dupNew").addEventListener("click",    () => cleanup("new"));
+    card.querySelector("#dupCancel").addEventListener("click", () => cleanup("cancel"));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) cleanup("cancel"); });
+  });
+}
+
+function makeUniqueName(name) {
+  const dot = name.lastIndexOf(".");
+  const base = dot > -1 ? name.slice(0, dot) : name;
+  const ext  = dot > -1 ? name.slice(dot) : "";
+  const match = base.match(/^(.*) \((\d+)\)$/);
+  if (match) {
+    return `${match[1]} (${Number(match[2]) + 1})${ext}`;
+  }
+  return `${base} (2)${ext}`;
+}
+
+async function savePdfBlob(pdfBlob, suggestedName) {
+  // ── Path A: File System Access API (Chrome / Edge) ──────────────────────
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(pdfBlob);
+      await writable.close();
+      if (op72Msg) op72Msg.textContent = `Saved: "${fileHandle.name}"`;
+      return;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        if (op72Msg) op72Msg.textContent = "Save cancelled.";
+        return;
+      }
+    }
+  }
+
+  // ── Path B: Directory picker — remember last folder, check for duplicates ─
+  if (typeof window.showDirectoryPicker === "function") {
+    try {
+      let dirHandle = _savedDirHandle;
+      if (!dirHandle) {
+        dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+        _savedDirHandle = dirHandle;
+      }
+
+      let finalName = suggestedName;
+      let exists = false;
+      try {
+        await dirHandle.getFileHandle(suggestedName, { create: false });
+        exists = true;
+      } catch {
+        exists = false;
+      }
+
+      if (exists) {
+        const choice = await buildDuplicateDialog(suggestedName);
+        if (choice === "cancel") {
+          if (op72Msg) op72Msg.textContent = "Save cancelled.";
+          return;
+        }
+        if (choice === "new") {
+          finalName = makeUniqueName(suggestedName);
+        }
+      }
+
+      const fileHandle = await dirHandle.getFileHandle(finalName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(pdfBlob);
+      await writable.close();
+      if (op72Msg) op72Msg.textContent = `Saved: "${finalName}"`;
+      return;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        _savedDirHandle = null;
+        if (op72Msg) op72Msg.textContent = "Save cancelled.";
+        return;
+      }
+    }
+  }
+
+  // ── Path C: Plain <a> download fallback (Firefox / Safari) ──────────────
+  const url = URL.createObjectURL(pdfBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = suggestedName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  if (op72Msg) op72Msg.textContent = `Downloaded: "${suggestedName}"`;
+}
+
+function captureAndSave(filename) {
+  const printArea = op72PrintArea || document.getElementById("op72PrintArea") || op72Table.closest(".sheet-wrap");
+  if (!printArea) {
+    if (op72Msg) op72Msg.textContent = "Print area not found.";
+    return;
+  }
+
+  if (op72Msg) op72Msg.textContent = "Generating PDF, please wait...";
+  if (op72PrintBtn) op72PrintBtn.disabled = true;
+
+  // Update print header metadata
+  const selectedGroup = String(op72GroupSelect?.value || "").trim() || "ALL";
+  const monthStr = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(seedDate).toUpperCase();
+  if (op72PrintGroup) op72PrintGroup.textContent = selectedGroup;
+  if (op72PrintMonth) op72PrintMonth.textContent = monthStr;
+  if (op72PrintHeader) op72PrintHeader.style.display = "block";
+
+  // Temporarily reset CSS zoom on op72Table so html2canvas computes coordinates accurately
+  const prevZoom = op72Table.style.zoom;
+  op72Table.style.zoom = "1";
+
+  // Hide non-print elements
+  const hideSelectors = [
+    ".site-header",
+    ".nav-bar",
+    ".bg-shape",
+    ".op72-heading-row",
+    "#op72Toolbar",
+    "#op72SaveState",
+    "#op72Msg"
+  ];
+  const hiddenEls = [];
+  hideSelectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (el.style.display !== "none") {
+        hiddenEls.push({ el, origDisplay: el.style.display });
+        el.style.display = "none";
+      }
+    });
+  });
+
+  // Remove overflow from scrollable parents so full content is rendered
+  const overflowEls = [];
+  const checkEls = [printArea, printArea.parentElement, ...Array.from(printArea.querySelectorAll("*"))];
+  checkEls.forEach((el) => {
+    if (!el || !el.style) return;
+    const computed = window.getComputedStyle(el);
+    const ox = computed.overflowX;
+    const oy = computed.overflowY;
+    if (ox === "auto" || ox === "hidden" || ox === "scroll" ||
+        oy === "auto" || oy === "hidden" || oy === "scroll") {
+      overflowEls.push({ el, ox: el.style.overflowX, oy: el.style.overflowY });
+      el.style.overflowX = "visible";
+      el.style.overflowY = "visible";
+    }
+  });
+
+  const pageSizes = {
+    A4:    { w: 297,   h: 210   },
+    A3:    { w: 420,   h: 297   },
+    Legal: { w: 355.6, h: 215.9 },
+  };
+  const selectedSizeKey = op72PageSizeSelect ? op72PageSizeSelect.value : "Legal";
+  const pageSize = pageSizes[selectedSizeKey] || pageSizes.Legal;
+  const pxPerMm  = 3.7795275591;
+  const baseW    = Math.round(pageSize.w * pxPerMm);
+  const targetW  = Math.max(baseW, op72Table.scrollWidth, printArea.scrollWidth);
+  const targetH  = Math.max(printArea.scrollHeight, printArea.offsetHeight);
+
+  const origWidth = printArea.style.width;
+  printArea.style.width = targetW + "px";
+
+  const restoreAll = () => {
+    printArea.style.width = origWidth;
+    op72Table.style.zoom = prevZoom || "1";
+    if (op72PrintHeader) op72PrintHeader.style.display = "none";
+    hiddenEls.forEach(({ el, origDisplay }) => { el.style.display = origDisplay; });
+    overflowEls.forEach(({ el, ox, oy }) => {
+      el.style.overflowX = ox;
+      el.style.overflowY = oy;
+    });
+    if (op72PrintBtn) op72PrintBtn.disabled = false;
+  };
+
+  html2canvas(printArea, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    width: targetW,
+    height: targetH,
+    windowWidth: targetW,
+    windowHeight: targetH,
+    scrollX: 0,
+    scrollY: 0,
+    logging: false,
+  }).then(async (canvas) => {
+    restoreAll();
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+    const { jsPDF } = window.jspdf;
+
+    const marginX = 8; // mm left & right margin
+    const marginY = 8; // mm top & bottom margin
+    const availW  = pageSize.w - (marginX * 2);
+    const availH  = pageSize.h - (marginY * 2);
+
+    const canvasRatio = canvas.width / canvas.height;
+    let imgW = availW;
+    let imgH = imgW / canvasRatio;
+
+    // If imgH exceeds available page height, scale down proportionally so the whole sheet fits on the page
+    if (imgH > availH) {
+      imgH = availH;
+      imgW = imgH * canvasRatio;
+    }
+
+    const pdfH = pageSize.h;
+    const pdf  = new jsPDF({ orientation: "landscape", unit: "mm", format: [pageSize.w, pdfH] });
+
+    // Center horizontally and vertically on the page
+    const offsetX = Math.max(0, (pageSize.w - imgW) / 2);
+    const offsetY = Math.max(0, (pdfH - imgH) / 2);
+    pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
+
+    const pdfBlob = pdf.output("blob");
+    await savePdfBlob(pdfBlob, filename);
+  }).catch((err) => {
+    restoreAll();
+    if (op72Msg) op72Msg.textContent = "PDF generation failed: " + (err.message || err);
+  });
+}
+
+function handlePrintPreview() {
+  const selectedGroup = String(op72GroupSelect?.value || "").trim();
+  const filename = buildOp72PdfFilename(selectedGroup, seedDate);
+
+  // Fallback to window.print() if jsPDF or html2canvas not loaded
+  if (typeof window.jspdf === "undefined" || typeof window.html2canvas === "undefined") {
+    const previousTitle = document.title;
+    document.title = filename;
+    applyPrintSize(op72PageSizeSelect ? op72PageSizeSelect.value : "Legal");
+    if (op72Msg) op72Msg.textContent = "Saving... Use 'Save as PDF' in the print dialog.";
+    window.print();
+    setTimeout(() => { document.title = previousTitle; }, 2000);
+    return;
+  }
+
+  captureAndSave(filename);
+}
+
+if (op72PrintBtn) {
+  op72PrintBtn.addEventListener("click", handlePrintPreview);
+}
+
+if (op72PageSizeSelect) {
+  op72PageSizeSelect.addEventListener("change", () => {
+    applyPrintSize(op72PageSizeSelect.value);
+  });
+  applyPrintSize(op72PageSizeSelect.value);
+}

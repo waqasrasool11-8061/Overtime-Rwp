@@ -24,6 +24,7 @@ const pasteInput = document.getElementById("op72PasteInput");
 const pasteValidation = document.getElementById("op72PasteValidationMsg");
 const pastePreview = document.getElementById("op72PastePreview");
 const importPasteButton = document.getElementById("importOp72Paste");
+const copySelectedOp72RowsBtn = document.getElementById("copySelectedOp72Rows");
 
 let rows = [];
 let rowMeta = [];
@@ -103,6 +104,40 @@ function renderHeader() {
   });
 }
 
+function formatTimeHhMm(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const num = typeof value === "number" ? value : (typeof value === "string" && /^\d*\.\d+$/.test(value.trim()) ? parseFloat(value.trim()) : NaN);
+  if (Number.isFinite(num) && num > 0 && num <= 1) {
+    const totalMinutes = Math.round(num * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.abs(totalMinutes % 60);
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2]}`;
+  }
+
+  return raw;
+}
+
+function formatCellValue(value, columnIndex, isDataRow) {
+  if (!isDataRow) {
+    return String(value ?? "");
+  }
+
+  if (columnIndex === 4 || columnIndex === 7 || columnIndex === 8 || columnIndex === 10 || columnIndex === 11) {
+    return formatTimeHhMm(value);
+  }
+
+  return String(value ?? "");
+}
+
 function renderTable() {
   renderHeader();
   colgroup.replaceChildren(...Array.from({ length: 14 }, (_, index) => {
@@ -116,7 +151,8 @@ function renderTable() {
     const tr = document.createElement("tr");
     tr.dataset.rowIndex = String(meta.rowIndex);
     const selectCell = document.createElement("td");
-    if (meta.rowKind === "data") {
+    const isData = meta.rowKind === "data";
+    if (isData) {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.dataset.rowSelect = "1";
@@ -125,9 +161,9 @@ function renderTable() {
     tr.appendChild(selectCell);
     OP72_COLUMNS.forEach((_, columnIndex) => {
       const cell = document.createElement("td");
-      cell.textContent = String(row[columnIndex] ?? "");
-      cell.contentEditable = meta.rowKind === "data" ? "true" : "false";
-      if (meta.rowKind === "data") cell.addEventListener("input", () => setDirtyState(true));
+      cell.textContent = formatCellValue(row[columnIndex], columnIndex, isData);
+      cell.contentEditable = isData ? "true" : "false";
+      if (isData) cell.addEventListener("input", () => setDirtyState(true));
       tr.appendChild(cell);
     });
     tableBody.appendChild(tr);
@@ -144,6 +180,62 @@ function selectedRowIndices() {
   return Array.from(tableBody.querySelectorAll("input[data-row-select]:checked"))
     .map((input) => Number(input.closest("tr")?.dataset.rowIndex))
     .filter(Number.isInteger);
+}
+
+function getSelectedOp72RowsData() {
+  const checkedTrs = Array.from(tableBody.querySelectorAll("tr"))
+    .filter((tr) => {
+      const checkbox = tr.querySelector("input[data-row-select='1']");
+      return Boolean(checkbox?.checked);
+    });
+
+  if (checkedTrs.length > 0) {
+    return checkedTrs.map((tr) =>
+      Array.from(tr.querySelectorAll("td"))
+        .slice(1)
+        .map((td) => td.textContent.trim())
+    );
+  }
+
+  const activeTr = document.activeElement ? document.activeElement.closest("tr") : null;
+  if (activeTr && tableBody.contains(activeTr)) {
+    return [
+      Array.from(activeTr.querySelectorAll("td"))
+        .slice(1)
+        .map((td) => td.textContent.trim())
+    ];
+  }
+
+  return [];
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn("navigator.clipboard error, falling back:", err);
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    document.body.removeChild(textArea);
+    return false;
+  }
 }
 
 async function loadWorkbook() {
@@ -210,6 +302,9 @@ document.getElementById("toggleAddOp72Record").addEventListener("click", () => {
 document.getElementById("cancelOp72Record").addEventListener("click", () => { entryPanel.style.display = "none"; });
 document.getElementById("submitOp72Record").addEventListener("click", async () => {
   const row = Array.from(entryFields.querySelectorAll("input"), (input) => input.value.trim());
+  if (row.length > 4) {
+    row[4] = formatTimeHhMm(row[4]);
+  }
   try {
     await request(OP72_API_PATHS.dataRow, { method: "POST", body: JSON.stringify({ row }) });
     entryFields.querySelectorAll("input").forEach((input) => { input.value = ""; });
@@ -285,7 +380,12 @@ document.getElementById("previewOp72Paste").addEventListener("click", () => {
 });
 document.getElementById("importOp72Paste").addEventListener("click", async () => {
   try {
-    await request(OP72_API_PATHS.dataRows, { method: "PUT", body: JSON.stringify({ rows: currentRows().concat(pasteRows) }) });
+    const normalizedPasteRows = pasteRows.map((r) => {
+      const copy = [...r];
+      if (copy.length > 4) copy[4] = formatTimeHhMm(copy[4]);
+      return copy;
+    });
+    await request(OP72_API_PATHS.dataRows, { method: "PUT", body: JSON.stringify({ rows: currentRows().concat(normalizedPasteRows) }) });
     pasteInput.value = "";
     pasteRows = [];
     importPasteButton.disabled = true;
@@ -294,6 +394,36 @@ document.getElementById("importOp72Paste").addEventListener("click", async () =>
     setMessage("OP72 Raw Data rows imported.");
   } catch (error) { setMessage(`Import failed: ${error.message}`, true); }
 });
+if (copySelectedOp72RowsBtn) {
+  copySelectedOp72RowsBtn.addEventListener("click", async () => {
+    const selectedRows = getSelectedOp72RowsData();
+    if (!selectedRows.length) {
+      setMessage("Please select at least one OP72 row using the checkbox (or click inside a row) to copy.", true);
+      return;
+    }
+
+    // Convert rows to Tab-Separated Values (TSV) for seamless column-wise pasting into Excel
+    const tsvData = selectedRows.map((row) => row.join("\t")).join("\r\n");
+    const copied = await copyTextToClipboard(tsvData);
+
+    if (copied) {
+      setMessage(`✓ Copied ${selectedRows.length} OP72 row(s) to clipboard. You can now paste (Ctrl+V) directly into Excel column-wise.`);
+
+      const originalText = copySelectedOp72RowsBtn.textContent;
+      copySelectedOp72RowsBtn.textContent = "✓ Copied!";
+      copySelectedOp72RowsBtn.style.borderColor = "#146c43";
+      copySelectedOp72RowsBtn.style.color = "#146c43";
+      setTimeout(() => {
+        copySelectedOp72RowsBtn.textContent = originalText;
+        copySelectedOp72RowsBtn.style.borderColor = "";
+        copySelectedOp72RowsBtn.style.color = "";
+      }, 2000);
+    } else {
+      setMessage("Failed to copy to clipboard. Please allow clipboard permissions.", true);
+    }
+  });
+}
+
 document.getElementById("deleteOp72Rows").addEventListener("click", async () => {
   const rowIndices = selectedRowIndices();
   if (!rowIndices.length) { setMessage("Select at least one OP72 data row.", true); return; }

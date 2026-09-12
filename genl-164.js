@@ -1139,6 +1139,12 @@
       });
     });
 
+    // Collapse grid to 1fr so table and header take full width without missing-panel empty column on right
+    const origGridCols = printArea.style.gridTemplateColumns;
+    const origWidth = printArea.style.width;
+    printArea.style.gridTemplateColumns = "1fr";
+    printArea.style.width = "100%";
+
     // Remove overflow so html2canvas captures full scrollable content
     const overflowEls = [];
     printArea.querySelectorAll("*").forEach((el) => {
@@ -1164,6 +1170,8 @@
     const canvasH  = printArea.scrollHeight;
 
     const restoreAll = () => {
+      printArea.style.gridTemplateColumns = origGridCols;
+      printArea.style.width = origWidth;
       hiddenEls.forEach((el) => { el.style.display = ""; });
       overflowEls.forEach(({ el, ox, oy }) => {
         el.style.overflowX = ox;
@@ -1187,11 +1195,19 @@
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const { jsPDF } = window.jspdf;
-      const imgW  = pageSize.w;
-      const imgH  = (canvas.height / canvas.width) * imgW;
-      const pdfH  = Math.max(imgH, pageSize.h);
+      const marginX = 8; // mm left & right margin
+      const marginY = 6; // mm top & bottom margin
+      const availW  = pageSize.w - (marginX * 2);
+      const canvasRatio = canvas.width / canvas.height;
+      const imgW  = availW;
+      const imgH  = imgW / canvasRatio;
+      const pdfH  = Math.max(imgH + (marginY * 2), pageSize.h);
       const pdf   = new jsPDF({ orientation: "landscape", unit: "mm", format: [pageSize.w, pdfH] });
-      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+
+      // Perfectly center horizontally (equal left & right margins) and vertically
+      const offsetX = (pageSize.w - imgW) / 2;
+      const offsetY = (pdfH - imgH) / 2;
+      pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
 
       // output() returns a string; convert to Blob for File System API
       const pdfBlob = pdf.output("blob");

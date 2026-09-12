@@ -5,6 +5,169 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Employee master</title>
   <link rel="stylesheet" href="app.css">
+  <style>
+    .pay-revision-dialog {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 0;
+      width: min(960px, 96vw);
+      max-height: 92vh;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .pay-revision-dialog::backdrop {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(2px);
+    }
+    .pay-rev-dialog-header {
+      background: #f8fafc;
+      padding: 14px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .pay-rev-dialog-body {
+      padding: 16px 20px;
+      max-height: calc(92vh - 75px);
+      overflow-y: auto;
+    }
+    .pay-rev-form-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .pay-rev-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .form-input {
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      box-sizing: border-box;
+      background: #ffffff;
+      width: 100%;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+    }
+    .pay-preview-card {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      grid-column: 1 / -1;
+    }
+    .pay-preview-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #0369a1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pay-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px 10px;
+    }
+    .pay-preview-chip {
+      background: #ffffff;
+      border: 1px solid #e0f2fe;
+      border-radius: 6px;
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+    }
+    .pay-preview-lbl {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .pay-preview-val {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #0284c7;
+    }
+    .pay-rev-table-wrap {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 360px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+      background: #ffffff;
+    }
+    .pay-rev-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      text-align: left;
+    }
+    .pay-rev-table th {
+      background: #f1f5f9;
+      padding: 8px 10px;
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 1px solid #cbd5e1;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .pay-rev-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+    }
+    .pay-rev-table tr:hover {
+      background: #f8fafc;
+    }
+    .btn-delete-rev {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-delete-rev:hover {
+      background: #fee2e2;
+    }
+    .lock-notice {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #0969da;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #employeeTableBody tr {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    #employeeTableBody tr:hover td {
+      background-color: #f1f5f9 !important;
+    }
+  </style>
 </head>
 <body>
   <div class="bg-shape bg-shape-one"></div>
@@ -13,7 +176,7 @@
   <header class="site-header">
     <img class="site-banner" src="website banner.jpg" alt="Website banner">
     <h1>Employee master</h1>
-    <p>Editable table sheet for employee details. Aap baad me data modify kar sakte hain.</p>
+    <p>Personnel master directory &amp; official pay scale rates. Protected &amp; synced with pay revision history.</p>
   </header>
 
   <nav class="nav-bar">
@@ -28,17 +191,28 @@
     <a class="nav-link" href="amount-summary.html">Amount Summary</a>
     <a class="nav-link" href="raw-data.html">RawData</a>
     <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+    <a class="nav-link" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link" href="video.html">Video</a>
+    <a class="nav-link" href="user-management.html">User Management</a>
   </nav>
 
   <main class="simple-page">
     <section class="panel">
-      <h2>Employee Sheet</h2>
-      <div class="actions" style="margin-bottom: 12px;">
-        <button id="addRow" class="btn-outline" type="button">+ Add Row</button>
-        <button id="saveSheet" class="btn-primary" type="button">Save Sheet</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+        <h2 style="margin: 0;">Employee Master Sheet</h2>
+        <div class="actions" style="gap: 8px; flex-wrap: wrap;">
+          <button id="openAddEmpBtn" class="btn-primary" type="button" style="display: inline-flex; align-items: center; gap: 6px;">➕ Add New Employee</button>
+          <button id="openPayRevisionsBtn" class="btn-outline" type="button" style="background: #f0fdf4; border-color: #86efac; color: #166534; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">📜 Manage Employees &amp; Pay Revisions</button>
+        </div>
       </div>
 
-      <p id="saveStateTag" class="change-tag" aria-live="polite">No unsaved changes.</p>
+      <div class="lock-notice">
+        <span style="font-size: 1.25rem;">🔒</span>
+        <div>
+          <strong>Table Locked &amp; Protected:</strong> In-cell typing is locked to prevent accidental data damage.
+          Click on any employee row or use the buttons above to edit details, adjust pay scale, or register a new employee.
+        </div>
+      </div>
 
       <div class="sheet-wrap">
         <table id="employeeTable">
@@ -47,12 +221,161 @@
           <tbody id="employeeTableBody"></tbody>
         </table>
       </div>
-      <p id="saveMsg" class="helper-text" style="margin-top: 10px;">Changes not saved yet.</p>
+      <p id="saveMsg" class="helper-text" style="margin-top: 10px;">Table is locked and auto-synchronized with Employee Master &amp; Pay Revision database.</p>
     </section>
   </main>
 
+  <!-- Centralized Employee Management & Pay Revision Dialog -->
+  <dialog id="payRevisionsDialog" class="pay-revision-dialog">
+    <div class="pay-rev-dialog-header">
+      <div>
+        <h3 id="dialogMainTitle" style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+          <span>⚙️</span> Employee Management &amp; Pay Revision History
+        </h3>
+        <p style="margin: 3px 0 0 0; font-size: 0.85rem; color: #64748b;">
+          Central safe hub: Add new employees, modify employee profiles, and record monthly Basic Pay revisions (Budget &amp; Increments).
+        </p>
+      </div>
+      <button id="closePayRevisionsDialog" type="button" class="btn-outline" style="padding: 4px 10px;">✕ Close</button>
+    </div>
+
+    <div class="pay-rev-dialog-body">
+      <!-- Edit / Add Employee & Revision Form Card -->
+      <div class="pay-rev-form-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 id="formHeaderTitle" style="margin: 0; color: #0969da; font-size: 0.94rem; display: flex; align-items: center; gap: 6px;">
+            <span>✏️</span> Edit Employee &amp; Pay Details
+          </h4>
+          <button type="button" id="btnSwitchToAddNew" class="btn-outline" style="padding: 3px 10px; font-size: 0.8rem;">➕ Switch to Add New</button>
+        </div>
+
+        <form id="payRevForm" class="pay-rev-form-grid">
+          <div>
+            <label for="revEmpSelect" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Select Employee / Mode:</label>
+            <select id="revEmpSelect" class="form-input">
+              <option value="__NEW__">➕ [Add New Employee]</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="revSapInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">SAP ID:</label>
+            <input type="text" id="revSapInput" class="form-input" placeholder="e.g. 50201088" required autocomplete="off">
+          </div>
+
+          <div>
+            <label for="revNameInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Employee Name:</label>
+            <input type="text" id="revNameInput" class="form-input" placeholder="e.g. WAQAS RASOOL" required autocomplete="off">
+          </div>
+
+          <div>
+            <label for="revDesgInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Designation:</label>
+            <input type="text" id="revDesgInput" class="form-input" placeholder="e.g. ASSISTANT DRIVER" required autocomplete="off">
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label for="revCatInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin: 0;">Posting Station:</label>
+              <button type="button" id="btnAdminResetStationLock" class="btn-outline" style="display: none; font-size: 0.7rem; padding: 1px 6px; color: #b45309; border-color: #fcd34d; background: #fffbeb;" title="Allow employee to modify their posting station one time again">🔓 Reset 1-Time Lock</button>
+            </div>
+            <input type="text" id="revCatInput" class="form-input" placeholder="e.g. RAWALPINDI / KUNDIAN" autocomplete="off">
+          </div>
+
+          <div>
+            <label for="revMonthInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Effective From (Month):</label>
+            <input type="month" id="revMonthInput" class="form-input" required value="2026-07">
+          </div>
+
+          <div>
+            <label for="revBasicInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Basic Pay (Rs.):</label>
+            <input type="number" id="revBasicInput" class="form-input" placeholder="e.g. 37090" min="1" step="1" required autocomplete="off">
+          </div>
+
+          <div style="grid-column: 1 / -1;">
+            <label for="revNoteInput" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Reason / Remarks (Optional):</label>
+            <input type="text" id="revNoteInput" class="form-input" placeholder="e.g. Initial Entry, July-2026 Budget Revision, Dec-2025 Increment, Promotion">
+          </div>
+
+          <!-- Real-Time Calculated Rates Preview Box -->
+          <div class="pay-preview-card">
+            <div class="pay-preview-title">
+              <span>⚡</span> Real-time Derived Rates Preview (Pakistan Railways Standard Formula)
+            </div>
+            <div class="pay-preview-grid">
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">OT Rate (@ / day)</span>
+                <span class="pay-preview-val" id="prevOtVal">Rs. 0.00</span>
+              </div>
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">Mail (30%)</span>
+                <span class="pay-preview-val" id="prevMailVal">Rs. 0.00</span>
+              </div>
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">Passenger (25%)</span>
+                <span class="pay-preview-val" id="prevPassVal">Rs. 0.00</span>
+              </div>
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">Shunt / Goods (20%)</span>
+                <span class="pay-preview-val" id="prevShntVal">Rs. 0.00</span>
+              </div>
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">Sunday / Gazetted</span>
+                <span class="pay-preview-val" id="prevSdGhVal">Rs. 0.00</span>
+              </div>
+              <div class="pay-preview-chip">
+                <span class="pay-preview-lbl">Leave 55% / Custom</span>
+                <span class="pay-preview-val" id="prevLeaveVal">Rs. 0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+            <button type="button" id="clearRevFormBtn" class="btn-outline">Clear Fields</button>
+            <button type="submit" id="saveRevBtn" class="btn-primary" style="font-weight: 700;">💾 Save to Employee Master &amp; Record Revision</button>
+          </div>
+        </form>
+        <p id="revStatusMsg" class="helper-text" style="margin: 8px 0 0 0;"></p>
+      </div>
+
+      <!-- Filter & Revisions History Table -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; margin-bottom: 8px;">
+        <h4 style="margin: 0; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+          <span>📋</span> Recorded Pay History &amp; Previous Basics (Scroll to view)
+        </h4>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="revFilterSelect" style="font-size: 0.82rem; font-weight: 600;">Filter:</label>
+          <select id="revFilterSelect" class="form-input" style="font-size: 0.82rem; padding: 4px 8px; width: auto;">
+            <option value="">-- All Employees (All History) --</option>
+          </select>
+          <button type="button" id="btnShowAllRevs" class="btn-outline" style="font-size: 0.78rem; padding: 3px 8px; background: #f8fafc;">View All</button>
+        </div>
+      </div>
+
+      <div class="pay-rev-table-wrap">
+        <table class="pay-rev-table">
+          <thead>
+            <tr>
+              <th>Employee Name</th>
+              <th>SAP ID</th>
+              <th>Effective From</th>
+              <th>Basic Pay</th>
+              <th>OT / Day</th>
+              <th>Mail (M) Rate</th>
+              <th>Status</th>
+              <th>Remarks / Note</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="payRevTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </dialog>
+
   <script src="auth-guard.js"></script>
   <script src="Employee_Master.data.js"></script>
-  <script src="employee-master.js"></script>
+  <script src="pay-revisions.js"></script>
+  <script src="employee-master.js?v=2.5"></script>
 </body>
 </html>

@@ -1,11 +1,872 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Employee Portal</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=5.0">
+  <style>
+    /* ── Employee Portal Tabs & Styling ── */
+    .emp-portal-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-bottom: 2px solid var(--border-color, #d0d7de);
+      margin-bottom: 18px;
+    }
+
+    .emp-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 10px 18px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-subtle, #57606a);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      margin-bottom: -2px;
+    }
+
+    .emp-tab-btn:hover {
+      color: var(--primary-color, #0969da);
+      background: rgba(9, 105, 218, 0.05);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .emp-tab-btn.active {
+      color: var(--primary-color, #0969da);
+      border-bottom-color: var(--primary-color, #0969da);
+      background: rgba(9, 105, 218, 0.08);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .emp-tab-content {
+      display: none;
+    }
+
+    .emp-tab-content.active {
+      display: block;
+    }
+
+    /* ── Employee Portal Page Layout ── */
+    .emp-portal-page {
+      width: min(1080px, 96vw) !important;
+      max-width: 1080px !important;
+      margin: 0 auto 30px !important;
+      padding: 0 !important;
+    }
+
+    .emp-portal-page .panel {
+      padding: 16px 20px !important;
+      border-radius: 14px;
+    }
+
+    /* ── Admin Mode Banner ── */
+    .admin-portal-bar {
+      width: 100% !important;
+      max-width: 100% !important;
+      background: #ddf4ff;
+      border: 1px solid #54aeff;
+      color: #0969da;
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-sizing: border-box !important;
+    }
+
+    /* ── Control Bars (Month Picker + Actions) ── */
+    .emp-control-bar {
+      width: 100% !important;
+      max-width: 100% !important;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 14px;
+      background: var(--surface-subtle, #f6f8fa);
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 6px;
+      margin: 0 0 14px 0;
+      box-sizing: border-box !important;
+    }
+
+    .emp-control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .emp-control-group label {
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    .emp-month-select {
+      padding: 5px 10px;
+      font-size: 0.92rem;
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 6px;
+      background: #ffffff;
+      font-weight: 600;
+    }
+
+    /* ── Tab 1: Single Employee OP-72 Sheet (Fits Viewable Area in Main Employee Block) ── */
+    .op72-single-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 0 16px 0 !important;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      box-sizing: border-box !important;
+      max-height: 68vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .op72-single-table {
+      min-width: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      border-collapse: collapse;
+      font-family: Arial, sans-serif;
+      font-size: 0.82rem;
+      table-layout: fixed !important;
+      box-sizing: border-box;
+    }
+
+    .op72-single-table th,
+    .op72-single-table td {
+      border: 1px solid #7f7f7f;
+      padding: 2.5px 4px;
+      text-align: center;
+      box-sizing: border-box;
+      line-height: 1.2;
+    }
+
+    .op72-single-table th.op-main-th {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      background: #2f5597;
+      color: #ffffff;
+      font-size: 0.88rem;
+      padding: 5px 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .op72-single-table th.op-sub-th {
+      position: sticky;
+      top: 28px;
+      z-index: 4;
+      background: #d9e1f2;
+      color: #000000;
+      font-weight: bold;
+      font-size: 0.8rem;
+      padding: 3.5px 3px;
+    }
+
+    .op72-single-table td.op-date-cell {
+      background: #f2f2f2;
+      font-weight: bold;
+      white-space: nowrap;
+      font-size: 0.8rem;
+    }
+
+    .op72-single-table tr.op-holiday td,
+    .op72-single-table tr.op-holiday td.op-date-cell {
+      background-color: #ffc080 !important; /* OP-72 Gazetted Peach/Orange RGB(255, 192, 128) */
+      color: #000000 !important;
+      font-weight: bold;
+    }
+
+    .op72-single-table tr.op-sunday td,
+    .op72-single-table tr.op-sunday td.op-date-cell {
+      background-color: #add8e6 !important; /* OP-72 Sunday Light Blue RGB(173, 216, 230) */
+      color: #000000 !important;
+    }
+
+    .op72-single-table tr.op-sunday.op-holiday td,
+    .op72-single-table tr.op-sunday.op-holiday td.op-date-cell {
+      background-color: #add8e6 !important;
+      color: #000000 !important;
+      font-weight: bold;
+    }
+
+    .op72-single-table tr.op-summary-row td {
+      font-weight: bold;
+      background-color: #f8fafc;
+      font-size: 0.82rem;
+      padding: 3px 4px;
+    }
+
+    .op72-single-table tr.op-summary-row td.op-sum-lbl {
+      text-align: left;
+      padding-left: 8px;
+      background-color: #e2e8f0;
+      color: #0f172a;
+      font-size: 0.82rem;
+    }
+
+    .op72-single-table tr.op-summary-row td.op-sum-val {
+      font-weight: bold;
+      color: #0969da;
+      font-size: 0.84rem;
+    }
+
+    /* ── Tab 2: Single Employee Amount Summary Sheet ── */
+    .amts-single-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 0 16px 0 !important;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      font-family: "Times New Roman", Times, Georgia, serif;
+      box-sizing: border-box !important;
+    }
+
+    .amts-single-banner {
+      background: #d9e1f2;
+      border: 1.5px solid #000000;
+      font-weight: bold;
+      font-size: 11pt;
+      text-align: center;
+      padding: 5px 6px;
+      margin-bottom: 6px;
+      line-height: 1.25;
+      letter-spacing: 0.01em;
+      box-sizing: border-box !important;
+    }
+
+    .amts-single-table {
+      min-width: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      border-collapse: collapse;
+      font-family: "Times New Roman", Times, Georgia, serif;
+      font-size: 9.5pt;
+      table-layout: fixed !important;
+      background: #ffffff;
+      box-sizing: border-box;
+    }
+
+    .amts-single-table td {
+      border: 1px solid #000000;
+      padding: 3.5px 2.5px;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: bold;
+      line-height: 1.2;
+      font-size: 9pt;
+      box-sizing: border-box;
+    }
+
+    .amts-single-table .amt-empname {
+      background: #f2dcdb;
+      font-size: 10.5pt;
+      padding: 4px 3px;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      border-left: 1.5px solid #000000;
+    }
+
+    .amts-single-table .amt-meta-lbl {
+      background: #ffffff;
+      font-size: 8pt;
+      line-height: 1.08;
+      padding: 3px 1.5px;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+    }
+
+    .amts-single-table .amt-meta-val {
+      background: #ffffff;
+      font-size: 9pt;
+      padding: 3px 1.5px;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+    }
+
+    .amts-single-table .amt-basic-val {
+      background: #ffffff;
+      font-size: 11pt;
+      color: #c00000;
+      padding: 3px 1.5px;
+      border-top: 1.5px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      border-right: 1.5px solid #000000;
+    }
+
+    .amts-single-table .amt-running-cell {
+      padding: 0;
+      border-left: 1.5px solid #000000;
+      border-right: 1.5px solid #000000;
+      border-top: 1px solid #000000;
+      border-bottom: 1.5px solid #000000;
+    }
+
+    .amts-single-table .amt-running-inner {
+      display: block;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      font-size: 11pt;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .amts-single-table .amt-rate-red {
+      color: #c00000;
+    }
+
+    .amts-single-table td.b-left-thick {
+      border-left: 1.5px solid #000000 !important;
+    }
+
+    .amts-single-table td.b-right-thick {
+      border-right: 1.5px solid #000000 !important;
+    }
+
+    .amts-single-table tr.b-bot-thick td {
+      border-bottom: 1.5px solid #000000 !important;
+    }
+
+    .amts-single-footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      margin-top: 12px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 9.5pt;
+      line-height: 1.2;
+    }
+
+    .amts-single-footer-sub {
+      font-size: 7pt;
+      font-weight: normal;
+      color: #444;
+      margin-top: 1px;
+    }
+
+    /* ── Tab 3: Chat Box with Vicky Ch ── */
+    .chat-box-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 0 16px 0;
+      background: #ffffff;
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 560px;
+      box-sizing: border-box !important;
+    }
+
+    @media (max-width: 768px) {
+
+      .op72-single-wrap,
+      .amts-single-wrap,
+      .emp-control-bar,
+      .admin-portal-bar,
+      .chat-box-wrap {
+        width: 100% !important;
+      }
+    }
+
+    .chat-box-header {
+      background: linear-gradient(135deg, #0969da 0%, #0349b4 100%);
+      color: #ffffff;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-admin-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chat-admin-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #0969da;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .chat-admin-text h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #ffffff;
+    }
+
+    .chat-admin-text p {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+
+    .chat-online-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    .chat-online-dot {
+      width: 8px;
+      height: 8px;
+      background: #3fb950;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #3fb950;
+    }
+
+    .chat-messages-area {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-bubble {
+      max-width: 78%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.4;
+      position: relative;
+      word-wrap: break-word;
+    }
+
+    .chat-bubble-admin {
+      align-self: flex-start;
+      background: #ffffff;
+      color: #24292f;
+      border: 1px solid #e1e4e8;
+      border-bottom-left-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .chat-bubble-admin .sender-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #0969da;
+      margin-bottom: 3px;
+    }
+
+    .chat-bubble-emp {
+      align-self: flex-end;
+      background: #0969da;
+      color: #ffffff;
+      border-bottom-right-radius: 2px;
+      box-shadow: 0 1px 2px rgba(9, 105, 218, 0.3);
+    }
+
+    .chat-bubble-emp .sender-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #e1f0ff;
+      margin-bottom: 3px;
+      text-align: right;
+    }
+
+    .chat-time {
+      font-size: 0.7rem;
+      opacity: 0.75;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .chat-chips-bar {
+      padding: 6px 14px;
+      background: #ffffff;
+      border-top: 1px solid var(--border-color, #e1e4e8);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .chat-chip {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chat-chip:hover {
+      background: #e2e8f0;
+      border-color: #0969da;
+      color: #0969da;
+    }
+
+    .chat-input-bar {
+      padding: 10px 14px;
+      background: #ffffff;
+      border-top: 1px solid var(--border-color, #d0d7de);
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input-bar input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .chat-input-bar input:focus {
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+    }
+
+    .chat-send-btn {
+      padding: 10px 20px;
+      font-weight: bold;
+      background: #0969da;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chat-send-btn:hover {
+      background: #0349b4;
+    }
+
+    /* ── Employee Master Details Card (Screen Only, Read-Only, Excluded from Print) ── */
+    .emp-master-card {
+      width: 100% !important;
+      max-width: 100% !important;
+      background: #ffffff;
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 10px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      box-sizing: border-box !important;
+    }
+
+    .emp-master-header {
+      background: linear-gradient(135deg, #f6f8fa 0%, #edf2f7 100%);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-color, #d0d7de);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .emp-master-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .emp-master-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .emp-master-title {
+      margin: 0;
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: var(--text-color, #1f2328);
+    }
+
+    .emp-master-subtitle {
+      margin: 2px 0 0 0;
+      font-size: 0.77rem;
+      color: #656d76;
+    }
+
+    .emp-master-badge-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .emp-master-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e6f4ea;
+      color: #137333;
+      border: 1px solid #ceead6;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .emp-master-toggle-btn {
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #24292f;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .emp-master-toggle-btn:hover {
+      background: #f3f4f6;
+    }
+
+    .emp-master-body {
+      padding: 12px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .emp-master-body.collapsed {
+      display: none !important;
+    }
+
+    .emp-section-heading {
+      margin: 0 0 6px 0;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #0969da;
+      font-weight: 700;
+      border-bottom: 1px solid #e1e4e8;
+      padding-bottom: 3px;
+    }
+
+    .emp-master-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px 10px;
+    }
+
+    .emp-field-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .emp-field-item.highlight-pay {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .emp-field-item.highlight-pay .emp-field-val {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+
+    .emp-field-item.highlight-ot {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .emp-field-item.highlight-ot .emp-field-val {
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .emp-field-label {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .emp-field-val {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Print Styles for Single Amount Summary & OP-72 ── */
+    @media print {
+      @page {
+        size: portrait;
+        margin: 6mm !important;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
+      body {
+        background: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .site-header,
+      .nav-bar,
+      .bg-shape,
+      .emp-portal-tabs,
+      .admin-portal-bar,
+      .emp-control-bar,
+      .actions,
+      .emp-master-card,
+      #empMasterDetailsBlock {
+        display: none !important;
+      }
+
+      .simple-page,
+      .panel {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      .emp-tab-content {
+        display: none !important;
+      }
+
+      .emp-tab-content.active {
+        display: block !important;
+      }
+
+      .op72-single-wrap {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+
+      .op72-single-table {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .op72-single-table th.op-main-th {
+        position: static !important;
+        background-color: #2f5597 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .op72-single-table th.op-sub-th {
+        position: static !important;
+        background-color: #d9e1f2 !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .op72-single-table td.op-date-cell {
+        background-color: #f2f2f2 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* OP-72 Sunday Cells Color (Light Blue) */
+      .op72-single-table tr.op-sunday td,
+      .op72-single-table tr.op-sunday td.op-date-cell {
+        background-color: #add8e6 !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* OP-72 Gazetted Cells Color (Peach / Light Orange) */
+      .op72-single-table tr.op-holiday td,
+      .op72-single-table tr.op-holiday td.op-date-cell {
+        background-color: #ffc080 !important;
+        color: #000000 !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* OP-72 Sunday & Gazetted Combined */
+      .op72-single-table tr.op-sunday.op-holiday td,
+      .op72-single-table tr.op-sunday.op-holiday td.op-date-cell {
+        background-color: #add8e6 !important;
+        color: #000000 !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .op72-single-table tr,
+      .amts-single-table tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      .amts-single-wrap {
+        max-width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
 </head>
+
 <body>
   <div class="bg-shape bg-shape-one"></div>
   <div class="bg-shape bg-shape-two"></div>
@@ -13,21 +874,411 @@
   <header class="site-header">
     <img class="site-banner" src="website banner.jpg" alt="Website banner">
     <h1 id="employeePageTitle">Employee Portal</h1>
-    <p id="employeePageSubtitle">Signed-in employee view</p>
+    <p id="employeePageSubtitle">Signed-in employee view — OP-72, Amount Summary &amp; Admin Support</p>
   </header>
 
-  <main class="simple-page">
+  <nav class="nav-bar" id="employeeNavBar">
+    <a class="nav-link active" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link" href="video.html" id="navVideoLink">Video</a>
+  </nav>
+
+  <main class="simple-page emp-portal-page">
     <section class="panel">
-      <div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h2 id="employeeNameHeading" style="margin: 0;">Employee</h2>
-        <button id="employeeLogoutBtn" class="btn-outline" type="button">Logout</button>
+
+      <!-- Admin Preview Bar (Visible only when Admin is logged in) -->
+      <div id="adminPortalBar" class="admin-portal-bar" style="display: none;">
+        <div>
+          <strong>Admin Control:</strong> Viewing Employee Portal as Admin (<span id="adminUsernameTag">Vicky
+            Ch</span>).
+          <a href="index.html" style="margin-left: 12px; color: #0969da; font-weight: 600; text-decoration: underline;">&larr; Return to Admin Dashboard</a>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="adminEmpSelect" style="font-weight: 600; color: #0969da;">Select Employee:</label>
+          <select id="adminEmpSelect" class="emp-month-select" style="border-color: #54aeff;">
+            <option value="">-- Choose Employee --</option>
+          </select>
+        </div>
       </div>
-      <p class="helper-text">Aap employee mode me signed in hain. Filhal sirf ye page accessible hai.</p>
-      <p class="helper-text">Next step me isi page par employee-specific functions aur restrictions add karenge.</p>
+
+      <!-- Top Header & Logout -->
+      <div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h2 id="employeeNameHeading" style="margin: 0; color: var(--text-color);">Employee Profile</h2>
+        <button id="employeeLogoutBtn" class="btn-outline" type="button">&#x21AA; Logout</button>
+      </div>
+
+      <!-- Employee Master Details Block (Display Only, Read-Only, Excluded from Print) -->
+      <div id="empMasterDetailsBlock" class="emp-master-card">
+        <div class="emp-master-header" id="empMasterHeaderToggle">
+          <div class="emp-master-title-wrap">
+            <span class="emp-master-icon">&#x1FAAA;</span>
+            <div>
+              <h3 class="emp-master-title">Employee Master Record — <span id="empMasterHeaderName">WAQAS RASOOL</span></h3>
+              <p class="emp-master-subtitle">Official Personnel &amp; Pay Scale Rates (Display Only &bull; Read-Only &bull; Excluded from Print)</p>
+            </div>
+          </div>
+          <div class="emp-master-badge-wrap">
+            <span id="dispEmpRevisionTag" class="emp-master-status-badge" style="display:none; background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;"></span>
+            <span class="emp-master-status-badge">&#x1F512; Read Only</span>
+            <button type="button" id="empMasterToggleBtn" class="emp-master-toggle-btn" title="Toggle Employee Master details">Collapse Details</button>
+          </div>
+        </div>
+
+        <div id="empMasterBody" class="emp-master-body">
+          <!-- Section 1: Basic Information -->
+          <div class="emp-master-section">
+            <h4 class="emp-section-heading">Basic Information</h4>
+            <div class="emp-master-grid">
+              <div class="emp-field-item">
+                <span class="emp-field-label">SAP ID</span>
+                <span class="emp-field-val" id="dispEmpSap">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Employee Name</span>
+                <span class="emp-field-val" id="dispEmpName">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Designation</span>
+                <span class="emp-field-val" id="dispEmpDesg">&mdash;</span>
+              </div>
+              <div class="emp-field-item posting-station-field-item" id="postingStationBox" style="position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                  <span class="emp-field-label" style="font-weight: 700; color: #0369a1;">Posting Station</span>
+                  <span id="stationLockBadge" style="display: none; font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; border: 1px solid #86efac; background: #dcfce7; color: #166534;">🔒 Locked</span>
+                </div>
+                <!-- View Mode -->
+                <div id="stationViewWrap" style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                  <span class="emp-field-val" id="dispEmpCat" style="font-weight: 700; color: #0f172a;">&mdash;</span>
+                  <button type="button" id="btnOpenStationEdit" class="btn-outline" style="display: none; font-size: 0.72rem; padding: 2px 7px; color: #0284c7; border-color: #7dd3fc; background: #f0f9ff; cursor: pointer; border-radius: 4px;">
+                    ✏️ Edit (1-Time)
+                  </button>
+                </div>
+                <!-- Edit Mode Form (1-Time) -->
+                <div id="stationEditWrap" style="display: none; margin-top: 6px;">
+                  <div style="display: flex; gap: 4px; align-items: center;">
+                    <input type="text" id="stationInput" class="form-input" style="font-size: 0.8rem; padding: 3px 6px; text-transform: uppercase; width: 100%;" placeholder="e.g. RAWALPINDI / KUNDIAN" maxlength="40" />
+                    <button type="button" id="btnSaveStation" class="btn-primary" style="font-size: 0.75rem; padding: 3px 8px; white-space: nowrap; background: #0284c7;">💾 Save</button>
+                    <button type="button" id="btnCancelStation" class="btn-outline" style="font-size: 0.75rem; padding: 3px 6px;">✕</button>
+                  </div>
+                  <p id="stationEditHelp" style="font-size: 0.69rem; color: #b45309; margin: 3px 0 0 0; line-height: 1.2;">
+                    ⚠️ Note: You can modify your posting station only once.
+                  </p>
+                </div>
+                <div id="stationFeedbackMsg" style="display: none; font-size: 0.72rem; margin-top: 3px;"></div>
+              </div>
+              <div class="emp-field-item highlight-pay">
+                <span class="emp-field-label">Basic Pay</span>
+                <span class="emp-field-val" id="dispEmpBasic">&mdash;</span>
+              </div>
+              <div class="emp-field-item highlight-ot">
+                <span class="emp-field-label">OT Rate (@ per day)</span>
+                <span class="emp-field-val" id="dispEmpOtDay">&mdash;</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Mileage Rates (Per 100 Miles) -->
+          <div class="emp-master-section">
+            <h4 class="emp-section-heading">Mileage Rates (Per 100 Miles)</h4>
+            <div class="emp-master-grid">
+              <div class="emp-field-item">
+                <span class="emp-field-label">Mail / Express (M)</span>
+                <span class="emp-field-val" id="dispEmpMailRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Passenger (P)</span>
+                <span class="emp-field-val" id="dispEmpPassRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Shunting (OP)</span>
+                <span class="emp-field-val" id="dispEmpShntRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Goods (G)</span>
+                <span class="emp-field-val" id="dispEmpGdsRate">&mdash;</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Allowances & Duty Rates -->
+          <div class="emp-master-section">
+            <h4 class="emp-section-heading">Allowance &amp; Special Duty Rates</h4>
+            <div class="emp-master-grid">
+              <div class="emp-field-item">
+                <span class="emp-field-label">Sunday / Gazetted</span>
+                <span class="emp-field-val" id="dispEmpSdGhRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Operating Mail (M)</span>
+                <span class="emp-field-val" id="dispEmpOpMailRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Operating Shunt (OP)</span>
+                <span class="emp-field-val" id="dispEmpOpShntRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Operating Pass (P)</span>
+                <span class="emp-field-val" id="dispEmpOpPassRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Operating Goods (G)</span>
+                <span class="emp-field-val" id="dispEmpOpGdsRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Custom Duty Rate</span>
+                <span class="emp-field-val" id="dispEmpCustomRate">&mdash;</span>
+              </div>
+              <div class="emp-field-item">
+                <span class="emp-field-label">Leave / 55% Rate</span>
+                <span class="emp-field-val" id="dispEmpLeave55Rate">&mdash;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Employee Portal Tabs -->
+      <div class="emp-portal-tabs">
+        <button id="tabBtnOp72" class="emp-tab-btn active" type="button">
+          &#x1F4CB; 1. OP-72 Work &amp; OverTime
+        </button>
+        <button id="tabBtnAmountSummary" class="emp-tab-btn" type="button">
+          &#x1F4B0; 2. Amount Summary
+        </button>
+        <button id="tabBtnChat" class="emp-tab-btn" type="button">
+          &#x1F4AC; 3. Chat with Main Admin (Vicky Ch)
+        </button>
+        <button id="tabBtnChangePassword" class="emp-tab-btn" type="button">
+          &#x1F512; 4. Change Password
+        </button>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════
+           TAB 1: OP-72 for Single Employee (Read-Only)
+           ══════════════════════════════════════════════════════════════════════ -->
+      <div id="tabContentOp72" class="emp-tab-content active">
+        <div class="emp-control-bar">
+          <div class="emp-control-group">
+            <label for="op72MonthSelect">&#x1F4C5; Select Month:</label>
+            <select id="op72MonthSelect" class="emp-month-select">
+              <option value="2026-01">January - 2026</option>
+              <option value="2026-02">February - 2026</option>
+              <option value="2026-03">March - 2026</option>
+              <option value="2026-04">April - 2026</option>
+              <option value="2026-05">May - 2026</option>
+              <option value="2026-06" selected>June - 2026</option>
+              <option value="2026-07">July - 2026</option>
+              <option value="2026-08">August - 2026</option>
+              <option value="2026-09">September - 2026</option>
+              <option value="2026-10">October - 2026</option>
+              <option value="2026-11">November - 2026</option>
+              <option value="2026-12">December - 2026</option>
+            </select>
+          </div>
+          <span id="op72StatusMsg" class="helper-text" style="margin: 0; font-weight: 600;">Monthly OP-72 sheet
+            (Read-Only).</span>
+          <div>
+            <button id="op72PrintBtn" class="btn-outline" type="button">&#x1F5A8; Print / Save PDF</button>
+          </div>
+        </div>
+
+        <div class="op72-single-wrap">
+          <table class="op72-single-table">
+            <colgroup>
+              <col style="width: 22%;">
+              <col style="width: 32%;">
+              <col style="width: 23%;">
+              <col style="width: 23%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="op-main-th" colspan="4" id="op72TableEmpHeader">
+                  OP-72 — EMPLOYEE WORK &amp; OVERTIME SHEET
+                </th>
+              </tr>
+              <tr>
+                <th class="op-sub-th" style="width: 22%;">Date</th>
+                <th class="op-sub-th" style="width: 32%;">Duty</th>
+                <th class="op-sub-th" style="width: 23%;">OT (hh:mm)</th>
+                <th class="op-sub-th" style="width: 23%;">Mileage</th>
+              </tr>
+            </thead>
+            <tbody id="op72DailyBody">
+              <!-- 31 Daily Date Rows Dynamically Generated -->
+            </tbody>
+            <tbody id="op72SummaryBody">
+              <!-- 11 Summary Rows Dynamically Generated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════
+           TAB 2: Amount Summary for Single Employee (Read-Only)
+           ══════════════════════════════════════════════════════════════════════ -->
+      <div id="tabContentAmountSummary" class="emp-tab-content">
+        <div class="emp-control-bar">
+          <div class="emp-control-group">
+            <label for="amtsMonthSelect">&#x1F4C5; Select Month:</label>
+            <select id="amtsMonthSelect" class="emp-month-select">
+              <option value="2026-01">January - 2026</option>
+              <option value="2026-02">February - 2026</option>
+              <option value="2026-03">March - 2026</option>
+              <option value="2026-04">April - 2026</option>
+              <option value="2026-05">May - 2026</option>
+              <option value="2026-06" selected>June - 2026</option>
+              <option value="2026-07">July - 2026</option>
+              <option value="2026-08">August - 2026</option>
+              <option value="2026-09">September - 2026</option>
+              <option value="2026-10">October - 2026</option>
+              <option value="2026-11">November - 2026</option>
+              <option value="2026-12">December - 2026</option>
+            </select>
+          </div>
+          <div>
+            <button id="amtsPrintBtn" class="btn-outline" type="button">&#x1F5A8; Print / Save PDF</button>
+          </div>
+        </div>
+
+        <div class="amts-single-wrap">
+          <!-- Centered Title Banner -->
+          <div id="amtsSingleBanner" class="amts-single-banner">
+            MILEAGE SUMMARY OF RWP SHED JUNE - 2026
+          </div>
+
+          <!-- Single Employee 6-Column Card Block (PDF Replica) -->
+          <table class="amts-single-table">
+            <colgroup>
+              <col style="width: 17%;">
+              <col style="width: 13.2%;">
+              <col style="width: 17%;">
+              <col style="width: 15.1%;">
+              <col style="width: 17%;">
+              <col style="width: 20.7%;">
+            </colgroup>
+            <tbody id="amtsSingleBody">
+              <!-- Dynamically rendered 12 rows for the single employee -->
+            </tbody>
+          </table>
+
+          <!-- Signatures Footer -->
+          <div class="amts-single-footer">
+            <div>
+              BILL CLERK
+              <div class="amts-single-footer-sub">VERIFIED BY</div>
+            </div>
+            <div>
+              AME/RWP
+              <div class="amts-single-footer-sub">COUNTER SIGN BY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════
+           TAB 3: Chat Box with Main Admin Vicky Ch
+           ══════════════════════════════════════════════════════════════════════ -->
+      <div id="tabContentChat" class="emp-tab-content">
+        <div class="chat-box-wrap">
+          <!-- Chat Header -->
+          <div class="chat-box-header">
+            <div class="chat-admin-info">
+              <div class="chat-admin-avatar">&#x1F451;</div>
+              <div class="chat-admin-text">
+                <h3 id="chatHeaderTitle">Main Admin: Vicky Ch</h3>
+                <p id="chatHeaderSub">Overtime &amp; Discrepancy Support Channel</p>
+              </div>
+            </div>
+            <div class="chat-online-badge">
+              <span class="chat-online-dot"></span> Admin Online
+            </div>
+          </div>
+
+          <!-- Messages Stream -->
+          <div id="chatMessagesArea" class="chat-messages-area">
+            <!-- Dynamically populated bubbles -->
+          </div>
+
+          <!-- Quick Discrepancy Report Chips -->
+          <div class="chat-chips-bar">
+            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b;">Quick Topics:</span>
+            <button class="chat-chip" type="button"
+              data-msg="Overtime (OT) hours discrepancy in OP-72 sheet. Kindly check.">⚠️ OT Discrepancy</button>
+            <button class="chat-chip" type="button"
+              data-msg="Mileage KM count mismatch for this month. Kindly correct.">🚗 Mileage Correction</button>
+            <button class="chat-chip" type="button" data-msg="Leave / 55% allowance missing in Amount Summary.">🏥 55%
+              Leave Missing</button>
+            <button class="chat-chip" type="button" data-msg="Duty type needs correction in daily records.">📋 Duty Type
+              Error</button>
+          </div>
+
+          <!-- Input Bar -->
+          <form id="chatForm" class="chat-input-bar">
+            <input type="text" id="chatInputText" placeholder="Type your error or correction message to Vicky Ch..."
+              autocomplete="off" required>
+            <button type="submit" class="chat-send-btn">&#x27A4; Send</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════
+           TAB 4: Change Password for Employee
+           ══════════════════════════════════════════════════════════════════════ -->
+      <div id="tabContentChangePassword" class="emp-tab-content">
+        <div style="max-width: 480px; margin: 24px auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <div style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 8px;">&#x1F512;</div>
+            <h3 style="margin: 0 0 4px 0; color: #0f172a; font-size: 1.2rem;">Change Your Password</h3>
+            <p style="margin: 0; color: #64748b; font-size: 0.86rem;">Update your account password. Default password is your SAP ID.</p>
+          </div>
+
+          <div id="empChangePwdAlert" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; margin-bottom: 16px;"></div>
+
+          <form id="empChangePasswordForm">
+            <div style="margin-bottom: 14px;">
+              <label for="empCurrentPwd" style="display: block; font-weight: 600; font-size: 0.86rem; color: #334155; margin-bottom: 6px;">
+                Current Password <span style="color: #cf222e;">*</span>
+              </label>
+              <div style="position: relative;">
+                <input type="password" id="empCurrentPwd" placeholder="Enter current password (or SAP ID)" required style="width: 100%; padding: 8px 38px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; box-sizing: border-box;" autocomplete="current-password">
+                <button type="button" class="btn-pwd-toggle-inline" data-target="empCurrentPwd" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.95rem;">&#x1F441;&#xFE0F;</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+              <label for="empNewPwd" style="display: block; font-weight: 600; font-size: 0.86rem; color: #334155; margin-bottom: 6px;">
+                New Password <span style="color: #cf222e;">*</span>
+              </label>
+              <div style="position: relative;">
+                <input type="password" id="empNewPwd" placeholder="Enter new password (min 4 characters)" minlength="4" required style="width: 100%; padding: 8px 38px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; box-sizing: border-box;" autocomplete="new-password">
+                <button type="button" class="btn-pwd-toggle-inline" data-target="empNewPwd" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.95rem;">&#x1F441;&#xFE0F;</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 18px;">
+              <label for="empConfirmPwd" style="display: block; font-weight: 600; font-size: 0.86rem; color: #334155; margin-bottom: 6px;">
+                Confirm New Password <span style="color: #cf222e;">*</span>
+              </label>
+              <div style="position: relative;">
+                <input type="password" id="empConfirmPwd" placeholder="Confirm new password" minlength="4" required style="width: 100%; padding: 8px 38px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; box-sizing: border-box;" autocomplete="new-password">
+                <button type="button" class="btn-pwd-toggle-inline" data-target="empConfirmPwd" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.95rem;">&#x1F441;&#xFE0F;</button>
+              </div>
+            </div>
+
+            <button type="submit" id="empSubmitChangePwdBtn" class="btn-primary" style="width: 100%; padding: 10px; font-size: 0.95rem; font-weight: 700; border-radius: 8px; cursor: pointer;">
+              Update Password
+            </button>
+          </form>
+        </div>
+      </div>
+
     </section>
   </main>
 
   <script src="auth-guard.js"></script>
-  <script src="employee-home.js"></script>
+  <script src="Employee_Master.data.js"></script>
+  <script src="Group_Master.data.js"></script>
+  <script src="pay-revisions.js"></script>
+  <script src="employee-home.js?v=6.0"></script>
 </body>
+
 </html>

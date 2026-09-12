@@ -4,23 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Amount Summary</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=4.2">
   <style>
     /* ─────────────────────────────────────────────
-       Amount Summary — PDF-exact layout
+       Amount Summary — Exact PDF Replica Stylesheet
+       Matching 'Amount Summary staff.pdf'
+       Exact 50% Left Employee + 50% Right Employee Split
     ───────────────────────────────────────────── */
 
-    /* Top-right "STATIONARY STAFF" badge */
-    .amts-badge {
-      position: absolute;
-      top: 8px;
-      right: 16px;
-      font-style: italic;
-      font-weight: 700;
-      font-size: 0.82rem;
-      color: #5b4fcf;
-      letter-spacing: 0.04em;
-      pointer-events: none;
+    .simple-page {
+      width: 88% !important;
+      max-width: 88% !important;
+      margin: 0 auto 24px auto !important;
+      padding: 0 8px !important;
+      box-sizing: border-box !important;
     }
 
     .amts-toolbar {
@@ -32,228 +29,443 @@
     }
     .amts-toolbar h2 { margin: 0; }
     .amts-status {
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       color: var(--text-subtle);
     }
 
-    .amts-wrap {
-      position: relative;
-      overflow-x: auto;
-      overflow-y: auto;
-      max-height: calc(100vh - 220px);
-      border: 1px solid #b0c8e0;
+    .amts-sheet-container {
+      background: #ffffff;
+      padding: 12px 14px 20px 14px;
+      border: 1px solid #d0d7de;
       border-radius: 6px;
-      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-x: hidden !important;
     }
 
-    /* ── Main table ──────────────────────────────── */
+    /* ── Title Banner Table (Full Width = 100% of Sheet) ── */
+    .amt-title-wrap {
+      display: block !important;
+      width: 100% !important;
+      margin-bottom: 6px !important;
+    }
+
+    .amt-title-table {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
+      border-collapse: collapse !important;
+      font-family: "Times New Roman", Times, Georgia, serif !important;
+      margin: 0 auto !important;
+      table-layout: fixed !important;
+    }
+
+    .amt-title-table td {
+      background: #d9e1f2 !important;
+      color: #000000 !important;
+      font-family: "Times New Roman", Times, Georgia, serif !important;
+      font-weight: bold !important;
+      font-size: 13pt !important;
+      text-align: center !important;
+      padding: 7px 8px !important;
+      letter-spacing: 0.02em !important;
+      border: 2px solid #000000 !important;
+      box-sizing: border-box !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      line-height: 1.25 !important;
+      cursor: text;
+      transition: background-color 0.15s ease;
+    }
+    .amt-title-table td:hover {
+      background: #c8d5ee !important;
+    }
+    .amt-title-table td:focus {
+      outline: 2px dashed #0969da !important;
+      background: #d0defa !important;
+    }
+
+    /* ── Main table (15% Increased Cell Heights & Vertical Padding) ── */
     #amtTable {
-      border-collapse: collapse;
-      font-size: 7.5pt;
-      font-family: "Calibri", "Segoe UI", Arial, sans-serif;
-      width: 100%;
-      table-layout: fixed;
+      border-collapse: collapse !important;
+      font-family: "Times New Roman", Times, Georgia, serif !important;
+      font-size: 12pt !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
+      table-layout: fixed !important;
+      background: #ffffff !important;
+      margin: 0 auto !important;
     }
 
     #amtTable td {
-      border: 1px solid #9ab5d0;
-      padding: 2px 3px;
+      border: 1px solid #000000;
+      padding: 6px 2px !important;
       vertical-align: middle;
       white-space: nowrap;
       text-align: center;
       overflow: hidden;
+      box-sizing: border-box;
+      font-family: "Times New Roman", Times, Georgia, serif;
+      color: #000000;
+      font-weight: bold;
+      line-height: 1.35 !important;
     }
 
-    /* ── Column widths (14 cols total + 1 sep = 14)
-         Per employee: label | sublbl | count | rate | amt | running-total
-         Left(6) | sep(1) | Right(6) = 13 columns per pair
-    ──────────────────────────────────────────── */
-    col.c-lbl   { width: 8%;   }
-    col.c-sub   { width: 4%;   }
-    col.c-cnt   { width: 4.5%; }
-    col.c-rate  { width: 5%;   }
-    col.c-amt   { width: 5.5%; }
-    col.c-run   { width: 3%;   }
-    col.c-sep   { width: 0.8%; }
+    /* ── Proportional Column Widths (14, 10, 12, 7, 8, 15 ratios) ──
+       Left Employee (Cols 0-5 = 50.0%) | Right Employee (Cols 6-11 = 50.0%) ── */
+    col.col-0, col.col-6   { width: 10.6% !important; }  /* 14.0 parts (Label / Name) */
+    col.col-1, col.col-7   { width: 7.6% !important; }   /* 10.0 parts (Sublabel: M/P/OPG) */
+    col.col-2, col.col-8   { width: 9.1% !important; }   /* 12.0 parts (Count / SAP ID lbl) */
+    col.col-3, col.col-9   { width: 5.3% !important; }   /* 7.0 parts (Rate / SAP ID val) */
+    col.col-4, col.col-10  { width: 6.1% !important; }   /* 8.0 parts (Amount / Basic Pay lbl) */
+    col.col-5, col.col-11  { width: 11.3% !important; }  /* 15.0 parts (Running Total / Basic Pay val / Mileage) */
 
-    /* ── Employee block thick border ── */
-    tbody.amt-emp-block tr:first-child td               { border-top:    2px solid #000; }
-    tbody.amt-emp-block tr:last-child  td               { border-bottom: 2px solid #000; }
-    tbody.amt-emp-block tr td:first-child               { border-left:   2px solid #000; }
-    tbody.amt-emp-block tr td:last-child                { border-right:  2px solid #000; }
-    /* separator column keeps its own thick left/right */
-    tbody.amt-emp-block tr td.amt-sep                   { border-left: 2px solid #000; border-right: 2px solid #000; }
+    /* ── Borders ── */
+    td.b-left-thick   { border-left: 2px solid #000000 !important; }
+    td.b-right-thick  { border-right: 2px solid #000000 !important; }
+    tr.b-top-thick td { border-top: 2px solid #000000 !important; }
+    tr.b-bot-thick td { border-bottom: 2px solid #000000 !important; }
 
-    /* ── Title row ── */
-    .amt-title-row td {
-      background: #1f4e79;
-      color: #fff;
-      font-weight: 800;
-      font-style: italic;
-      font-size: 9pt;
-      text-align: center;
-      padding: 7px 6px;
-      letter-spacing: 0.03em;
-      border-color: #1f4e79;
-    }
-
-    /* ── Employee name row ── */
+    /* ── Employee header row (+15% height) ── */
     .amt-empname {
-      background: #bdd7ee;
-      font-weight: 800;
-      color: #1f3864;
-      font-size: 9pt;
-      text-align: left;
-      padding: 4px 5px;
+      background: #f2dcdb;
+      font-weight: bold;
+      color: #000000;
+      font-size: 13pt !important;
+      text-align: center;
+      padding: 7.5px 6px !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
+      border-left: 2px solid #000000 !important;
     }
     .amt-meta-lbl {
-      background: #dce6f1;
-      font-weight: 700;
-      color: #1f3864;
-      font-size: 6.5pt;
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
+      font-size: 10.5pt !important;
       text-align: center;
+      line-height: 1.1;
+      padding: 3.5px 1px !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
     }
     .amt-meta-val {
-      background: #fff;
-      font-weight: 700;
-      color: #1f3864;
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
+      font-size: 12pt !important;
       text-align: center;
+      padding: 3.5px 2px !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
+    }
+    .amt-basic-val {
+      background: #ffffff;
+      font-weight: bold;
+      color: #c00000;
+      font-size: 14.5pt !important;
+      text-align: center;
+      padding: 3.5px 2px !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
+      border-right: 2px solid #000000 !important;
     }
 
-    /* ── Row labels ── */
+    /* ── Data cells ── */
     td.amt-lbl {
-      background: #dce6f1;
-      font-weight: 700;
-      color: #1f3864;
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
+      font-size: 12pt !important;
       text-align: center;
     }
-    td.amt-lbl-blue {
-      background: #dce6f1;
-      font-weight: 700;
-      color: #1f3864;
-      text-align: right;
-      padding-right: 2px;
-      border-right: none;
+    td.amt-custom-lbl {
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
+      font-size: 11pt !important;
+      text-align: center;
+      line-height: 1.15 !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
     }
     td.amt-sublbl {
-      background: #dce6f1;
-      font-weight: 600;
-      color: #1f3864;
-      text-align: left;
-      padding-left: 2px;
-      border-left: none;
-    }
-
-    /* ── Count cells ── */
-    td.amt-cnt {
-      background: #fff;
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
+      font-size: 12pt !important;
       text-align: center;
-      color: #1f3864;
-      font-weight: 600;
     }
-
-    /* ── Rate cells — RED ── */
+    td.amt-cnt {
+      background: #ffffff;
+      text-align: center;
+      color: #000000;
+      font-weight: bold;
+      font-size: 12pt !important;
+    }
     td.amt-rate-red {
-      background: #fff;
+      background: #ffffff;
       text-align: center;
       color: #c00000;
-      font-weight: 700;
+      font-weight: bold;
+      font-size: 12pt !important;
     }
-
-    /* ── Amount cells ── */
     td.amt-amt {
-      background: #fff;
-      text-align: right;
-      font-weight: 600;
-      color: #1f3864;
-      padding-right: 4px;
+      background: #ffffff;
+      text-align: center;
+      font-weight: bold;
+      color: #000000;
+      font-size: 12pt !important;
     }
 
-    /* ── Running total — dark navy, VERTICAL text, rowspan 10 ── */
+    /* ── Running total (vertical text) ── */
     td.amt-running {
-      background: #1f4e79;
-      color: #fff;
-      font-weight: 800;
+      background: #ffffff;
+      color: #000000;
+      font-weight: bold;
       text-align: center;
       vertical-align: middle;
-      padding: 0;
-      border: 1px solid #9ab5d0;
+      padding: 0 !important;
+      border-left: 2px solid #000000 !important;
+      border-right: 2px solid #000000 !important;
+      border-top: 1px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
     }
     td.amt-running .run-inner {
       display: block;
       writing-mode: vertical-rl;
       transform: rotate(180deg);
       white-space: nowrap;
-      font-size: 7.5pt;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      padding: 4px 2px;
-      width: 100%;
+      font-size: 14.5pt !important;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      margin: 0 auto;
       text-align: center;
     }
 
-    /* ── MILEAGE label cell (light yellow) ── */
+    /* ── Bottom Right Corner (under running total) ── */
     td.amt-mile-lbl {
-      background: #ffeb9c;
-      font-weight: 700;
-      color: #9c5700;
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
       text-align: center;
-      font-size: 6.5pt;
+      font-size: 10.5pt !important;
+      padding: 3.5px 2px !important;
+      border-left: 2px solid #000000 !important;
+      border-right: 2px solid #000000 !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 1px solid #000000 !important;
     }
-
-    /* ── 55% row ── */
-    td.amt-lbl-55 {
-      background: #ffc000;
-      color: #000;
-      font-weight: 800;
+    td.amt-mile-val {
+      background: #ffffff;
+      font-weight: bold;
+      color: #000000;
       text-align: center;
-    }
-
-    /* ── Grand total / mileage total cell (green) ── */
-    td.amt-grand {
-      background: #00b050;
-      color: #fff;
-      font-weight: 800;
-      text-align: center;
-    }
-
-    /* ── Separator column ── */
-    td.amt-sep {
-      background: #fff;
-      padding: 0;
-    }
-
-    /* ── Footer ── */
-    .amt-footer td {
-      background: #dce6f1;
-      font-weight: 700;
-      color: #1f3864;
-      text-align: center;
-      padding: 14px 8px;
-      font-size: 8.5pt;
-      border-top: 2px solid #1f4e79;
+      font-size: 12pt !important;
+      padding: 3.5px 2px !important;
+      border-left: 2px solid #000000 !important;
+      border-right: 2px solid #000000 !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
     }
 
     /* ── Spacer row between employee pairs ── */
-    .amt-spacer td { height: 5px; background: #eef4fb; border: none; }
+    .amt-spacer td {
+      height: 10px !important;
+      background: #ffffff;
+      border: none !important;
+    }
+
+    /* ── Footer Table (50% Left Signature + 50% Right Signature = 100%) ── */
+    .amt-footer-wrap {
+      display: block !important;
+      width: 100% !important;
+      margin-top: 22px !important;
+    }
+
+    .amt-footer-table {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
+      border-collapse: collapse !important;
+      font-family: "Times New Roman", Times, Georgia, serif !important;
+      margin: 0 auto !important;
+      table-layout: fixed !important;
+    }
+    .amt-footer-table td {
+      border: none !important;
+      background: #ffffff !important;
+      color: #000000 !important;
+      font-weight: bold !important;
+      text-align: center !important;
+      font-size: 11.5pt !important;
+      padding: 7px 8px !important;
+      vertical-align: top !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      line-height: 1.3 !important;
+    }
+    .amt-footer-sub {
+      font-size: 8.5pt !important;
+      font-weight: normal !important;
+      color: #333333 !important;
+      margin-top: 3px !important;
+      letter-spacing: 0.04em !important;
+    }
 
     /* ─────────────────────────────────────────────
-       PRINT — A3 landscape, all 5 pairs on one page
+       PRINT STYLES — Exact Single Page A4/Legal PORTRAIT
     ───────────────────────────────────────────── */
     @media print {
-      .amts-toolbar   { display: none !important; }
-      .amts-badge     { display: none !important; }
-      .site-header, .nav-bar { display: none !important; }
-      .bg-shape       { display: none !important; }
-      .amts-wrap      { max-height: none; overflow: visible; border: none; border-radius: 0; }
-      .simple-page, .panel { width: 100%; padding: 4px; margin: 0; box-shadow: none; border: none; background: none; }
-      body            { background: #fff; }
-      #amtTable       { font-size: 6.5pt; width: 100%; }
-      #amtTable td    { padding: 1px 2px; }
-      td.amt-running .run-inner { font-size: 6pt; }
-      .amt-title-row td { font-size: 8pt; padding: 4px; }
-      .amt-empname    { font-size: 7.5pt; }
-      @page           { size: A3 landscape; margin: 6mm; }
+      @page {
+        size: portrait;
+        margin: 4mm 4mm 4mm 4mm !important;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        overflow: hidden !important;
+      }
+      .amts-toolbar, .site-header, .nav-bar, .bg-shape {
+        display: none !important;
+      }
+      .simple-page, .panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: #ffffff !important;
+      }
+      .amts-sheet-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      /* ── Title Banner in Portrait Print ── */
+      .amt-title-wrap {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 0 2.5mm 0 !important;
+      }
+      .amt-title-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+      }
+      .amt-title-table td {
+        font-size: 9.5pt !important;
+        padding: 3px 4px !important;
+        line-height: 1.2 !important;
+        border: 1.5px solid #000000 !important;
+        background: #d9e1f2 !important;
+        outline: none !important;
+      }
+      .amt-title-table td:hover,
+      .amt-title-table td:focus {
+        background: #d9e1f2 !important;
+        outline: none !important;
+      }
+
+      /* ── Main Table in Portrait Print ── */
+      #amtTable {
+        width: 100% !important;
+        table-layout: fixed !important;
+        font-size: 7.2pt !important;
+        border-collapse: collapse !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      #amtTable td {
+        padding: 1.8px 1px !important;
+        line-height: 1.15 !important;
+        font-size: 7.2pt !important;
+      }
+
+      .amt-empname {
+        font-size: 8.5pt !important;
+        padding: 2.5px 3px !important;
+        background: #f2dcdb !important;
+      }
+      td.amt-custom-lbl {
+        font-size: 6.8pt !important;
+        line-height: 1.05 !important;
+        white-space: normal !important;
+      }
+      .amt-meta-lbl {
+        font-size: 6pt !important;
+        padding: 0.8px !important;
+        line-height: 1.05 !important;
+      }
+      .amt-meta-val {
+        font-size: 7.2pt !important;
+        padding: 0.8px !important;
+      }
+      .amt-basic-val {
+        font-size: 8.5pt !important;
+        padding: 0.8px !important;
+        color: #c00000 !important;
+      }
+
+      td.amt-lbl, td.amt-sublbl, td.amt-cnt, td.amt-rate-red, td.amt-amt {
+        font-size: 7.2pt !important;
+      }
+      td.amt-running .run-inner {
+        font-size: 8.5pt !important;
+        letter-spacing: 0.03em !important;
+      }
+      td.amt-mile-lbl {
+        font-size: 6pt !important;
+        padding: 0.8px !important;
+      }
+      td.amt-mile-val {
+        font-size: 7.2pt !important;
+        padding: 0.8px !important;
+      }
+
+      .amt-spacer td {
+        height: 3.5mm !important;
+        line-height: 3.5mm !important;
+        padding: 0 !important;
+      }
+
+      /* ── Footer in Portrait Print ── */
+      .amt-footer-wrap {
+        display: block !important;
+        width: 100% !important;
+        margin: 3.5mm 0 0 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .amt-footer-table {
+        width: 100% !important;
+      }
+      .amt-footer-table td {
+        font-size: 8pt !important;
+        padding: 2.5px 3px !important;
+        line-height: 1.15 !important;
+      }
+      .amt-footer-sub {
+        font-size: 6pt !important;
+        margin-top: 1px !important;
+      }
     }
   </style>
 </head>
@@ -279,42 +491,87 @@
     <a class="nav-link active" href="amount-summary.html">Amount Summary</a>
     <a class="nav-link" href="raw-data.html">RawData</a>
     <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+    <a class="nav-link" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link" href="video.html">Video</a>
+    <a class="nav-link" href="user-management.html">User Management</a>
   </nav>
 
   <main class="simple-page">
-    <section class="panel" style="position:relative;">
+    <section class="panel">
 
-      <!-- Top-right badge -->
-      <div class="amts-badge">STATIONARY STAFF</div>
-
-      <div class="amts-toolbar">
-        <h2>Amount Summary</h2>
+      <div class="amts-toolbar" style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h2 style="margin: 0;">Amount Summary</h2>
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px;">
+          <label for="amtsMonthInput" style="font-size: 0.82rem; font-weight: 700; color: #475569;">Month:</label>
+          <input type="month" id="amtsMonthInput" value="2026-06" style="border: none; font-weight: 700; font-size: 0.88rem; outline: none; color: #0969da; cursor: pointer;">
+        </div>
         <button id="amtsLoadBtn" class="btn-primary" type="button">&#x21E9; Load from OP-72</button>
         <button id="amtsPrintBtn" class="btn-outline" type="button">&#x1F5A8; Print / Save PDF</button>
         <span id="amtsStatus" class="amts-status">OP-72 page pe Load All Employees chalayein, phir yahan load karein.</span>
       </div>
 
-      <div class="amts-wrap">
+      <div class="amts-sheet-container">
+        <!-- Centered Title Header Banner (Exact Full Width = 100%, Editable) -->
+        <div class="amt-title-wrap">
+          <table class="amt-title-table">
+            <tr>
+              <td id="amtTitleBanner" contenteditable="true" spellcheck="false" title="Click to edit header banner">
+                MILEAGE SUMMARY OF RWP SHED ASSISTANT DRIVERS JUNE - 2026
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- 10 Employees Grid: Exact Column Widths per User Request (14, 10, 12, 7, 8, 15) -->
         <table id="amtTable">
-          <!-- colgroup: 13 cols × 5 pairs, but single colgroup describes one repeat unit -->
-          <!-- Label | SubLbl | Count | Rate | Amt | RunTotal | Sep | Label | SubLbl | Count | Rate | Amt | RunTotal -->
           <colgroup>
-            <col class="c-lbl">  <col class="c-sub">  <col class="c-cnt">
-            <col class="c-rate"> <col class="c-amt">   <col class="c-run">
-            <col class="c-sep">
-            <col class="c-lbl">  <col class="c-sub">  <col class="c-cnt">
-            <col class="c-rate"> <col class="c-amt">   <col class="c-run">
+            <!-- Left Employee (Cols 0 to 5): 14, 10, 12, 7, 8, 15 -->
+            <col class="col-0" style="width: 10.6% !important;">
+            <col class="col-1" style="width: 7.6% !important;">
+            <col class="col-2" style="width: 9.1% !important;">
+            <col class="col-3" style="width: 5.3% !important;">
+            <col class="col-4" style="width: 6.1% !important;">
+            <col class="col-5" style="width: 11.3% !important;">
+
+            <!-- Right Employee (Cols 6 to 11): 14, 10, 12, 7, 8, 15 -->
+            <col class="col-6" style="width: 10.6% !important;">
+            <col class="col-7" style="width: 7.6% !important;">
+            <col class="col-8" style="width: 9.1% !important;">
+            <col class="col-9" style="width: 5.3% !important;">
+            <col class="col-10" style="width: 6.1% !important;">
+            <col class="col-11" style="width: 11.3% !important;">
           </colgroup>
           <tbody id="amtBody"></tbody>
         </table>
+
+        <!-- Signature Footer (50% Left Employee Signature + 50% Right Employee Signature) -->
+        <div class="amt-footer-wrap">
+          <table class="amt-footer-table">
+            <colgroup>
+              <col style="width: 50%;">
+              <col style="width: 50%;">
+            </colgroup>
+            <tr>
+              <td>
+                BILL CLERK
+                <div class="amt-footer-sub">VERIFIED BY</div>
+              </td>
+              <td>
+                AME/RWP
+                <div class="amt-footer-sub">COUNTER SIGN BY</div>
+              </td>
+            </tr>
+          </table>
+        </div>
       </div>
 
     </section>
   </main>
 
-  <script src="Employee_Master.data.js"></script>
-  <script src="Group_Master.data.js"></script>
-  <script src="auth-guard.js"></script>
-  <script src="amount-summary.js"></script>
+  <script src="Employee_Master.data.js?v=4.6"></script>
+  <script src="Group_Master.data.js?v=4.6"></script>
+  <script src="auth-guard.js?v=4.6"></script>
+  <script src="pay-revisions.js"></script>
+  <script src="amount-summary.js?v=4.7"></script>
 </body>
 </html>

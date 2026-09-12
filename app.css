@@ -313,6 +313,12 @@ label {
   font-size: 0.87rem;
 }
 
+.required-star {
+  color: #cf222e;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
 input,
 textarea,
 select {
@@ -340,6 +346,63 @@ select:focus {
   outline: none;
   border-color: #2d77ba;
   box-shadow: 0 0 0 3px rgba(45, 119, 186, 0.15);
+}
+
+.autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.employee-dropdown-list {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  max-height: 230px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.22);
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  z-index: 1050;
+  color: #1e293b;
+}
+
+.employee-dropdown-item {
+  padding: 7px 12px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.35;
+  transition: background-color 0.1s ease, color 0.1s ease;
+  user-select: none;
+}
+
+.employee-dropdown-item:hover,
+.employee-dropdown-item.is-selected {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.employee-dropdown-empty {
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  color: #64748b;
+  font-style: italic;
+  user-select: none;
+}
+
+.submit-hint {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475467;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
 }
 
 .declarations {
@@ -409,6 +472,50 @@ button {
 .btn-outline:hover,
 .btn-danger:hover {
   transform: translateY(-1px);
+}
+
+.btn-link-loco {
+  position: relative;
+  transition: all 0.18s ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.btn-link-loco:hover {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #15803d;
+}
+
+.btn-link-loco.is-active,
+.btn-link-loco[aria-pressed="true"] {
+  background: #15803d !important;
+  color: #ffffff !important;
+  border-color: #14532d !important;
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.45), 0 0 0 2px rgba(34, 197, 94, 0.35) !important;
+  transform: translateY(1px) !important;
+}
+
+.btn-link-loco.is-active:hover {
+  background: #166534 !important;
+  color: #ffffff !important;
+}
+
+.btn-link-loco .badge-linked {
+  display: inline-block;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  font-weight: 800;
 }
 
 .helper-text {
@@ -655,6 +762,55 @@ tbody tr:focus-within .sticky-first-col {
   min-height: 30px;
   background: #f8fcff;
   color: var(--text-main);
+}
+
+#op72Toolbar .op72-page-size-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+#op72PageSize {
+  border: 1px solid #8ea7bf;
+  border-radius: 7px;
+  padding: 4px 6px;
+  min-height: 30px;
+  background: #f8fcff;
+  color: var(--text-main);
+}
+
+.op72-print-header {
+  display: none;
+  border: 1px solid #7ea6cd;
+  background: #eef5fb;
+  border-radius: 6px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+}
+
+.op72-print-header-top {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.op72-print-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #0a233b;
+  text-transform: uppercase;
+}
+
+.op72-print-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #183a5c;
 }
 
 #op72SaveState {
@@ -999,14 +1155,35 @@ tbody tr:focus-within .sticky-first-col {
 
 body.genl-print-a4 {
   --genl-page-size: A4;
+  --sheet-page-size: A4;
+  --sheet-page-orientation: portrait;
 }
 
 body.genl-print-a3 {
   --genl-page-size: A3;
+  --sheet-page-size: A3;
+  --sheet-page-orientation: portrait;
 }
 
 body.genl-print-legal {
   --genl-page-size: Legal;
+  --sheet-page-size: Legal;
+  --sheet-page-orientation: portrait;
+}
+
+body.op72-print-a4 {
+  --sheet-page-size: A4;
+  --sheet-page-orientation: landscape;
+}
+
+body.op72-print-a3 {
+  --sheet-page-size: A3;
+  --sheet-page-orientation: landscape;
+}
+
+body.op72-print-legal {
+  --sheet-page-size: Legal;
+  --sheet-page-orientation: landscape;
 }
 
 body.genl-print-legal .simple-page {
@@ -1140,8 +1317,8 @@ td[contenteditable="true"]:focus {
 
 @media print {
   @page {
-    size: var(--genl-page-size, A3) portrait;
-    margin: 8mm 8mm 10mm 8mm;
+    size: var(--sheet-page-size, var(--genl-page-size, A3)) var(--sheet-page-orientation, portrait);
+    margin: 6mm 6mm 6mm 6mm;
   }
 
   .bg-shape,
@@ -1149,18 +1326,24 @@ td[contenteditable="true"]:focus {
   .nav-bar,
   .genl-toolbar,
   #genlStatus,
-  .genl-missing-panel {
+  .genl-missing-panel,
+  .op72-heading-row,
+  #op72Toolbar,
+  #op72SaveState,
+  #op72Msg {
     display: none !important;
   }
 
-  #genlPrintArea {
+  #genlPrintArea,
+  #op72PrintArea {
     display: block;
     width: 100%;
     max-width: 100%;
     margin: 0;
   }
 
-  .genl-print-header {
+  .genl-print-header,
+  .op72-print-header {
     display: block;
     margin-bottom: 10px;
     width: 100%;
@@ -1169,7 +1352,8 @@ td[contenteditable="true"]:focus {
   .simple-page,
   .panel,
   .sheet-wrap,
-  .genl-sheet-wrap {
+  .genl-sheet-wrap,
+  .op72-sheet-wrap {
     width: 100%;
     margin: 0;
     border: 0;
@@ -1376,5 +1560,23 @@ td[contenteditable="true"]:focus {
   .genl-summary-formula-den {
     font-size: 8pt;
     font-weight: 700;
+  }
+
+  /* ── OP-72 Print Styles ── */
+  #op72Table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    zoom: 1 !important;
+    font-size: 7pt !important;
+  }
+
+  #op72Table th,
+  #op72Table td {
+    padding: 1.5px 2px !important;
+    font-size: 7pt !important;
+    line-height: 1.1 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
 }

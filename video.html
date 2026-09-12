@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Guides &amp; Trainz — Employee Portal</title>
+  <link rel="stylesheet" href="app.css?v=5.0">
+  <style>
+    /* ── Full-Width Page Container ── */
+    .video-page-container {
+      width: 98vw;
+      max-width: 100%;
+      margin: 10px auto 25px auto;
+      padding: 0 12px;
+      box-sizing: border-box;
+    }
+
+    /* ── Dual Split Grid (Left & Right Full Webpage View) ── */
+    .video-dual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 1024px) {
+      .video-dual-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Embed Cards ── */
+    .embed-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border-color, #cbd5e1);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 210px);
+      min-height: 720px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .embed-card.card-youtube {
+      border-top: 4px solid #ef4444;
+    }
+
+    .embed-card.card-trainz {
+      border-top: 4px solid #0284c7;
+    }
+
+    /* ── Card Header Bar ── */
+    .embed-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      flex-shrink: 0;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .embed-header-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .embed-badge-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .badge-youtube {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    .badge-trainz {
+      background: #0284c7;
+      color: #ffffff;
+    }
+
+    .embed-header-text h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .embed-header-text p {
+      margin: 2px 0 0;
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    /* ── Controls / Action Buttons ── */
+    .embed-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-ctrl {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .btn-ctrl:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .btn-ctrl.btn-primary-ctrl {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #0284c7;
+    }
+
+    .btn-ctrl.btn-primary-ctrl:hover {
+      background: #0369a1;
+      border-color: #0369a1;
+    }
+
+    .btn-ctrl.btn-yt-ctrl {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fca5a5;
+    }
+
+    .btn-ctrl.btn-yt-ctrl:hover {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #ef4444;
+    }
+
+    /* ── Sub Navigation Strip ── */
+    .embed-subnav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .embed-subnav-label {
+      font-size: 0.73rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+    }
+
+    .embed-chip-btn {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .embed-chip-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #94a3b8;
+    }
+
+    .embed-chip-btn.active {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+
+    /* ── Embed Frame Area ── */
+    .embed-frame-wrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      overflow: hidden;
+    }
+
+    .embed-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #ffffff;
+    }
+
+    /* ── Initial Placeholder View ── */
+    .embed-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      text-align: center;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      color: #f8fafc;
+      z-index: 5;
+    }
+
+    .embed-placeholder.hidden {
+      display: none !important;
+    }
+
+    .placeholder-icon {
+      font-size: 3.5rem;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    }
+
+    .embed-placeholder h3 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .embed-placeholder p {
+      margin: 0 0 20px;
+      font-size: 0.92rem;
+      color: #94a3b8;
+      max-width: 440px;
+      line-height: 1.5;
+    }
+
+    .placeholder-url-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 480px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      padding: 6px 10px;
+      box-sizing: border-box;
+    }
+
+    .placeholder-url-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-size: 0.88rem;
+      outline: none;
+      padding: 4px;
+    }
+
+    .placeholder-url-bar input::placeholder {
+      color: #64748b;
+    }
+
+    .placeholder-url-bar button {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .placeholder-url-bar button:hover {
+      background: #0369a1;
+    }
+
+    /* ── Fullscreen Mode ── */
+    .embed-card.is-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 99999 !important;
+      border-radius: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      min-height: 100vh !important;
+      margin: 0 !important;
+      border: none !important;
+    }
+
+    .embed-card.is-fullscreen .embed-card-header {
+      background: #0f172a;
+      color: #ffffff;
+      border-bottom: 1px solid #334155;
+    }
+
+    .embed-card.is-fullscreen .embed-subnav {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+
+    .embed-card.is-fullscreen .embed-header-text h2 {
+      color: #ffffff;
+    }
+
+    .embed-card.is-fullscreen .embed-header-text p {
+      color: #94a3b8;
+    }
+
+    .embed-card.is-fullscreen .btn-ctrl {
+      background: #1e293b;
+      color: #f8fafc;
+      border-color: #334155;
+    }
+
+    .embed-card.is-fullscreen .btn-ctrl:hover {
+      background: #334155;
+    }
+
+    .embed-card.is-fullscreen .embed-chip-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border-color: #334155;
+    }
+
+    .embed-card.is-fullscreen .embed-chip-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #0284c7;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Video Guides &amp; Tutorials</h1>
+    <p>Operational instructions &amp; video tutorials for Loco Running Staff</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+    <a class="nav-link" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link active" href="video.html">Video</a>
+    <a class="nav-link" href="user-management.html">User Management</a>
+  </nav>
+
+  <main class="video-page-container">
+    <div class="video-dual-grid">
+
+      <!-- ═══════════════════════════════════════════════════════════════════════
+           CONTAINER 1 (LEFT): MY YOUTUBE CHANNEL (Trainz Contents Developer)
+           ═══════════════════════════════════════════════════════════════════════ -->
+      <section class="embed-card card-youtube" id="youtubeContainer">
+        <div class="embed-card-header">
+          <div class="embed-header-title-group">
+            <div class="embed-badge-icon badge-youtube">&#x25B6;</div>
+            <div class="embed-header-text">
+              <h2>Trainz Contents Developer <span style="font-size: 0.72rem; padding: 2px 7px; background: #fee2e2; color: #b91c1c; border-radius: 999px; font-weight: 700;">@trainzcontentsdeveloper</span></h2>
+              <p>Official YouTube Channel &bull; Pakistan Railways Trainz Simulator Journeys &amp; Routes</p>
+            </div>
+          </div>
+
+          <div class="embed-header-actions">
+            <button class="btn-ctrl" type="button" id="refreshYoutubeBtn" title="Reload YouTube iframe">&#x1F504; Refresh</button>
+            <a class="btn-ctrl btn-yt-ctrl" id="openYoutubeExternalBtn" href="https://youtube.com/@trainzcontentsdeveloper?si=MQBkOUT72c3GviUt" target="_blank" rel="noopener noreferrer" title="Open YouTube Channel in new browser tab">&#x2197; Open Channel</a>
+            <button class="btn-ctrl" type="button" id="fullscreenYoutubeBtn" title="Toggle Fullscreen">&#x26F6; Fullscreen</button>
+          </div>
+        </div>
+
+        <!-- YouTube Quick Selector Bar -->
+        <div class="embed-subnav" id="youtubeSubnav">
+          <span class="embed-subnav-label">&#x1F3AC; Videos:</span>
+          <button class="embed-chip-btn active" type="button" data-video="playlist">&#x1F4FA; All Uploads (Playlist)</button>
+          <button class="embed-chip-btn" type="button" data-video="Lk6Svug-hpo">&#x1F686; 26DN Zakariya Exp</button>
+          <button class="embed-chip-btn" type="button" data-video="axyZv74AHgA">&#x1F686; 3 Trains Cross (Pali Jani)</button>
+          <button class="embed-chip-btn" type="button" data-video="9VfRz3JSNn0">&#x1F686; 13UP Awam Exp (6004)</button>
+        </div>
+
+        <div class="embed-frame-wrapper">
+          <!-- Placeholder overlay shown only if link fails -->
+          <div class="embed-placeholder hidden" id="youtubePlaceholder">
+            <div class="placeholder-icon">&#x1F4FA;</div>
+            <h3>YouTube Channel Embed Container</h3>
+            <p>
+              Paste your YouTube video or channel URL below to load:
+            </p>
+            <div class="placeholder-url-bar">
+              <input type="url" id="youtubeUrlInput" placeholder="https://www.youtube.com/@trainzcontentsdeveloper" autocomplete="off">
+              <button type="button" id="loadYoutubeUrlBtn">Load Channel</button>
+            </div>
+          </div>
+
+          <!-- YouTube Embed iframe (pre-loaded) -->
+          <iframe
+            id="youtubeIframe"
+            class="embed-iframe"
+            title="Trainz Contents Developer - Official YouTube Channel"
+            src="https://www.youtube.com/embed/videoseries?list=UUu5n8C002APsCGfw_NDKnSQ"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════════
+           CONTAINER 2 (RIGHT): MY TRAINZ HTML PAGE (Pak-Trainz / TRS DEP PAK)
+           ═══════════════════════════════════════════════════════════════════════ -->
+      <section class="embed-card card-trainz" id="trainzContainer">
+        <div class="embed-card-header">
+          <div class="embed-header-title-group">
+            <div class="embed-badge-icon badge-trainz">&#x1F682;</div>
+            <div class="embed-header-text">
+              <h2>Pak Trainz Developers <span style="font-size: 0.72rem; padding: 2px 7px; background: #e0f2fe; color: #0369a1; border-radius: 999px; font-weight: 700;">TRS DEP PAK</span></h2>
+              <p>Pakistan Railways Trainz Simulation, Route Layouts &amp; Modules</p>
+            </div>
+          </div>
+
+          <div class="embed-header-actions">
+            <button class="btn-ctrl" type="button" id="refreshTrainzBtn" title="Reload Trainz iframe">&#x1F504; Refresh</button>
+            <a class="btn-ctrl btn-primary-ctrl" id="openTrainzExternalBtn" href="/trs-dep-pak/Pak-Trainz.html" target="_blank" rel="noopener noreferrer" title="Open Trainz page in new browser tab">&#x2197; New Tab</a>
+            <button class="btn-ctrl" type="button" id="fullscreenTrainzBtn" title="Toggle Fullscreen">&#x26F6; Fullscreen</button>
+          </div>
+        </div>
+
+        <!-- Trainz Quick Navigation Subnav -->
+        <div class="embed-subnav" id="trainzSubnav">
+          <span class="embed-subnav-label">&#x1F4C1; Modules:</span>
+          <button class="embed-chip-btn active" type="button" data-trainz-page="Pak-Trainz.html">&#x1F3E0; Pak-Trainz Main</button>
+          <button class="embed-chip-btn" type="button" data-trainz-page="gallery.html">&#x1F5BC;&#xFE0F; Photo Gallery</button>
+          <button class="embed-chip-btn" type="button" data-trainz-page="videos.html">&#x1F3AC; Simulator Videos</button>
+        </div>
+
+        <div class="embed-frame-wrapper">
+          <!-- Placeholder overlay shown only if link fails -->
+          <div class="embed-placeholder hidden" id="trainzPlaceholder">
+            <div class="placeholder-icon">&#x1F687;</div>
+            <h3>Trainz HTML Page Embed Container</h3>
+            <p>
+              Paste your Trainz HTML webpage URL or local path below:
+            </p>
+            <div class="placeholder-url-bar">
+              <input type="text" id="trainzUrlInput" placeholder="/trs-dep-pak/Pak-Trainz.html" autocomplete="off">
+              <button type="button" id="loadTrainzUrlBtn">Load Page</button>
+            </div>
+          </div>
+
+          <!-- Trainz HTML Embed iframe (pre-loaded) -->
+          <iframe
+            id="trainzIframe"
+            class="embed-iframe"
+            title="Pak Trainz Developers"
+            src="/trs-dep-pak/Pak-Trainz.html"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script>
+    // =========================================================================
+    // EMBED CONFIGURATION - PERMANENT CHANNELS & LOCAL MODULES
+    // =========================================================================
+    const YOUTUBE_CHANNEL_ID = "UCu5n8C002APsCGfw_NDKnSQ";
+    const YOUTUBE_UPLOADS_PLAYLIST_ID = "UUu5n8C002APsCGfw_NDKnSQ";
+    const YOUTUBE_EXTERNAL_CHANNEL_URL = "https://youtube.com/@trainzcontentsdeveloper?si=MQBkOUT72c3GviUt";
+    const YOUTUBE_PLAYLIST_EMBED = `https://www.youtube.com/embed/videoseries?list=${YOUTUBE_UPLOADS_PLAYLIST_ID}`;
+
+    // Trainz paths: works in both Express server (http) and direct file opening (file://)
+    const TRAINZ_BASE_PATH = window.location.protocol === "file:"
+      ? "../TRS DEP PAK/"
+      : "/trs-dep-pak/";
+
+    const DEFAULT_CONFIG = {
+      youtubeUrl: YOUTUBE_PLAYLIST_EMBED,
+      youtubeExternal: YOUTUBE_EXTERNAL_CHANNEL_URL,
+      trainzUrl: TRAINZ_BASE_PATH + "Pak-Trainz.html"
+    };
+
+    // DOM Elements - YouTube
+    const youtubeContainer = document.getElementById("youtubeContainer");
+    const youtubeIframe = document.getElementById("youtubeIframe");
+    const youtubePlaceholder = document.getElementById("youtubePlaceholder");
+    const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+    const loadYoutubeUrlBtn = document.getElementById("loadYoutubeUrlBtn");
+    const refreshYoutubeBtn = document.getElementById("refreshYoutubeBtn");
+    const openYoutubeExternalBtn = document.getElementById("openYoutubeExternalBtn");
+    const fullscreenYoutubeBtn = document.getElementById("fullscreenYoutubeBtn");
+    const youtubeSubnav = document.getElementById("youtubeSubnav");
+
+    // DOM Elements - Trainz
+    const trainzContainer = document.getElementById("trainzContainer");
+    const trainzIframe = document.getElementById("trainzIframe");
+    const trainzPlaceholder = document.getElementById("trainzPlaceholder");
+    const trainzUrlInput = document.getElementById("trainzUrlInput");
+    const loadTrainzUrlBtn = document.getElementById("loadTrainzUrlBtn");
+    const refreshTrainzBtn = document.getElementById("refreshTrainzBtn");
+    const openTrainzExternalBtn = document.getElementById("openTrainzExternalBtn");
+    const fullscreenTrainzBtn = document.getElementById("fullscreenTrainzBtn");
+    const trainzSubnav = document.getElementById("trainzSubnav");
+
+    // Helper to resolve embeddable YouTube URL
+    function getYoutubeEmbedUrl(rawUrl) {
+      const url = String(rawUrl || "").trim();
+      if (!url) return YOUTUBE_PLAYLIST_EMBED;
+
+      // Handle channel handle / direct channel URLs
+      if (url.includes("@trainzcontentsdeveloper") || url.includes("UCu5n8C002APsCGfw_NDKnSQ") || url.includes("@waqasrasool7232")) {
+        return YOUTUBE_PLAYLIST_EMBED;
+      }
+      if (url.includes("videoseries?list=")) {
+        return url;
+      }
+      if (url.includes("youtube.com/watch?v=")) {
+        const videoId = url.split("watch?v=")[1].split("&")[0];
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      if (url.includes("youtu.be/")) {
+        const videoId = url.split("youtu.be/")[1].split("?")[0];
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      if (url.includes("youtube.com/embed/")) {
+        return url;
+      }
+      return url;
+    }
+
+    // Function to load YouTube URL
+    function loadYoutubeUrl(url) {
+      const embedUrl = getYoutubeEmbedUrl(url);
+      youtubeIframe.src = embedUrl;
+      openYoutubeExternalBtn.href = YOUTUBE_EXTERNAL_CHANNEL_URL;
+      youtubePlaceholder.classList.add("hidden");
+    }
+
+    // Function to load Trainz URL
+    function loadTrainzUrl(target) {
+      let finalUrl = target;
+      if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://") && !finalUrl.startsWith("/") && !finalUrl.startsWith("../")) {
+        finalUrl = TRAINZ_BASE_PATH + finalUrl;
+      }
+      trainzIframe.src = finalUrl;
+      openTrainzExternalBtn.href = finalUrl;
+      trainzPlaceholder.classList.add("hidden");
+    }
+
+    // Initialize both frames immediately on page load
+    loadYoutubeUrl(DEFAULT_CONFIG.youtubeUrl);
+    loadTrainzUrl(DEFAULT_CONFIG.trainzUrl);
+
+    // YouTube Subnav Quick Video Switcher
+    if (youtubeSubnav) {
+      youtubeSubnav.addEventListener("click", (e) => {
+        const btn = e.target.closest(".embed-chip-btn");
+        if (!btn) return;
+        youtubeSubnav.querySelectorAll(".embed-chip-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        const videoKey = btn.getAttribute("data-video");
+        if (videoKey === "playlist") {
+          loadYoutubeUrl(YOUTUBE_PLAYLIST_EMBED);
+        } else if (videoKey) {
+          loadYoutubeUrl(`https://www.youtube.com/embed/${videoKey}?autoplay=1`);
+        }
+      });
+    }
+
+    // Trainz Subnav Quick Module Switcher
+    if (trainzSubnav) {
+      trainzSubnav.addEventListener("click", (e) => {
+        const btn = e.target.closest(".embed-chip-btn");
+        if (!btn) return;
+        trainzSubnav.querySelectorAll(".embed-chip-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        const pageName = btn.getAttribute("data-trainz-page");
+        if (pageName) {
+          loadTrainzUrl(pageName);
+        }
+      });
+    }
+
+    // YouTube Controls
+    refreshYoutubeBtn.addEventListener("click", () => {
+      if (youtubeIframe.src && youtubeIframe.src !== "about:blank") {
+        youtubeIframe.src = youtubeIframe.src;
+      }
+    });
+
+    fullscreenYoutubeBtn.addEventListener("click", () => {
+      youtubeContainer.classList.toggle("is-fullscreen");
+      const isFs = youtubeContainer.classList.contains("is-fullscreen");
+      fullscreenYoutubeBtn.textContent = isFs ? "✕ Exit" : "⛶ Fullscreen";
+    });
+
+    if (loadYoutubeUrlBtn && youtubeUrlInput) {
+      loadYoutubeUrlBtn.addEventListener("click", () => {
+        if (youtubeUrlInput.value.trim()) {
+          loadYoutubeUrl(youtubeUrlInput.value.trim());
+        }
+      });
+      youtubeUrlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && youtubeUrlInput.value.trim()) {
+          loadYoutubeUrl(youtubeUrlInput.value.trim());
+        }
+      });
+    }
+
+    // Trainz Controls
+    refreshTrainzBtn.addEventListener("click", () => {
+      if (trainzIframe.src && trainzIframe.src !== "about:blank") {
+        trainzIframe.src = trainzIframe.src;
+      }
+    });
+
+    fullscreenTrainzBtn.addEventListener("click", () => {
+      trainzContainer.classList.toggle("is-fullscreen");
+      const isFs = trainzContainer.classList.contains("is-fullscreen");
+      fullscreenTrainzBtn.textContent = isFs ? "✕ Exit" : "⛶ Fullscreen";
+    });
+
+    if (loadTrainzUrlBtn && trainzUrlInput) {
+      loadTrainzUrlBtn.addEventListener("click", () => {
+        if (trainzUrlInput.value.trim()) {
+          loadTrainzUrl(trainzUrlInput.value.trim());
+        }
+      });
+      trainzUrlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && trainzUrlInput.value.trim()) {
+          loadTrainzUrl(trainzUrlInput.value.trim());
+        }
+      });
+    }
+
+    // Close Fullscreen on Escape key
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (youtubeContainer.classList.contains("is-fullscreen")) {
+          youtubeContainer.classList.remove("is-fullscreen");
+          fullscreenYoutubeBtn.textContent = "⛶ Fullscreen";
+        }
+        if (trainzContainer.classList.contains("is-fullscreen")) {
+          trainzContainer.classList.remove("is-fullscreen");
+          fullscreenTrainzBtn.textContent = "⛶ Fullscreen";
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>

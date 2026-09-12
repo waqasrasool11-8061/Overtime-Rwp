@@ -5,6 +5,7 @@ const rawDataMsg = document.getElementById("rawDataMsg");
 const rawDataSaveState = document.getElementById("rawDataSaveState");
 const toggleAddRawRecordBtn = document.getElementById("toggleAddRawRecord");
 const togglePasteFromExcelBtn = document.getElementById("togglePasteFromExcel");
+const copySelectedRawRowsBtn = document.getElementById("copySelectedRawRows");
 const deleteSelectedRowsBtn = document.getElementById("deleteSelectedRows");
 const cleanupEmptyRowsBtn = document.getElementById("cleanupEmptyRows");
 const saveRawSheetBtn = document.getElementById("saveRawSheet");
@@ -141,8 +142,9 @@ function formatTimeHhMm(value) {
     return "";
   }
 
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const totalMinutes = Math.round(value * 24 * 60);
+  const num = typeof value === "number" ? value : (typeof value === "string" && /^\d*\.\d+$/.test(value.trim()) ? parseFloat(value.trim()) : NaN);
+  if (Number.isFinite(num) && num > 0 && num <= 1) {
+    const totalMinutes = Math.round(num * 24 * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = Math.abs(totalMinutes % 60);
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
@@ -334,6 +336,62 @@ function getSelectedRowIndices() {
     })
     .map((tr) => Number(tr.dataset.rowIndex))
     .filter((value) => Number.isInteger(value) && value >= 0);
+}
+
+function getSelectedRowsData() {
+  const checkedTrs = Array.from(rawDataTableBody.querySelectorAll("tr"))
+    .filter((tr) => {
+      const checkbox = tr.querySelector("input[type='checkbox'][data-row-select='1']");
+      return Boolean(checkbox?.checked);
+    });
+
+  if (checkedTrs.length > 0) {
+    return checkedTrs.map((tr) =>
+      Array.from(tr.querySelectorAll("td"))
+        .slice(1)
+        .map((td) => td.textContent.trim())
+    );
+  }
+
+  const activeTr = document.activeElement ? document.activeElement.closest("tr") : null;
+  if (activeTr && rawDataTableBody.contains(activeTr)) {
+    return [
+      Array.from(activeTr.querySelectorAll("td"))
+        .slice(1)
+        .map((td) => td.textContent.trim())
+    ];
+  }
+
+  return [];
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn("navigator.clipboard error, falling back:", err);
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    document.body.removeChild(textArea);
+    return false;
+  }
 }
 
 function setWorkbookState(nextWorkbookData) {
@@ -828,6 +886,39 @@ submitRawRecordBtn.addEventListener("click", async () => {
     rawDataMsg.textContent = `Add failed: ${error.message}`;
   }
 });
+
+if (copySelectedRawRowsBtn) {
+  copySelectedRawRowsBtn.addEventListener("click", async () => {
+    const selectedRows = getSelectedRowsData();
+    if (!selectedRows.length) {
+      rawDataMsg.textContent = "Please select at least one row using the checkbox (or click inside a row) to copy.";
+      rawDataMsg.style.color = "#b42318";
+      return;
+    }
+
+    // Convert rows to Tab-Separated Values (TSV) for seamless column-wise pasting into Excel
+    const tsvData = selectedRows.map((row) => row.join("\t")).join("\r\n");
+    const copied = await copyTextToClipboard(tsvData);
+
+    if (copied) {
+      rawDataMsg.textContent = `✓ Copied ${selectedRows.length} row(s) to clipboard. You can now paste (Ctrl+V) directly into Excel column-wise.`;
+      rawDataMsg.style.color = "#146c43";
+
+      const originalText = copySelectedRawRowsBtn.textContent;
+      copySelectedRawRowsBtn.textContent = "✓ Copied!";
+      copySelectedRawRowsBtn.style.borderColor = "#146c43";
+      copySelectedRawRowsBtn.style.color = "#146c43";
+      setTimeout(() => {
+        copySelectedRawRowsBtn.textContent = originalText;
+        copySelectedRawRowsBtn.style.borderColor = "";
+        copySelectedRawRowsBtn.style.color = "";
+      }, 2000);
+    } else {
+      rawDataMsg.textContent = "Failed to copy to clipboard. Please allow clipboard permissions.";
+      rawDataMsg.style.color = "#b42318";
+    }
+  });
+}
 
 deleteSelectedRowsBtn.addEventListener("click", async () => {
   const selectedRowIndices = getSelectedRowIndices();

@@ -16,6 +16,7 @@
     "amount-summary.html": "amountSummary",
     "group-master.html": "groupMaster",
     "holidays.html": "holidays",
+    "user-management.html": "userManagement",
   };
   const navPermissions = { ...pagePermissions };
 
@@ -61,12 +62,15 @@
       window.location.replace(employeePage);
       return;
     }
-    if (currentPage !== employeePage) window.location.replace(employeePage);
-    return;
-  }
-
-  if (user.role === "restricted-admin" && currentPage === employeePage) {
-    window.location.replace("index.html");
+    const allowedPages = [employeePage, "video.html"];
+    if (!allowedPages.includes(currentPage)) {
+      window.location.replace(employeePage);
+      return;
+    }
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+      link.hidden = !allowedPages.includes(href);
+    });
     return;
   }
 

@@ -4,7 +4,388 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loco-18</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=5.0">
+  <style>
+    /* ─────────────────────────────────────────────────────────────
+       LOCO-18 Official Sheet Stylesheet (Matching Exact Image Layout)
+       Readjusted to fit viewable area inside block like Employee Portal
+       Header: DATED: [Selectable Date]  |  LOCO SHED RWP  |  (LOCO-18)
+       Columns: DATE | DRIVER/ DY DRIVER | ASSTT DRIVER | OVER TIME | MILEAGE | OPERATING
+       ───────────────────────────────────────────────────────────── */
+
+    .loco-page {
+      width: min(1060px, 96vw) !important;
+      max-width: 1060px !important;
+      margin: 0 auto 30px auto !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
+
+    .loco-page .panel {
+      padding: 16px 20px !important;
+      border-radius: 12px;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow: hidden;
+    }
+
+    .loco-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px 16px;
+      background: var(--surface-subtle, #f6f8fa);
+      border: 1px solid var(--border-color, #d0d7de);
+      border-radius: 8px;
+      box-sizing: border-box !important;
+      width: 100% !important;
+    }
+
+    .loco-toolbar-left {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .loco-toolbar-right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .loco-field-label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1f2328;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .loco-date-control {
+      padding: 6px 12px;
+      border: 1.5px solid #0969da;
+      border-radius: 6px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #0969da;
+      background: #ffffff;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .loco-date-control:focus {
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.2);
+    }
+
+    /* ── LOCO-18 Sheet Container (Contained strictly inside block) ── */
+    .loco-sheet-container {
+      background: #ffffff;
+      border: 1.5px solid #000000;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      padding: 14px 16px 14px 16px;
+      box-sizing: border-box !important;
+      font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+      margin: 0 0 12px 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    /* ── Top Header Row (DATED: ______ | LOCO SHED RWP | (LOCO-18)) ── */
+    .loco-header-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 10px;
+      padding: 0 4px;
+      font-size: 13pt;
+      font-weight: 800;
+      color: #000000;
+      user-select: none;
+    }
+
+    .loco-header-dated {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .loco-dated-title {
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      letter-spacing: 0.02em;
+    }
+
+    .loco-dated-val-box {
+      border-bottom: 1.5px solid #000000;
+      min-width: 130px;
+      padding: 0 6px 1px 6px;
+      font-weight: 800;
+      color: #000000;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12pt;
+      position: relative;
+      cursor: pointer;
+      background: transparent;
+      transition: background-color 0.15s;
+    }
+
+    .loco-dated-val-box:hover {
+      background-color: #f0f7ff;
+    }
+
+    /* Hidden native date picker overlay for interactive header click */
+    .loco-header-native-picker {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .loco-header-center {
+      text-align: center;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    .loco-header-right {
+      text-align: right;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Scrollable Viewable Area (Adjusted to fit within block like Employee Portal) ── */
+    .loco-table-scroll {
+      width: 100% !important;
+      max-width: 100% !important;
+      max-height: 66vh;
+      overflow-y: auto;
+      overflow-x: auto;
+      border: 1px solid #000000;
+      box-sizing: border-box !important;
+      background: #ffffff;
+    }
+
+    /* ── Table Styling (Exact 6 Columns Grid) ── */
+    .loco-table {
+      width: 100% !important;
+      min-width: 650px;
+      max-width: 100% !important;
+      border-collapse: collapse;
+      table-layout: fixed !important;
+      font-size: 10pt;
+      color: #000000;
+      background: #ffffff;
+      box-sizing: border-box !important;
+    }
+
+    .loco-table th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #ffffff;
+      border: 1px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      padding: 6px 4px;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 800;
+      font-size: 9.5pt;
+      line-height: 1.2;
+      color: #000000;
+      letter-spacing: 0.01em;
+      box-sizing: border-box !important;
+    }
+
+    .loco-table td {
+      border: 1px solid #000000;
+      height: 24px;
+      padding: 2.5px 5px;
+      vertical-align: middle;
+      font-size: 9.5pt;
+      background: #ffffff;
+      color: #000000;
+      box-sizing: border-box !important;
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .loco-table td:focus {
+      background: #e7f3ff !important;
+      outline: 2px solid #0969da;
+      z-index: 2;
+    }
+
+    /* Text alignment per column */
+    .loco-table td.col-date      { text-align: center; font-weight: 600; }
+    .loco-table td.col-driver    { text-align: left; font-weight: 600; }
+    .loco-table td.col-asstt     { text-align: left; font-weight: 600; }
+    .loco-table td.col-ot        { text-align: center; font-weight: 600; }
+    .loco-table td.col-mileage   { text-align: center; font-weight: 600; }
+    .loco-table td.col-operating { text-align: center; font-weight: 600; }
+
+    .loco-status-bar {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: #656d76;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    :root {
+      --print-td-height: 5.8mm;
+      --print-td-font: 7.5pt;
+      --print-th-font: 7.5pt;
+      --print-th-height: 5.5mm;
+      --print-td-pad: 0.5px 2px;
+      --print-line-height: 1.15;
+    }
+
+    /* ── Print Styling (Single Page Guarantee) ── */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 4mm 5mm 4mm 5mm;
+      }
+
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+      }
+
+      .site-header,
+      .nav-bar,
+      .bg-shape,
+      .loco-toolbar,
+      .loco-status-bar,
+      #downloadLoco18,
+      .loco-header-native-picker {
+        display: none !important;
+      }
+
+      .simple-page,
+      .loco-page {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .panel {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .loco-sheet-container {
+        border: 1.5px solid #000000 !important;
+        box-shadow: none !important;
+        padding: 1.5mm 2mm !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+
+      .loco-header-banner {
+        font-size: 10.5pt !important;
+        margin-bottom: 1.5mm !important;
+        padding: 0.8mm 1mm !important;
+      }
+
+      .loco-dated-title {
+        font-size: 10pt !important;
+      }
+
+      .loco-dated-val-box {
+        font-size: 10.5pt !important;
+        min-width: 100px !important;
+        padding: 0 4px 1px 4px !important;
+      }
+
+      .loco-table-scroll {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .loco-table {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        border: 1.5px solid #000000 !important;
+        table-layout: fixed !important;
+        font-size: var(--print-td-font, 7.5pt) !important;
+      }
+
+      .loco-table th {
+        position: static !important;
+        font-size: var(--print-th-font, 7.5pt) !important;
+        padding: var(--print-th-pad, 2px 2px) !important;
+        border: 1px solid #000000 !important;
+        height: var(--print-th-height, 5.5mm) !important;
+        line-height: 1.15 !important;
+        background: #eaf1fb !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .loco-table td {
+        border: 1px solid #000000 !important;
+        height: var(--print-td-height, 5.8mm) !important;
+        max-height: var(--print-td-height, 5.8mm) !important;
+        font-size: var(--print-td-font, 7.5pt) !important;
+        padding: var(--print-td-pad, 0.5px 2px) !important;
+        line-height: var(--print-line-height, 1.15) !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+
+      .loco-table tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        height: var(--print-td-height, 5.8mm) !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="bg-shape bg-shape-one"></div>
@@ -13,7 +394,7 @@
   <header class="site-header">
     <img class="site-banner" src="website banner.jpg" alt="Website banner">
     <h1>Loco-18</h1>
-    <p>Yeh page Loco-18 download/setup ke liye placeholder hai. Settings baad me add karenge.</p>
+    <p>Official LOCO SHED RWP Loco-18 daily duty &amp; overtime running staff sheet.</p>
   </header>
 
   <nav class="nav-bar">
@@ -28,15 +409,89 @@
     <a class="nav-link" href="amount-summary.html">Amount Summary</a>
     <a class="nav-link" href="raw-data.html">RawData</a>
     <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+    <a class="nav-link" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link" href="video.html">Video</a>
+    <a class="nav-link" href="user-management.html">User Management</a>
   </nav>
 
-  <main class="simple-page">
+  <main class="simple-page loco-page">
     <section class="panel">
-      <h2>Loco-18 Page</h2>
-      <p class="helper-text">Filhal yeh placeholder page hai. Next step me aap ke mutabiq Loco-18 ki exact setting, layout, data fields aur export/download behavior add kar denge.</p>
+
+      <!-- Interactive Toolbar -->
+      <div class="loco-toolbar">
+        <div class="loco-toolbar-left">
+          <span id="locoLinkBadge" style="display:none; font-size: 0.8rem; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 999px; padding: 3px 10px; font-weight: 700; align-items: center; gap: 4px;">🔗 Linked to Data Entry</span>
+        </div>
+
+        <div class="loco-toolbar-right">
+          <button type="button" id="locoAddRowBtn" class="btn-outline" style="padding: 6px 12px;">➕ Add Row</button>
+          <button type="button" id="locoClearBtn" class="btn-outline" style="padding: 6px 12px; color: #b42318; border-color: #fecaca;">Clear Cells</button>
+          <button type="button" id="locoPrintBtn" class="btn-primary" style="padding: 6px 16px; font-weight: bold;">🖨️ Print / Save PDF</button>
+        </div>
+      </div>
+
+      <!-- LOCO-18 Sheet (Contained in viewable area like Employee Portal) -->
+      <div class="loco-sheet-container" id="locoPrintArea">
+
+        <!-- Top Header Line: DATED: _____ | LOCO SHED RWP | (LOCO-18) -->
+        <div class="loco-header-banner">
+          <div class="loco-header-dated" id="locoDatedHeaderWrap" title="Click to select/change date">
+            <span class="loco-dated-title">DATED:</span>
+            <span class="loco-dated-val-box" id="locoDatedDisplayBox">
+              <span id="locoDatedDisplayText">15-06-2026</span>
+              <!-- Invisible native date picker over the box so clicking triggers native picker directly -->
+              <input type="date" id="locoHeaderNativePicker" class="loco-header-native-picker" title="Click to select date">
+            </span>
+          </div>
+
+          <div class="loco-header-center">
+            LOCO SHED RWP
+          </div>
+
+          <div class="loco-header-right">
+            (LOCO-18)
+          </div>
+        </div>
+
+        <!-- Scrollable Table Container (Fits in Viewable Area, Just Like Employee Portal) -->
+        <div class="loco-table-scroll">
+          <table class="loco-table" id="locoTable">
+            <colgroup>
+              <col style="width: 12%;">  <!-- DATE -->
+              <col style="width: 26%;">  <!-- DRIVER/ DY DRIVER -->
+              <col style="width: 26%;">  <!-- ASSTT DRIVER -->
+              <col style="width: 12%;">  <!-- OVER TIME -->
+              <col style="width: 12%;">  <!-- MILEAGE -->
+              <col style="width: 12%;">  <!-- OPERATING -->
+            </colgroup>
+            <thead>
+              <tr>
+                <th>DATE</th>
+                <th>DRIVER/ DY DRIVER</th>
+                <th>ASSTT DRIVER</th>
+                <th>OVER TIME</th>
+                <th>MILEAGE</th>
+                <th>OPERATING</th>
+              </tr>
+            </thead>
+            <tbody id="locoTableBody">
+              <!-- 40 blank rows generated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Status Bar -->
+      <div class="loco-status-bar">
+        <span id="locoStatusMsg">Sheet loaded. Click any cell to enter data. Click DATED header to change date.</span>
+        <span id="locoRowCount">Rows: 40</span>
+      </div>
+
     </section>
   </main>
 
   <script src="auth-guard.js"></script>
+  <script src="loco-18.js?v=1.1"></script>
 </body>
 </html>

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "msg_welcome",
+    "sender": "Vicky Ch",
+    "senderRole": "admin",
+    "receiver": "ALL",
+    "text": "Welcome to Employee Portal! If you notice any overtime calculation discrepancy, wrong duty type, or leave error, please send a message here.",
+    "timestamp": "2026-08-18T03:42:06.867Z"
+  },
+  {
+    "id": "msg_1787024541107_7luq70pb9",
+    "sender": "WAQAS RASOOL",
+    "senderRole": "employee",
+    "receiver": "Vicky Ch",
+    "text": "SALAM",
+    "timestamp": "2026-08-18T03:42:21.107Z"
+  }
+]

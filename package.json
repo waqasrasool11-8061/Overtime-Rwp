@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "migrate:raw-data": "node scripts/migrate-raw-data.js",
+    "migrate:employee-master": "node scripts/migrate-employee-master.js",
     "create:op72-raw-data": "node scripts/create-op72-raw-data-db.js"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "cfb": "^1.2.2"
+    "cfb": "^1.2.2",
+    "pdf-parse": "^2.4.5"
   }
 }
