@@ -721,7 +721,14 @@ function loadSheetData() {
           const tds = Array.from(tr.querySelectorAll("td"));
           if (styleObj.cellBgs && Array.isArray(styleObj.cellBgs)) {
             tds.forEach((td, cIdx) => {
-              if (styleObj.cellBgs[cIdx]) td.style.backgroundColor = styleObj.cellBgs[cIdx];
+              const bg = styleObj.cellBgs[cIdx];
+              if (bg) {
+                td.style.backgroundColor = bg;
+                if (bg === "rgb(162, 226, 220)" || bg.includes("162, 226, 220")) {
+                  td.dataset.multiEntry = "true";
+                  td.title = "Multiple raw data entries resolved for this date";
+                }
+              }
             });
           }
           const dateCell = tds[0];
@@ -771,6 +778,10 @@ function clearSheetCellsOnly() {
     row.querySelectorAll("td").forEach((cell, idx) => {
       if (idx > 0) cell.textContent = "";
       cell.style.backgroundColor = "";
+      delete cell.dataset.multiEntry;
+      if (cell.title === "Multiple raw data entries resolved for this date" || cell.title === "Multiple raw data entries on this date") {
+        cell.removeAttribute("title");
+      }
       cell.classList.remove("op72-date-blue", "op72-date-orange");
     });
     if (row.dataset.rowType === "fixed-empty") {
@@ -1102,6 +1113,17 @@ function applyHolidayColors(holidaySet) {
       const mileageCell = allCells[base + 2];
       if (!dutyCell) continue;
 
+      // Multi-entry check: agar is date pe multi-entry resolve hui thi, to lite seagreen barkarar rahe
+      if (dutyCell.dataset.multiEntry === "true") {
+        [dutyCell, otCell, mileageCell].forEach((cell) => {
+          if (cell) {
+            cell.style.backgroundColor = "rgb(162, 226, 220)";
+            cell.title = "Multiple raw data entries on this date";
+          }
+        });
+        continue;
+      }
+
       // Clear previous highlight inline styles
       [dutyCell, otCell, mileageCell].forEach((cell) => {
         if (cell) cell.style.backgroundColor = "";
@@ -1401,7 +1423,7 @@ function writeSummaryValue(empIdx1based, label, value) {
   const cell = summaryValueCells[cellIndex];
   if (cell) cell.textContent = value;
 }
-function writeEmployeeDayData(dailyRow, empIndex1based, duty, ot, mileage) {
+function writeEmployeeDayData(dailyRow, empIndex1based, duty, ot, mileage, isMulti = false) {
   const { dutyCell, otCell, mileageCell } = getDataCellsForEmployee(dailyRow, empIndex1based);
   if (!dutyCell) return;
 
@@ -1414,6 +1436,26 @@ function writeEmployeeDayData(dailyRow, empIndex1based, duty, ot, mileage) {
   dutyCell.textContent    = duty;
   otCell.textContent      = ot;
   mileageCell.textContent = mileage;
+
+  if (isMulti) {
+    [dutyCell, otCell, mileageCell].forEach((cell) => {
+      if (!cell) return;
+      cell.dataset.multiEntry = "true";
+      cell.style.backgroundColor = "rgb(162, 226, 220)"; // lite seagreen
+      cell.title = "Multiple raw data entries resolved for this date";
+    });
+  } else {
+    [dutyCell, otCell, mileageCell].forEach((cell) => {
+      if (!cell) return;
+      delete cell.dataset.multiEntry;
+      if (cell.style.backgroundColor === "rgb(162, 226, 220)") {
+        cell.style.backgroundColor = "";
+      }
+      if (cell.title === "Multiple raw data entries resolved for this date") {
+        cell.removeAttribute("title");
+      }
+    });
+  }
 }
 
 // Fetch search results from /api/op72/search
@@ -1571,12 +1613,15 @@ async function loadAllEmployees() {
         if (row.dataset.monthActive !== "true") continue;
 
         let duty = "", ot = "", mileage = "";
+        let isMulti = false;
         if (dayRecords.length === 1) {
           const s = extractRecordValues(dayRecords[0]);
           duty    = s.duty;
           ot      = s.ot;
           mileage = s.mileage;
+          isMulti = false;
         } else if (dayRecords.length > 1) {
+          isMulti = true;
           if (combineAllRemaining) {
             const c = combineRecords(dayRecords);
             duty    = c.duty;
@@ -1594,7 +1639,7 @@ async function loadAllEmployees() {
           }
         }
 
-        writeEmployeeDayData(row, empIdx + 1, duty, ot, mileage);
+        writeEmployeeDayData(row, empIdx + 1, duty, ot, mileage, isMulti);
       }
 
       loadedCount += 1;
