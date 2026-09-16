@@ -198,7 +198,19 @@ function getAdminAccounts() {
       userId: vickyRaja.userId || "Vicky Raja",
       password: vickyRaja.password || "Waqas@1002",
       role: "restricted-admin",
-      permissions: ["dataEntry", "rawDataSearch", "rawDataEdit", "general164", "loco18", "employeeMaster"],
+      permissions: [
+        "dataEntry",
+        "rawDataSearch",
+        "rawDataEdit",
+        "general164",
+        "loco18",
+        "employeeMaster",
+        "op72RawData",
+        "op72",
+        "amountSummary",
+        "groupMaster",
+        "holidays",
+      ],
     },
   ];
 }
@@ -336,11 +348,11 @@ function parseDateValue(value) {
     return null;
   }
 
-  const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+  const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/);
   if (dmyShort) {
     const day = Number(dmyShort[1]);
     const monthIndex = MONTHS.indexOf(dmyShort[2].toUpperCase());
-    const year = 2000 + Number(dmyShort[3]);
+    const year = dmyShort[3].length === 2 ? 2000 + Number(dmyShort[3]) : Number(dmyShort[3]);
     if (day >= 1 && day <= 31 && monthIndex >= 0) {
       const parsed = new Date(year, monthIndex, day);
       if (!Number.isNaN(parsed.getTime())) {
@@ -352,6 +364,14 @@ function parseDateValue(value) {
   const dmyLong = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
   if (dmyLong) {
     const parsed = new Date(Number(dmyLong[3]), Number(dmyLong[2]) - 1, Number(dmyLong[1]));
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const isoMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const parsed = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
     if (!Number.isNaN(parsed.getTime())) {
       return parsed;
     }
@@ -386,13 +406,26 @@ function isValidClockTime(value) {
   if (!text) {
     return true;
   }
-  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (!match) {
     return false;
   }
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
-  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+  const seconds = match[3] !== undefined ? Number(match[3]) : 0;
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59;
+}
+
+function normalizeClockTimeToHhMm(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  const text = normalizeText(value);
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2]}`;
+  }
+  return text;
 }
 
 function isValidDurationLike(value) {
@@ -482,22 +515,22 @@ function rowValuesToSearchRecord(id, rowIndex, rowValues) {
     ot: normalizeOtValueToHhMm(values[4]),
     mileage: normalizeText(values[5]),
     outwardDuty: normalizeText(values[6]),
-    outwardCommenced: normalizeText(values[7]),
-    outwardTerminated: normalizeText(values[8]),
+    outwardCommenced: normalizeClockTimeToHhMm(values[7]),
+    outwardTerminated: normalizeClockTimeToHhMm(values[8]),
     inwardDuty: normalizeText(values[9]),
-    inwardCommenced: normalizeText(values[10]),
-    inwardTerminated: normalizeText(values[11]),
+    inwardCommenced: normalizeClockTimeToHhMm(values[10]),
+    inwardTerminated: normalizeClockTimeToHhMm(values[11]),
     remarks: normalizeText(values[12]),
   };
 }
 
 function searchRecordToRowValues(record) {
   return RAW_DATA_SEARCH_COLUMNS.map((key) => {
-    if (key === "remarks") {
-      return "M";
-    }
     if (key === "ot") {
       return normalizeOtValueToHhMm(record?.[key]);
+    }
+    if (["outwardCommenced", "outwardTerminated", "inwardCommenced", "inwardTerminated"].includes(key)) {
+      return normalizeClockTimeToHhMm(record?.[key]);
     }
     return normalizeText(record?.[key]);
   });
@@ -510,12 +543,8 @@ function validateSearchRecord(record, employeeNameSet) {
   }
 
   const employee1 = toUpper(record?.employee1);
-  const employee2 = toUpper(record?.employee2);
   if (employee1 && !employeeNameSet.has(employee1)) {
     return "Employee 1 must be a valid employee name.";
-  }
-  if (employee2 && !employeeNameSet.has(employee2)) {
-    return "Employee 2 must be a valid employee name.";
   }
 
   if (!isValidDurationLike(record?.ot)) {
@@ -1327,8 +1356,6 @@ app.put("/api/raw-data/search-updates", async (req, res) => {
         }
       }
 
-      mergedRecord.remarks = "M";
-
       const validationError = validateSearchRecord(mergedRecord, employeeNameSet);
       if (validationError) {
         throw new Error(`Record ${mergedRecord.rowRef}: ${validationError}`);
@@ -1423,7 +1450,6 @@ app.put("/api/op72/search-updates", async (req, res) => {
         }
       }
 
-      mergedRecord.remarks = "M";
       const validationError = validateSearchRecord(mergedRecord, employeeNameSet);
       if (validationError) {
         throw new Error(`Record ${mergedRecord.rowRef}: ${validationError}`);

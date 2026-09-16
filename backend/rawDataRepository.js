@@ -52,12 +52,12 @@ function parseDateValue(value) {
     return null;
   }
 
-  const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+  const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/);
   if (dmyShort) {
     const day = Number(dmyShort[1]);
     const monthLabel = dmyShort[2].toUpperCase();
     const monthIndex = MONTHS.indexOf(monthLabel);
-    const year = 2000 + Number(dmyShort[3]);
+    const year = dmyShort[3].length === 2 ? 2000 + Number(dmyShort[3]) : Number(dmyShort[3]);
     if (monthIndex >= 0 && day >= 1 && day <= 31) {
       const parsed = new Date(year, monthIndex, day);
       if (!Number.isNaN(parsed.getTime())) {
@@ -72,6 +72,14 @@ function parseDateValue(value) {
     const month = Number(dmyLong[2]);
     const year = Number(dmyLong[3]);
     const parsed = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const isoMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const parsed = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
     if (!Number.isNaN(parsed.getTime())) {
       return parsed;
     }

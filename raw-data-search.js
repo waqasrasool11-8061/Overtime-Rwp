@@ -41,6 +41,7 @@
   const confirmSaveBtn = document.getElementById("confirmSaveBtn");
   const cancelSaveBtn = document.getElementById("cancelSaveBtn");
   const saveConfirmText = document.getElementById("saveConfirmText");
+  const saveDialogError = document.getElementById("saveDialogError");
 
   const SOURCE_API = {
     "raw-data": {
@@ -103,7 +104,7 @@
       return false;
     }
 
-    const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+    const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/);
     if (dmyShort) {
       const day = Number(dmyShort[1]);
       const month = upper(dmyShort[2]);
@@ -113,6 +114,12 @@
     const dmyLong = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (dmyLong) {
       const dt = new Date(Number(dmyLong[3]), Number(dmyLong[2]) - 1, Number(dmyLong[1]));
+      return !Number.isNaN(dt.getTime());
+    }
+
+    const isoDate = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoDate) {
+      const dt = new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
       return !Number.isNaN(dt.getTime());
     }
 
@@ -126,14 +133,19 @@
       return null;
     }
 
-    const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+    const dmyShort = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/);
     if (dmyShort) {
-      return 2000 + Number(dmyShort[3]);
+      return dmyShort[3].length === 2 ? 2000 + Number(dmyShort[3]) : Number(dmyShort[3]);
     }
 
     const dmyLong = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (dmyLong) {
       return Number(dmyLong[3]);
+    }
+
+    const isoDate = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoDate) {
+      return Number(isoDate[1]);
     }
 
     const parsed = new Date(text);
@@ -171,13 +183,14 @@
     if (!text) {
       return true;
     }
-    const match = text.match(/^(\d{1,2}):(\d{2})$/);
+    const match = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (!match) {
       return false;
     }
     const hours = Number(match[1]);
     const minutes = Number(match[2]);
-    return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+    const seconds = match[3] !== undefined ? Number(match[3]) : 0;
+    return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59;
   }
 
   function isValidDurationLike(value) {
@@ -211,12 +224,8 @@
 
     const employeeSet = new Set(state.employees.map((name) => upper(name)));
     const employee1 = upper(record.employee1);
-    const employee2 = upper(record.employee2);
     if (employee1 && !employeeSet.has(employee1)) {
       return "Employee 1 must exist in Employee Master.";
-    }
-    if (employee2 && !employeeSet.has(employee2)) {
-      return "Employee 2 must exist in Employee Master.";
     }
 
     if (!isValidDurationLike(record.ot)) {
@@ -227,16 +236,16 @@
     }
 
     if (!isValidClockTime(record.outwardCommenced)) {
-      return "Outward Commenced must be HH:MM.";
+      return "Outward Commenced must be HH:MM or HH:MM:SS.";
     }
     if (!isValidClockTime(record.outwardTerminated)) {
-      return "Outward Terminated must be HH:MM.";
+      return "Outward Terminated must be HH:MM or HH:MM:SS.";
     }
     if (!isValidClockTime(record.inwardCommenced)) {
-      return "Inward Commenced must be HH:MM.";
+      return "Inward Commenced must be HH:MM or HH:MM:SS.";
     }
     if (!isValidClockTime(record.inwardTerminated)) {
-      return "Inward Terminated must be HH:MM.";
+      return "Inward Terminated must be HH:MM or HH:MM:SS.";
     }
 
     return "";
@@ -322,9 +331,8 @@
 
       EDITABLE_COLUMNS.forEach((key) => {
         const td = document.createElement("td");
-        const isRemarks = key === "remarks";
-        const inputValue = isRemarks ? "M" : record[key];
-        td.appendChild(createCellInput(inputValue, record.id, key, handleInputChange, isRemarks));
+        const inputValue = record[key];
+        td.appendChild(createCellInput(inputValue, record.id, key, handleInputChange, false));
         tr.appendChild(td);
       });
 
@@ -509,7 +517,7 @@
 
       const payload = { id };
       EDITABLE_COLUMNS.forEach((key) => {
-        payload[key] = key === "remarks" ? "M" : normalize(record[key]);
+        payload[key] = normalize(record[key]);
       });
       updates.push(payload);
     }
@@ -523,7 +531,28 @@
       return;
     }
 
+    // Pre-validate all dirty rows before opening dialog
+    for (const [id, record] of state.dirtyById.entries()) {
+      const error = validateRecord(record);
+      if (error) {
+        setMessage(`Row Ref ${record.rowRef}: ${error}`, true);
+        const tr = resultsBody.querySelector(`tr[data-id="${id}"]`);
+        if (tr) {
+          tr.dataset.invalid = "1";
+          tr.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        return;
+      }
+    }
+
     saveConfirmText.textContent = `You are about to save ${state.dirtyById.size} edited row(s). Continue?`;
+    if (saveDialogError) {
+      saveDialogError.style.display = "none";
+      saveDialogError.textContent = "";
+    }
+    confirmSaveBtn.disabled = false;
+    confirmSaveBtn.textContent = "Save";
+    cancelSaveBtn.disabled = false;
     if (typeof saveConfirmDialog.showModal === "function") {
       saveConfirmDialog.showModal();
     }
@@ -538,18 +567,32 @@
     try {
       updates = collectDirtyUpdates();
     } catch (error) {
+      if (saveDialogError) {
+        saveDialogError.textContent = error.message;
+        saveDialogError.style.display = "block";
+      }
       setMessage(error.message, true);
       return;
     }
 
     if (!updates.length) {
+      if (saveConfirmDialog.open) {
+        saveConfirmDialog.close();
+      }
       setMessage("No changes to save.");
       return;
     }
 
     state.isSaving = true;
+    confirmSaveBtn.disabled = true;
+    confirmSaveBtn.textContent = "Saving...";
+    cancelSaveBtn.disabled = true;
     saveSearchChangesBtn.disabled = true;
     setMessage("Saving changes...");
+    if (saveDialogError) {
+      saveDialogError.style.display = "none";
+      saveDialogError.textContent = "";
+    }
 
     try {
       const { response, payload } = await fetchApi(selectedSource().updates, {
@@ -561,7 +604,7 @@
       });
 
       if (!response.ok) {
-        throw new Error(payload?.detail || payload?.message || "Save failed.");
+        throw new Error(payload?.detail || payload?.message || `Save failed (${response.status}).`);
       }
 
       state.records.forEach((record) => {
@@ -569,14 +612,22 @@
       });
       state.dirtyById.clear();
       setSearchState(`Rows loaded: ${state.records.length} | Changes: 0`, false);
-      setMessage(payload?.message || "Changes saved.");
+      setMessage(payload?.message || "Changes saved successfully.");
       if (saveConfirmDialog.open) {
         saveConfirmDialog.close();
       }
     } catch (error) {
-      setMessage(error.message || "Save failed.", true);
+      const errorMsg = error.message || "Save failed.";
+      if (saveDialogError) {
+        saveDialogError.textContent = errorMsg;
+        saveDialogError.style.display = "block";
+      }
+      setMessage(errorMsg, true);
     } finally {
       state.isSaving = false;
+      confirmSaveBtn.disabled = false;
+      confirmSaveBtn.textContent = "Save";
+      cancelSaveBtn.disabled = false;
       saveSearchChangesBtn.disabled = state.dirtyById.size === 0;
     }
   }
