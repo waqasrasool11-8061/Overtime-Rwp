@@ -1,11 +1,13 @@
 const path = require("path");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
+const { isTursoConfigured, getTursoClient } = require("./tursoClient");
 
 const OP72_DB_FILE_PATH = path.join(__dirname, "..", "data", "op72-raw-data.sqlite");
 const OP72_WORKBOOK_CODE = "op72";
 const OP72_SHEET_NAME = "OP72";
 let op72DbPromise = null;
+let op72TursoInitialized = false;
 
 async function initializeOp72Schema(db) {
   await db.exec(`
@@ -46,6 +48,15 @@ async function initializeOp72Schema(db) {
 }
 
 async function createOp72Database() {
+  if (isTursoConfigured()) {
+    const db = getTursoClient();
+    if (!op72TursoInitialized) {
+      await initializeOp72Schema(db);
+      op72TursoInitialized = true;
+    }
+    return;
+  }
+
   const db = await open({
     filename: OP72_DB_FILE_PATH,
     driver: sqlite3.Database,
@@ -56,6 +67,15 @@ async function createOp72Database() {
 }
 
 async function getOp72Db() {
+  if (isTursoConfigured()) {
+    const db = getTursoClient();
+    if (!op72TursoInitialized) {
+      await initializeOp72Schema(db);
+      op72TursoInitialized = true;
+    }
+    return db;
+  }
+
   if (!op72DbPromise) {
     op72DbPromise = open({
       filename: OP72_DB_FILE_PATH,

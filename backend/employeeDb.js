@@ -1,12 +1,14 @@
 const path = require("path");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
+const { isTursoConfigured, getTursoClient } = require("./tursoClient");
 
 const EMPLOYEE_DB_FILE_PATH = path.join(__dirname, "..", "data", "employee-master.sqlite");
 const EMPLOYEE_WORKBOOK_CODE = "employee-master";
 const EMPLOYEE_SHEET_NAME = "Employee_Master";
 
 let employeeDbPromise = null;
+let employeeTursoInitialized = false;
 
 async function initializeEmployeeSchema(db) {
   await db.exec(`
@@ -84,6 +86,15 @@ async function initializeEmployeeSchema(db) {
 }
 
 async function getEmployeeDb() {
+  if (isTursoConfigured()) {
+    const db = getTursoClient();
+    if (!employeeTursoInitialized) {
+      await initializeEmployeeSchema(db);
+      employeeTursoInitialized = true;
+    }
+    return db;
+  }
+
   if (!employeeDbPromise) {
     employeeDbPromise = open({
       filename: EMPLOYEE_DB_FILE_PATH,

@@ -1,9 +1,11 @@
 const path = require("path");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
+const { isTursoConfigured, getTursoClient } = require("./tursoClient");
 
 const DB_FILE_PATH = path.join(__dirname, "..", "data", "raw-data.sqlite");
 let dbPromise = null;
+let tursoInitialized = false;
 
 async function initializeSchema(db) {
   await db.exec(`
@@ -37,6 +39,15 @@ async function initializeSchema(db) {
 }
 
 async function getDb() {
+  if (isTursoConfigured()) {
+    const db = getTursoClient();
+    if (!tursoInitialized) {
+      await initializeSchema(db);
+      tursoInitialized = true;
+    }
+    return db;
+  }
+
   if (!dbPromise) {
     dbPromise = open({
       filename: DB_FILE_PATH,
