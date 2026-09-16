@@ -481,7 +481,7 @@ function buildSummarySection() {
   const summaryHeader = document.createElement("tr");
   const summaryTitle = document.createElement("td");
   summaryTitle.textContent = "SUMMARY OF OVERTIME";
-  summaryTitle.rowSpan = 1 + summaryRows.length + 3; // updated dynamically after load
+  summaryTitle.rowSpan = 1 + summaryRows.length + 5; // updated dynamically after load
   summaryTitle.className = "op72-summary-title sticky-first-col";
   summaryTitle.id = "op72SummaryTitle";
   summaryHeader.appendChild(summaryTitle);
@@ -515,8 +515,8 @@ function buildSummarySection() {
     op72Body.appendChild(tr);
   });
 
-  // Tail rows for other duty types — start with 3, dynamically expanded later
-  for (let i = 0; i < 3; i += 1) {
+  // Tail rows for other duty types — start with 5, dynamically expanded later
+  for (let i = 0; i < 5; i += 1) {
     const tr = document.createElement("tr");
     tr.dataset.rowType = "summary-tail";
     tr.dataset.tailIndex = String(i);
@@ -1131,8 +1131,8 @@ function calculateAndFillSummary(holidaySet, employees = []) {
   }
 
   // ── Determine how many tail rows are needed ──
-  // Maximum number of distinct other duties any single employee has (minimum 3)
-  const maxOtherDuties = Math.max(3, ...allOtherDutyMaps.map((map) => map.size));
+  // Maximum number of distinct other duties any single employee has (minimum 5)
+  const maxOtherDuties = Math.max(5, ...allOtherDutyMaps.map((map) => map.size));
 
   // ── Ensure enough tail rows exist (add more if needed) ──
   const existingTailRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="summary-tail"]'));
@@ -2071,6 +2071,10 @@ function captureAndSave(filename) {
     if (op72PrintBtn) op72PrintBtn.disabled = false;
   };
 
+  const realSummaryTitle = document.getElementById("op72SummaryTitle");
+  const summaryTitleH = realSummaryTitle ? (realSummaryTitle.offsetHeight || realSummaryTitle.clientHeight || 320) : 320;
+  const summaryTitleW = realSummaryTitle ? (realSummaryTitle.offsetWidth || realSummaryTitle.clientWidth || 34) : 34;
+
   html2canvas(printArea, {
     scale: 2,
     useCORS: true,
@@ -2082,6 +2086,23 @@ function captureAndSave(filename) {
     scrollX: 0,
     scrollY: 0,
     logging: false,
+    onclone: (clonedDoc) => {
+      const summaryTitle = clonedDoc.getElementById("op72SummaryTitle");
+      if (summaryTitle) {
+        const h = summaryTitleH;
+        const w = summaryTitleW;
+        summaryTitle.style.writingMode = "horizontal-tb";
+        summaryTitle.style.transform = "none";
+        summaryTitle.style.padding = "0";
+        summaryTitle.style.textAlign = "center";
+        summaryTitle.style.verticalAlign = "middle";
+        summaryTitle.innerHTML = `
+          <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:auto;">
+            <text x="-${h / 2}" y="${w / 2 + 4}" transform="rotate(-90)" text-anchor="middle" font-weight="700" font-size="12px" font-family="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" letter-spacing="1px" fill="#000000">SUMMARY OF OVERTIME</text>
+          </svg>
+        `;
+      }
+    },
   }).then(async (canvas) => {
     restoreAll();
 
