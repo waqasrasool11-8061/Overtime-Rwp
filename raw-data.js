@@ -24,7 +24,9 @@ const cancelExcelPasteBtn = document.getElementById("cancelExcelPaste");
 let isDirty = false;
 let excelPastePreviewRows = [];
 
-const RAW_DATA_API_BASE_URL = "http://localhost:3000";
+const RAW_DATA_API_BASE_URL = window.location.port === "5500"
+  ? `http://${window.location.hostname}:3000`
+  : "";
 const RAW_DATA_API_PATHS = {
   workbook: "/api/raw-data/workbook",
   dataRows: "/api/raw-data/data-rows",

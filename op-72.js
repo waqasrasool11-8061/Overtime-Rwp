@@ -812,8 +812,10 @@ function clearSheetCellsOnly() {
 // LOAD ALL EMPLOYEES — OP72 Raw Data se data fetch karke sheet mein fill karo
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const OP72_API_BASE = "http://localhost:3000";
-const HOLIDAYS_API_BASE = "http://localhost:3000";
+const OP72_API_BASE = window.location.port === "5500"
+  ? `http://${window.location.hostname}:3000`
+  : "";
+const HOLIDAYS_API_BASE = OP72_API_BASE;
 
 const MONTH_LABELS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 

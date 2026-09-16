@@ -1,7 +1,32 @@
+require("dotenv").config();
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const express = require("express");
+const bcrypt = require("bcryptjs");
+
+// ── Password Hashing Helpers ────────────────────────────────────────────────
+function isBcryptHash(str) {
+  return typeof str === "string" && (str.startsWith("$2a$") || str.startsWith("$2b$") || str.startsWith("$2y$"));
+}
+
+function verifyPassword(inputPassword, storedPassword) {
+  if (!storedPassword || !inputPassword) return false;
+  const cleanInput = String(inputPassword).trim();
+  const cleanStored = String(storedPassword).trim();
+  if (isBcryptHash(cleanStored)) {
+    try {
+      return bcrypt.compareSync(cleanInput, cleanStored);
+    } catch {
+      return false;
+    }
+  }
+  return cleanInput === cleanStored;
+}
+
+function hashPassword(plainTextPassword) {
+  return bcrypt.hashSync(String(plainTextPassword).trim(), 10);
+}
 
 // ── Holidays persistence ────────────────────────────────────────────────────
 const HOLIDAYS_FILE_PATH = path.join(__dirname, "data", "holidays.json");
@@ -63,10 +88,15 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
+const envOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 const allowedOrigins = new Set([
   "http://127.0.0.1:5500",
   "http://localhost:5500",
   "http://localhost:3000",
+  ...envOrigins,
 ]);
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -200,10 +230,20 @@ function findEmployeeAccount(userId, password) {
 
     if (employeeName.toLowerCase() === normalizedId || sapId.toLowerCase() === normalizedId) {
       const customCred = creds.employees[sapId] || creds.employees[employeeName.toLowerCase()];
-      const effectivePassword = customCred?.password ? String(customCred.password).trim() : sapId;
+      const storedPassword = customCred?.password ? String(customCred.password).trim() : sapId;
 
-      if (effectivePassword === normalizedPassword) {
-        return { userId: employeeName, sapId, password: effectivePassword, role: "employee", permissions: [] };
+      if (verifyPassword(normalizedPassword, storedPassword)) {
+        // If password was plaintext, automatically upgrade to bcrypt hash
+        if (!isBcryptHash(storedPassword)) {
+          creds.employees[sapId] = {
+            sapId,
+            name: employeeName,
+            password: hashPassword(normalizedPassword),
+            updatedAt: new Date().toISOString(),
+          };
+          saveUserCredentials(creds);
+        }
+        return { userId: employeeName, sapId, password: storedPassword, role: "employee", permissions: [] };
       }
     }
   }
@@ -216,9 +256,21 @@ function authenticateAccount(userId, password) {
   const normalizedPassword = normalizeText(password);
   const admins = getAdminAccounts();
   const admin = admins.find(
-    (account) => account.userId.toLowerCase() === normalizedId && account.password === normalizedPassword
+    (account) => account.userId.toLowerCase() === normalizedId && verifyPassword(normalizedPassword, account.password)
   );
-  return admin || findEmployeeAccount(userId, password);
+  if (admin) {
+    // If admin password was plaintext, upgrade to bcrypt hash in credentials file
+    if (!isBcryptHash(admin.password)) {
+      const creds = readUserCredentials();
+      const adminKey = Object.keys(creds.admins).find((k) => k.toLowerCase() === normalizedId);
+      if (adminKey && creds.admins[adminKey]) {
+        creds.admins[adminKey].password = hashPassword(normalizedPassword);
+        saveUserCredentials(creds);
+      }
+    }
+    return admin;
+  }
+  return findEmployeeAccount(userId, password);
 }
 
 function currentSession(req) {
@@ -492,14 +544,20 @@ function validateSearchRecord(record, employeeNameSet) {
 app.use(express.json({ limit: "2mb" }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.has(origin)) {
+  const isLocal = origin && (
+    origin.startsWith("http://localhost:") ||
+    origin.startsWith("http://127.0.0.1:") ||
+    allowedOrigins.has(origin)
+  );
+
+  if (origin && (isLocal || allowedOrigins.has(origin))) {
     res.header("Access-Control-Allow-Origin", origin);
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Vary", "Origin");
   }
 
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type,Accept");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Accept,Authorization");
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
@@ -521,9 +579,10 @@ app.post("/api/auth/login", (req, res) => {
     permissions: [...user.permissions],
     expiresAt: Date.now() + SESSION_TTL_MS,
   });
+  const isProd = process.env.NODE_ENV === "production";
   res.setHeader(
     "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax`
+    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${isProd ? "; Secure" : ""}`
   );
   return res.json({ user: publicUser(user) });
 });
@@ -562,10 +621,10 @@ app.post("/api/auth/change-password", (req, res) => {
     const creds = readUserCredentials();
     const key = session.userId.toLowerCase();
     const admin = creds.admins[key];
-    if (!admin || admin.password !== currentPassword) {
+    if (!admin || !verifyPassword(currentPassword, admin.password)) {
       return res.status(400).json({ message: "Current password is incorrect." });
     }
-    admin.password = newPassword;
+    admin.password = hashPassword(newPassword);
     saveUserCredentials(creds);
     return res.json({ message: "Admin password changed successfully." });
   }
@@ -588,14 +647,14 @@ app.post("/api/auth/change-password", (req, res) => {
   const customCred = creds.employees[sapId];
   const effectivePassword = customCred?.password ? String(customCred.password).trim() : sapId;
 
-  if (effectivePassword !== currentPassword) {
+  if (!verifyPassword(currentPassword, effectivePassword)) {
     return res.status(400).json({ message: "Current password is incorrect." });
   }
 
   creds.employees[sapId] = {
     sapId,
     name: employeeName,
-    password: newPassword,
+    password: hashPassword(newPassword),
     updatedAt: new Date().toISOString(),
   };
   saveUserCredentials(creds);
@@ -708,7 +767,7 @@ app.get("/api/admin/users", (req, res) => {
     const admins = getAdminAccounts().map((a) => ({
       userId: a.userId,
       role: a.role,
-      password: a.password,
+      password: isBcryptHash(a.password) ? "[Encrypted]" : a.password,
       permissions: a.permissions,
     }));
 
@@ -727,7 +786,8 @@ app.get("/api/admin/users", (req, res) => {
 
       const customCred = creds.employees[sapId] || creds.employees[name.toLowerCase()];
       const isCustom = Boolean(customCred?.password);
-      const password = isCustom ? String(customCred.password) : sapId;
+      const rawPassword = isCustom ? String(customCred.password) : sapId;
+      const password = isBcryptHash(rawPassword) ? "[Encrypted]" : rawPassword;
 
       employees.push({
         sapId,
@@ -759,7 +819,7 @@ app.put("/api/admin/users/password", (req, res) => {
       if (!creds.admins[key]) {
         return res.status(404).json({ message: `Admin user '${id}' not found.` });
       }
-      creds.admins[key].password = cleanedPassword;
+      creds.admins[key].password = hashPassword(cleanedPassword);
       saveUserCredentials(creds);
       return res.json({ message: `Password for admin '${creds.admins[key].userId}' updated successfully.` });
     }
@@ -779,7 +839,7 @@ app.put("/api/admin/users/password", (req, res) => {
       creds.employees[sapId] = {
         sapId,
         name: employeeName,
-        password: cleanedPassword,
+        password: hashPassword(cleanedPassword),
         updatedAt: new Date().toISOString(),
       };
       saveUserCredentials(creds);
@@ -1575,8 +1635,16 @@ app.post("/api/admin/reset-posting-station-lock", async (req, res) => {
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Root route serves index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 app.use((req, res) => {
-  res.status(404).json({ message: "Not found." });
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ message: "Not found." });
+  }
+  return res.status(404).sendFile(path.join(__dirname, "index.html"));
 });
 
 (async () => {

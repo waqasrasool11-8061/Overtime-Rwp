@@ -191,11 +191,11 @@
 
         return `
         <tr>
-          <td><strong style="font-family: monospace; color: #0969da;">${escapeHtml(emp.sapId)}</strong></td>
-          <td><strong style="color: #0f172a;">${escapeHtml(emp.name)}</strong></td>
-          <td style="color: #64748b; font-size: 0.85rem;">${escapeHtml(emp.designation)}</td>
+          <td style="text-align: center;"><strong style="font-family: monospace; color: #0969da; font-size: 0.86rem;">${escapeHtml(emp.sapId)}</strong></td>
+          <td title="${escapeHtml(emp.name)}"><strong style="color: #0f172a;">${escapeHtml(emp.name)}</strong></td>
+          <td style="color: #475569; font-size: 0.83rem;" title="${escapeHtml(emp.designation)}">${escapeHtml(emp.designation)}</td>
           <td>
-            <div class="um-password-box" style="margin: 0;">
+            <div class="um-password-box">
               <span class="um-pwd-text ${maskClass}" id="pwd_${empKey}">${displayPassword}</span>
               <button class="btn-pwd-action toggle-pwd-btn" data-key="${empKey}" data-pwd="${escapeHtml(emp.password)}" type="button" title="Toggle Show/Hide">
                 ${isRevealed ? "&#x1F648;" : "&#x1F441;&#xFE0F;"}
@@ -205,8 +205,8 @@
               </button>
             </div>
           </td>
-          <td>${statusBadge}</td>
-          <td style="text-align: center; white-space: nowrap;">
+          <td style="text-align: center;">${statusBadge}</td>
+          <td style="text-align: center;">
             <button class="btn-sm-edit edit-emp-btn" 
               data-sap-id="${escapeHtml(emp.sapId)}" 
               data-name="${escapeHtml(emp.name)}" 

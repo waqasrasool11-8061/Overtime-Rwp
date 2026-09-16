@@ -13,3 +13,4 @@ yarn-error.log*
 *.sqlite-journal
 .qoder/
 amount-summary-*.png
+backups/

@@ -1,8 +1,9 @@
 const homeAuthSessionKey = "HomeAuthSession";
-const HOME_RAW_DATA_API_BASE_URL = "http://localhost:3000";
-const AUTH_API_BASE_URL = window.location.port === "5500"
+const API_BASE_URL = window.location.port === "5500"
   ? `http://${window.location.hostname}:3000`
   : "";
+const HOME_RAW_DATA_API_BASE_URL = API_BASE_URL;
+const AUTH_API_BASE_URL = API_BASE_URL;
 const HOME_RAW_DATA_API_PATHS = {
   dataRows: "/api/raw-data/data-rows",
 };
@@ -1042,6 +1043,9 @@ form.addEventListener("submit", async (event) => {
     loginStateText.textContent = successMsg;
     showFormNotice(successMsg, false);
     clearFormBtn.click();
+    setTimeout(() => {
+      startDateInput.focus();
+    }, 0);
   } catch (error) {
     loginStateText.textContent = error.message;
     showFormNotice(error.message, true);
@@ -1142,6 +1146,9 @@ clearFormBtn.addEventListener("click", () => {
   inwardDurationInput.setCustomValidity("");
   outwardDurationInput.value = "0";
   inwardDurationInput.value = "0";
+  setTimeout(() => {
+    startDateInput.focus();
+  }, 0);
 });
 
 if (linkLocoBtn) {

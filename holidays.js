@@ -1,6 +1,9 @@
 // holidays.js — Gazetted Holidays page
 
-const HOLIDAYS_API = "http://localhost:3000/api/holidays";
+const API_BASE_URL = window.location.port === "5500"
+  ? `http://${window.location.hostname}:3000`
+  : "";
+const HOLIDAYS_API = `${API_BASE_URL}/api/holidays`;
 
 const holCalTitle    = document.getElementById("holCalTitle");
 const holCalGrid     = document.getElementById("holCalGrid");

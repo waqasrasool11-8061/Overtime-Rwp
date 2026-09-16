@@ -1,4 +1,6 @@
-const OP72_API_BASE_URL = "http://localhost:3000";
+const OP72_API_BASE_URL = window.location.port === "5500"
+  ? `http://${window.location.hostname}:3000`
+  : "";
 const OP72_API_PATHS = {
   workbook: "/api/op72/workbook",
   dataRows: "/api/op72/data-rows",
