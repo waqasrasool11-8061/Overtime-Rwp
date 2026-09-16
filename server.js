@@ -541,7 +541,8 @@ function validateSearchRecord(record, employeeNameSet) {
   return "";
 }
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ limit: "150mb", extended: true }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const isLocal = origin && (
