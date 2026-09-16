@@ -841,32 +841,194 @@ function parseMileage(val) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Ek employee ke liye ek date pe multiple raw records ko resolve karo
-// Returns { duty, ot, mileage } — strings
-function resolveRecords(records) {
-  if (records.length === 1) {
-    const r = records[0];
-    const duty    = String(r[3] || "").trim();   // col index 3 = dutyType
-    const ot      = String(r[4] || "").trim();   // col index 4 = ot
-    const mileage = String(r[5] || "").trim();   // col index 5 = mileage
-    return { duty, ot, mileage };
-  }
+// Server record row se individual fields aur details extract karo
+function extractRecordValues(r) {
+  const duty    = String(r[3] || "").trim();
+  const ot      = String(r[4] || "").trim();
+  const mileage = String(r[5] || "").trim();
 
-  // ── Duplicate resolution — VBA logic ki tarah ──────────────────────────────
-  // Duty: combine karo (val1 / val2 / ...) — agar same ho to deduplicate
+  // Outward / Inward / Remarks summary
+  const details = [];
+  if (r[6]) details.push(`Out: ${r[6]} (${r[7] || ""} - ${r[8] || ""})`);
+  if (r[9]) details.push(`In: ${r[9]} (${r[10] || ""} - ${r[11] || ""})`);
+  if (r[12]) details.push(`Remarks: ${r[12]}`);
+  const detailsText = details.join(" | ") || "—";
+
+  return { duty, ot, mileage, detailsText };
+}
+
+// Ek date par multiple records ko combine karo (VBA Option C logic)
+function combineRecords(records) {
   const duties = records.map((r) => String(r[3] || "").trim()).filter(Boolean);
   const uniqueDuties = [...new Set(duties)];
   const combinedDuty = uniqueDuties.join(" / ");
 
-  // OT: sab add karo
   const totalOtMins = records.reduce((sum, r) => sum + parseOtToMinutes(r[4]), 0);
   const combinedOt  = minutesToOtString(totalOtMins);
 
-  // Mileage: sab add karo
   const totalMileage = records.reduce((sum, r) => sum + parseMileage(r[5]), 0);
   const combinedMileage = totalMileage > 0 ? String(totalMileage.toFixed(2)) : "";
 
   return { duty: combinedDuty, ot: combinedOt, mileage: combinedMileage };
+}
+
+// Ek employee ke liye ek date pe multiple raw records ko resolve karo
+function resolveRecords(records) {
+  if (records.length === 1) {
+    const s = extractRecordValues(records[0]);
+    return { duty: s.duty, ot: s.ot, mileage: s.mileage };
+  }
+  return combineRecords(records);
+}
+
+// Multi-Entry Resolution Dialog Controller (Matches Excel VBA prompts)
+function promptMultiEntryResolution(empName, dateLabel, records) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("op72MultiEntryDialog");
+    if (!dialog || typeof dialog.showModal !== "function") {
+      resolve({ ...combineRecords(records), combineAll: false });
+      return;
+    }
+
+    const empNameEl     = document.getElementById("op72MultiEmpName");
+    const dateEl        = document.getElementById("op72MultiDate");
+    const badgeEl       = document.getElementById("op72MultiEntryCountBadge");
+    const tableBody     = document.getElementById("op72MultiTableBody");
+    const previewText   = document.getElementById("multiCombinePreviewText");
+
+    const optSingle     = document.getElementById("multiChoiceSingle");
+    const optCombine    = document.getElementById("multiChoiceCombine");
+    const optManual     = document.getElementById("multiChoiceManual");
+
+    const manualBox     = document.getElementById("op72MultiManualInputs");
+    const manualDuty    = document.getElementById("manualDuty");
+    const manualOt      = document.getElementById("manualOt");
+    const manualMileage = document.getElementById("manualMileage");
+
+    const applyBtn      = document.getElementById("op72MultiApplyBtn");
+    const combineAllBtn = document.getElementById("op72MultiCombineAllBtn");
+
+    if (empNameEl) empNameEl.textContent = empName;
+    if (dateEl)    dateEl.textContent    = dateLabel;
+    if (badgeEl)   badgeEl.textContent   = `${records.length} Entries Found`;
+
+    const parsedRecords = records.map(extractRecordValues);
+    const combined      = combineRecords(records);
+
+    if (previewText) {
+      previewText.textContent = `Duty: ${combined.duty || "None"}, OT: ${combined.ot || "00:00"}, Mileage: ${combined.mileage || "0.00"}`;
+    }
+
+    // Populate Table
+    if (tableBody) {
+      tableBody.innerHTML = "";
+      parsedRecords.forEach((rec, idx) => {
+        const tr = document.createElement("tr");
+        if (idx === 0) tr.classList.add("is-selected");
+
+        tr.innerHTML = `
+          <td style="text-align: center;">
+            <input type="radio" name="multiRecordRowPick" value="${idx}" ${idx === 0 ? "checked" : ""}>
+          </td>
+          <td><strong>#${idx + 1}</strong></td>
+          <td><span style="font-weight: 700; color: #93c5fd;">${rec.duty || "—"}</span></td>
+          <td>${rec.ot || "—"}</td>
+          <td>${rec.mileage || "—"}</td>
+          <td style="font-size: 0.78rem; color: rgba(255,255,255,0.7);">${rec.detailsText}</td>
+        `;
+
+        tr.addEventListener("click", (e) => {
+          if (e.target.tagName !== "INPUT") {
+            const r = tr.querySelector('input[type="radio"]');
+            if (r) r.checked = true;
+          }
+          tableBody.querySelectorAll("tr").forEach((row) => row.classList.remove("is-selected"));
+          tr.classList.add("is-selected");
+          if (optSingle) optSingle.checked = true;
+          syncChoiceUI();
+        });
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // Default choice is Single (First record selected)
+    if (optSingle) optSingle.checked = true;
+
+    // Prefill manual inputs with combined data
+    if (manualDuty)    manualDuty.value    = combined.duty;
+    if (manualOt)      manualOt.value      = combined.ot;
+    if (manualMileage) manualMileage.value = combined.mileage;
+
+    function syncChoiceUI() {
+      if (optManual && optManual.checked) {
+        if (manualBox) manualBox.style.display = "grid";
+      } else {
+        if (manualBox) manualBox.style.display = "none";
+      }
+    }
+
+    function onChoiceChange() {
+      syncChoiceUI();
+    }
+
+    [optSingle, optCombine, optManual].forEach((rb) => {
+      if (rb) rb.addEventListener("change", onChoiceChange);
+    });
+    syncChoiceUI();
+
+    function cleanup() {
+      if (applyBtn)      applyBtn.removeEventListener("click", onApply);
+      if (combineAllBtn) combineAllBtn.removeEventListener("click", onCombineAll);
+      dialog.removeEventListener("cancel", onCancel);
+      [optSingle, optCombine, optManual].forEach((rb) => {
+        if (rb) rb.removeEventListener("change", onChoiceChange);
+      });
+      if (dialog.open) dialog.close();
+    }
+
+    function getSelectedRowRecord() {
+      const picked = tableBody ? tableBody.querySelector('input[name="multiRecordRowPick"]:checked') : null;
+      const idx = picked ? Number(picked.value) : 0;
+      return parsedRecords[idx] || parsedRecords[0];
+    }
+
+    function onApply() {
+      let result;
+      if (optManual && optManual.checked) {
+        result = {
+          duty: manualDuty ? manualDuty.value.trim() : combined.duty,
+          ot: manualOt ? manualOt.value.trim() : combined.ot,
+          mileage: manualMileage ? manualMileage.value.trim() : combined.mileage,
+          combineAll: false,
+        };
+      } else if (optCombine && optCombine.checked) {
+        result = { ...combined, combineAll: false };
+      } else {
+        const picked = getSelectedRowRecord();
+        result = { duty: picked.duty, ot: picked.ot, mileage: picked.mileage, combineAll: false };
+      }
+      cleanup();
+      resolve(result);
+    }
+
+    function onCombineAll() {
+      cleanup();
+      resolve({ ...combined, combineAll: true });
+    }
+
+    function onCancel(e) {
+      e.preventDefault();
+      cleanup();
+      resolve({ ...combined, combineAll: false });
+    }
+
+    if (applyBtn)      applyBtn.addEventListener("click", onApply);
+    if (combineAllBtn) combineAllBtn.addEventListener("click", onCombineAll);
+    dialog.addEventListener("cancel", onCancel);
+
+    dialog.showModal();
+  });
 }
 
 // ISO date string "YYYY-MM-DD" banao
@@ -1384,6 +1546,7 @@ async function loadAllEmployees() {
     const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
 
     let loadedCount = 0;
+    let combineAllRemaining = false;
 
     for (let empIdx = 0; empIdx < employees.length; empIdx += 1) {
       const empName = employees[empIdx];
@@ -1400,16 +1563,39 @@ async function loadAllEmployees() {
       // Group records by day
       const byDay = groupByDay(records, year, month0);
 
-      // Write into table rows
-      byDay.forEach((dayRecords, day) => {
+      // Write into table rows (async aware for multi-entry prompt)
+      for (const [day, dayRecords] of byDay.entries()) {
         const rowIndex = day - 1; // 0-based index into dailyRows
-        if (rowIndex < 0 || rowIndex >= dailyRows.length) return;
+        if (rowIndex < 0 || rowIndex >= dailyRows.length) continue;
         const row = dailyRows[rowIndex];
-        if (row.dataset.monthActive !== "true") return;
+        if (row.dataset.monthActive !== "true") continue;
 
-        const { duty, ot, mileage } = resolveRecords(dayRecords);
+        let duty = "", ot = "", mileage = "";
+        if (dayRecords.length === 1) {
+          const s = extractRecordValues(dayRecords[0]);
+          duty    = s.duty;
+          ot      = s.ot;
+          mileage = s.mileage;
+        } else if (dayRecords.length > 1) {
+          if (combineAllRemaining) {
+            const c = combineRecords(dayRecords);
+            duty    = c.duty;
+            ot      = c.ot;
+            mileage = c.mileage;
+          } else {
+            const dateStr = `${String(day).padStart(2, "0")}-${monthLabel}-${year}`;
+            const resolved = await promptMultiEntryResolution(empName, dateStr, dayRecords);
+            if (resolved.combineAll) {
+              combineAllRemaining = true;
+            }
+            duty    = resolved.duty;
+            ot      = resolved.ot;
+            mileage = resolved.mileage;
+          }
+        }
+
         writeEmployeeDayData(row, empIdx + 1, duty, ot, mileage);
-      });
+      }
 
       loadedCount += 1;
     }

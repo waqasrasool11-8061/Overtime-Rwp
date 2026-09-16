@@ -88,6 +88,102 @@
     </section>
   </main>
 
+  <!-- Multi-Entry Resolution Dialog (VBA Parity) -->
+  <dialog id="op72MultiEntryDialog" class="op72-multi-dialog">
+    <div class="op72-multi-dialog-content">
+      <div class="op72-multi-dialog-header">
+        <div class="op72-multi-dialog-title">
+          <span style="font-size: 1.25rem;">⚠️</span>
+          <strong>Same Date Multi-Entry Detected</strong>
+        </div>
+        <span class="op72-multi-count-badge" id="op72MultiEntryCountBadge">2 Entries Found</span>
+      </div>
+
+      <div class="op72-multi-meta-banner">
+        <div class="op72-multi-meta-item">
+          <span class="meta-label">Employee:</span>
+          <strong id="op72MultiEmpName" class="meta-val">—</strong>
+        </div>
+        <div class="op72-multi-meta-item">
+          <span class="meta-label">Date:</span>
+          <strong id="op72MultiDate" class="meta-val">—</strong>
+        </div>
+      </div>
+
+      <p class="op72-multi-instruction">
+        Is employee ki is date par 2 ya zyada entries paaye gaye hain. Niche me se entry select karein ya combine / manual option chunein:
+      </p>
+
+      <div class="op72-multi-table-wrap">
+        <table class="op72-multi-table">
+          <thead>
+            <tr>
+              <th style="width: 44px; text-align: center;">Pick</th>
+              <th>#</th>
+              <th>Duty</th>
+              <th>OT</th>
+              <th>Mileage</th>
+              <th>Outward / Inward / Remarks</th>
+            </tr>
+          </thead>
+          <tbody id="op72MultiTableBody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="op72-multi-choices">
+        <label class="op72-choice-card">
+          <input type="radio" name="multiChoice" value="single" id="multiChoiceSingle" checked>
+          <div class="choice-text">
+            <strong>1. Single Entry (Select one from table above)</strong>
+            <span class="choice-sub">Sirf table me chuni hui entry ko sheet par load karein.</span>
+          </div>
+        </label>
+
+        <label class="op72-choice-card">
+          <input type="radio" name="multiChoice" value="combine" id="multiChoiceCombine">
+          <div class="choice-text">
+            <strong>2. Combine Entries (VBA Option C)</strong>
+            <span class="choice-sub" id="multiCombinePreviewText">Duty: M / G, OT: 06:30, Mileage: 200.00</span>
+          </div>
+        </label>
+
+        <label class="op72-choice-card">
+          <input type="radio" name="multiChoice" value="manual" id="multiChoiceManual">
+          <div class="choice-text">
+            <strong>3. Manual Custom Entry (VBA Option E)</strong>
+            <span class="choice-sub">Apni marzi se custom Duty Type, OT aur Mileage darj karein.</span>
+          </div>
+        </label>
+
+        <div id="op72MultiManualInputs" class="op72-manual-inputs-grid" style="display: none;">
+          <div class="manual-field">
+            <label for="manualDuty">Duty Type:</label>
+            <input type="text" id="manualDuty" placeholder="e.g. M / G, 2M, P">
+          </div>
+          <div class="manual-field">
+            <label for="manualOt">OT (hh:mm):</label>
+            <input type="text" id="manualOt" placeholder="e.g. 04:00">
+          </div>
+          <div class="manual-field">
+            <label for="manualMileage">Mileage:</label>
+            <input type="number" step="0.01" id="manualMileage" placeholder="e.g. 120.00">
+          </div>
+        </div>
+      </div>
+
+      <div class="op72-multi-footer">
+        <button type="button" id="op72MultiCombineAllBtn" class="btn-outline" title="Baaki tamaam multi-entries ko automatically Combine kar ke sheet fill karein">
+          Combine All Remaining
+        </button>
+        <button type="button" id="op72MultiApplyBtn" class="btn-primary">
+          Apply &amp; Continue &rarr;
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="auth-guard.js?v=2.1"></script>
