@@ -68,7 +68,14 @@ function getAuthApiUrl(pathname) {
 
 function applyNavigationPermissions(user) {
   if (user?.role === "restricted-admin") {
-    const restrictedAllowed = ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "video.html"];
+    const restrictedAllowed = [
+      "index.html",
+      "genl-164.html",
+      "loco-18.html",
+      "raw-data.html",
+      "raw-data-search.html",
+      "video.html",
+    ];
     document.querySelectorAll(".nav-link").forEach((link) => {
       const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
       link.hidden = !restrictedAllowed.includes(page);
@@ -123,6 +130,7 @@ function renderAuthState() {
   if (!activeUser) {
     loginStateText.textContent = "Not signed in.";
     loginToggleBtn.textContent = "Login";
+    if (logoutBtn) logoutBtn.hidden = true;
     setHomeAccessByRole(null);
     setLandingMode(true);
     return;
@@ -135,6 +143,7 @@ function renderAuthState() {
       : "Employee";
   loginStateText.textContent = `Signed in: ${activeUser.userId} | ${roleText}`;
   loginToggleBtn.textContent = activeUser.userId;
+  if (logoutBtn) logoutBtn.hidden = false;
   applyNavigationPermissions(activeUser);
   setLandingMode(false);
   setHomeAccessByRole(activeUser);
@@ -1328,6 +1337,14 @@ loginToggleBtn.addEventListener("click", () => {
     loginUserIdInput.focus();
   }
 });
+
+const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+if (forgotPasswordBtn) {
+  forgotPasswordBtn.addEventListener("click", () => {
+    loginStateText.innerHTML = "🔑 <b>Password Bhool Gaye?</b><br>Employees ka default password unka <b>SAP ID</b> hai.<br>Agar aap password bhool gaye hain, to <b>Admin Vicky Ch</b> se reset karwayen.";
+    loginStateText.style.color = "#f3b33f";
+  });
+}
 
 renderEmployeeNameOptions();
 setupEmployeeAutocomplete(employee1NameInput, employee1Dropdown);

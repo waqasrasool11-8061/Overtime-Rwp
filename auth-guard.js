@@ -10,6 +10,7 @@
     "genl-164.html",
     "loco-18.html",
     "raw-data.html",
+    "raw-data-search.html",
     "video.html",
   ];
   const EMPLOYEE_ALLOWED_PAGES = [employeePage, "video.html"];

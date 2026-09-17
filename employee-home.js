@@ -226,6 +226,16 @@ function getCustomDutyName(dutyStr) {
   return "";
 }
 
+function isDIDuty(dutyStr) {
+  if (!dutyStr) return false;
+  const s = String(dutyStr).trim().toUpperCase();
+  const parts = s.split("/").map(p => p.trim());
+  return parts.some(p => {
+    const clean = p.replace(/[\.\-\_\s]+/g, "");
+    return clean === "DI" || clean === "DRIVERINSTRUCTOR";
+  });
+}
+
 // ── Tab Management ────────────────────────────────────────────────────────────
 function switchTab(tabId) {
   [tabBtnOp72, tabBtnAmountSummary, tabBtnChat, tabBtnChangePassword].forEach(b => b && b.classList.remove("active"));
@@ -374,6 +384,15 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
   let customDutyCnt = 0;
   const customDutyNames = [];
 
+  const sapIdClean = String(sap || "").trim();
+  const normEmpName = normStr(empName);
+  const isArshad = sapIdClean === "60400" || normEmpName.includes("ARSHAD MEHMOOD");
+  const isAmjad  = sapIdClean === "60356" || normEmpName.includes("AMJAD PERVAIZ");
+  const isSpecialDI = isArshad || isAmjad;
+
+  let diDaysCount = 0;
+  let hasAnyDailyEntry = false;
+
   const leaveKeywords = ["LEAVE", "SICK", "U.DMO", "55%", "C/L", "S/L", "L/A", "A/L", "L/P", "L/E"];
 
   for (let day = 1; day <= daysCount; day++) {
@@ -391,6 +410,7 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
     let mileText = "";
 
     if (dayRecs.length > 0) {
+      hasAnyDailyEntry = true;
       if (dayRecs.length === 1) {
         const rec = dayRecs[0];
         const rv = Array.isArray(rec.rowValues) ? rec.rowValues : [];
@@ -416,6 +436,10 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
         });
         otText = dayMins > 0 ? `${Math.floor(dayMins / 60)}:${String(dayMins % 60).padStart(2, "0")}` : "";
         mileText = dayMile > 0 ? (dayMile % 1 === 0 ? String(dayMile) : dayMile.toFixed(2)) : "";
+      }
+
+      if (isDIDuty(dutyText) || dayRecs.some(r => isDIDuty(r.dutyType || (Array.isArray(r.rowValues) ? r.rowValues[3] : "")))) {
+        diDaysCount += 1;
       }
 
       // 1. Numerical totals (OT and Mileage) summed from all records of this day
@@ -474,8 +498,12 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
             }
             const cName = getCustomDutyName(symbol);
             if (cName) {
-              customDutyCnt += qty;
-              if (!customDutyNames.includes(cName)) customDutyNames.push(cName);
+              if (isSpecialDI && (cName === "DI" || symbol === "DI" || isDIDuty(symbol))) {
+                // Special DI employees: do not count DI as generic custom duty
+              } else {
+                customDutyCnt += qty;
+                if (!customDutyNames.includes(cName)) customDutyNames.push(cName);
+              }
             }
           }
         });
@@ -529,16 +557,41 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
     }
   }
 
-  const totalOtHours = totalOtMins / 60;
-  const totalOtDays = totalOtHours / 8; // "Total OT" = OT(hh:mm) / 8 hours
+  let totalOtHours = totalOtMins / 60;
+  let totalOtDays = totalOtHours / 8; // "Total OT" = OT(hh:mm) / 8 hours
   const otH = Math.floor(totalOtMins / 60);
   const otM = totalOtMins % 60;
-  const otHhmm = `${otH}:${String(otM).padStart(2, "0")}`;
+  let otHhmm = `${otH}:${String(otM).padStart(2, "0")}`;
 
   // Mileage divided by 100 for display and rate calculations
-  const mileM_calc   = totalMileM / 100;
-  const mileP_calc   = totalMileP / 100;
-  const mileOPG_calc = totalMileOPG / 100;
+  let mileM_calc   = totalMileM / 100;
+  let mileP_calc   = totalMileP / 100;
+  let mileOPG_calc = totalMileOPG / 100;
+
+  // Special Driver Instructor (DI) package for Arshad Mehmood & Amjad Pervaiz
+  if (isSpecialDI) {
+    if (!hasAnyDailyEntry && diDaysCount === 0) {
+      diDaysCount = daysCount;
+    }
+    const diRatio = Math.min(1, Math.max(0, diDaysCount / daysCount));
+    if (isArshad) {
+      // Arshad Mehmood (60400): Fixed OT = 30, Fixed Mileage (G) = 28
+      const diFixedOt = diRatio * 30;
+      const diFixedMileOPG = diRatio * 28;
+      totalOtDays = Number((diFixedOt + totalOtDays).toFixed(2));
+      mileOPG_calc = Number((diFixedMileOPG + mileOPG_calc).toFixed(2));
+    } else if (isAmjad) {
+      // Amjad Pervaiz (60356): Fixed OT = 10, Fixed Mileage (M) = 42
+      const diFixedOt = diRatio * 10;
+      const diFixedMileM = diRatio * 42;
+      totalOtDays = Number((diFixedOt + totalOtDays).toFixed(2));
+      mileM_calc = Number((diFixedMileM + mileM_calc).toFixed(2));
+    }
+    totalOtHours = totalOtDays * 8;
+    const calcH = Math.floor(totalOtHours);
+    const calcM = Math.round((totalOtHours % 1) * 60);
+    otHhmm = `${calcH}:${String(calcM).padStart(2, "0")}`;
+  }
 
   // Store calculated summary for Tab 2
   op72CalculatedSummary = {

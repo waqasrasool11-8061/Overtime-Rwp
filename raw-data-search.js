@@ -56,7 +56,19 @@
     },
   };
 
+  function isRestrictedAdminOrNoOp72() {
+    try {
+      const cached = JSON.parse(localStorage.getItem("HomeAuthSession") || "null");
+      if (cached?.role === "restricted-admin") return true;
+      if (cached?.permissions && !cached.permissions.includes("op72RawData")) return true;
+    } catch {}
+    return false;
+  }
+
   function selectedSource() {
+    if (isRestrictedAdminOrNoOp72()) {
+      return SOURCE_API["raw-data"];
+    }
     return SOURCE_API[searchDataSourceSelect.value] || SOURCE_API["raw-data"];
   }
 
@@ -408,17 +420,24 @@
   }
 
   async function applySourcePermissions() {
+    if (isRestrictedAdminOrNoOp72()) {
+      searchDataSourceSelect.querySelector('option[value="op72"]')?.remove();
+      searchDataSourceSelect.value = "raw-data";
+      searchDataSourceSelect.disabled = true;
+    }
     try {
       const response = await fetch(apiUrl("/api/auth/session"), { credentials: "include" });
       if (!response.ok) return;
       const payload = await response.json();
-      if (!payload.user?.permissions?.includes("op72RawData")) {
+      if (!payload.user?.permissions?.includes("op72RawData") || payload.user?.role === "restricted-admin") {
         searchDataSourceSelect.querySelector('option[value="op72"]')?.remove();
-        if (searchDataSourceSelect.value === "op72") searchDataSourceSelect.value = "raw-data";
+        searchDataSourceSelect.value = "raw-data";
+        searchDataSourceSelect.disabled = true;
       }
     } catch {
       searchDataSourceSelect.querySelector('option[value="op72"]')?.remove();
       searchDataSourceSelect.value = "raw-data";
+      searchDataSourceSelect.disabled = true;
     }
   }
 
