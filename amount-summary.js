@@ -166,8 +166,72 @@ function getCustomDutyName(dutyStr) {
   return "";
 }
 
+// Check if a duty is Driver Instructor duty
+function isDIDuty(dutyStr) {
+  if (!dutyStr) return false;
+  const s = String(dutyStr).trim().toUpperCase();
+  if (s === "DI" || s === "D.I" || s === "D/I" || s === "DRIVER INSTRUCTOR") return true;
+  const norm = s.replace(/[\/\-\_\.]+/g, " ").trim();
+  return norm === "DI" || norm === "DRIVER INSTRUCTOR" || norm.startsWith("DI ") || norm.endsWith(" DI");
+}
+
+function getTotalDaysInSelectedMonth() {
+  const s = getSelectedMonth();
+  if (/^\d{4}-\d{2}$/.test(s)) {
+    const [y, m] = s.split("-");
+    return new Date(Number(y), Number(m), 0).getDate();
+  }
+  return 30;
+}
+
+function getDIDaysCount(cells, empIdx0, totalDaysInMonth) {
+  let count = 0;
+  let hasAnyDailyEntry = false;
+
+  if (Array.isArray(cells)) {
+    for (let day = 0; day < totalDaysInMonth; day++) {
+      const dutyIdx = 10 + day * 30 + empIdx0 * 3;
+      if (dutyIdx < cells.length) {
+        const duty = String(cells[dutyIdx] || "").trim().toUpperCase();
+        if (duty) {
+          hasAnyDailyEntry = true;
+          if (isDIDuty(duty)) {
+            count += 1;
+          }
+        }
+      }
+    }
+
+    // Check summary tail rows if daily rows had no DI entries
+    if (count === 0) {
+      const summaryStart = 10 + 35 * 30; // 1060
+      const tailStart = summaryStart + SUMMARY_ROWS.length * 20; // 1280
+      for (let t = tailStart; t < cells.length; t += 20) {
+        const lblIdx = t + empIdx0 * 2;
+        const valIdx = t + empIdx0 * 2 + 1;
+        if (valIdx < cells.length) {
+          const tailLbl = String(cells[lblIdx] || "").trim().toUpperCase();
+          const tailVal = n(cells[valIdx]);
+          if (isDIDuty(tailLbl) && tailVal > 0) {
+            count = Math.min(totalDaysInMonth, Math.round(tailVal));
+            hasAnyDailyEntry = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // If sheet is completely unpopulated/empty, default to full month
+  if (!hasAnyDailyEntry && count === 0) {
+    return totalDaysInMonth;
+  }
+
+  return count;
+}
+
 // Extract duties from OP-72 daily rows or tail rows if stored
-function extractTailOrDailyDuties(cells, empIdx0) {
+function extractTailOrDailyDuties(cells, empIdx0, isSpecialDI = false) {
   let mlCount = 0;
   let leave55Count = 0;
   let customDutyCount = 0;
@@ -189,6 +253,9 @@ function extractTailOrDailyDuties(cells, empIdx0) {
       } else {
         const cName = getCustomDutyName(duty);
         if (cName) {
+          if (isSpecialDI && (cName === "DI" || isDIDuty(duty))) {
+            continue;
+          }
           customDutyCount += 1;
           if (!customDutyNames.includes(cName)) {
             customDutyNames.push(cName);
@@ -214,6 +281,9 @@ function extractTailOrDailyDuties(cells, empIdx0) {
           } else if (customDutyCount === 0) {
             const cName = getCustomDutyName(tailLbl);
             if (cName) {
+              if (isSpecialDI && (cName === "DI" || isDIDuty(tailLbl))) {
+                continue;
+              }
               customDutyCount += tailVal;
               if (!customDutyNames.includes(cName)) {
                 customDutyNames.push(cName);
@@ -351,6 +421,14 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
     ? getEffectivePayRecord(rawEmp, selectedMonth)
     : rawEmp;
 
+  const basicPay = emp ? n(emp[C_BASIC]) : 0;
+  const sapId    = emp ? String(emp[C_SAP] || "").trim() : "";
+
+  const normName = normStr(empName);
+  const isArshad = sapId === "60400" || normName.includes("ARSHAD MEHMOOD");
+  const isAmjad  = sapId === "60356" || normName.includes("AMJAD PERVAIZ");
+  const isSpecialDI = isArshad || isAmjad;
+
   const g = (l) => n(getSummaryVal(matrix, l, empIdx0));
 
   let totalOt = g("Total OT");
@@ -377,10 +455,31 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
   let mlCnt   = opMail;
 
   // Extract 55% leaves and Custom Duty types (SEE TO DME, C.OFFICE, IN OFFICE, ENQ, PRC, SUSPENDED, WALTON, SCHOOL, P-8, P-9, BOOK OFF, DI, PVT, S.MAN, FORS & F.OFFICE)
-  let { leave55Count: cust55Cnt, customDutyCount: blankCnt, customDutyLabel: blankLabel } = extractTailOrDailyDuties(allRawCells, empIdx0);
+  let { leave55Count: cust55Cnt, customDutyCount: blankCnt, customDutyLabel: blankLabel } = extractTailOrDailyDuties(allRawCells, empIdx0, isSpecialDI);
 
-  // If no OP-72 live cells were provided, provide exact demo defaults for the 4 employees in PDF
-  if (!matrix && isPresent) {
+  // Special Driver Instructor (DI) package for Arshad Mehmood & Amjad Pervaiz
+  if (isSpecialDI) {
+    const totalDaysInMonth = getTotalDaysInSelectedMonth();
+    const diDays = getDIDaysCount(allRawCells, empIdx0, totalDaysInMonth);
+    const diRatio = Math.min(1, Math.max(0, diDays / totalDaysInMonth));
+
+    if (isArshad) {
+      // Arshad Mehmood (60400): Fixed OT = 30, Fixed Mileage (G) = 28
+      const diFixedOt = diRatio * 30;
+      const diFixedMileOPG = diRatio * 28;
+
+      totalOt = Number((diFixedOt + totalOt).toFixed(2));
+      mileOPG = Number((diFixedMileOPG + mileOPG).toFixed(2));
+    } else if (isAmjad) {
+      // Amjad Pervaiz (60356): Fixed OT = 10, Fixed Mileage (M) = 42
+      const diFixedOt = diRatio * 10;
+      const diFixedMileM = diRatio * 42;
+
+      totalOt = Number((diFixedOt + totalOt).toFixed(2));
+      mileM = Number((diFixedMileM + mileM).toFixed(2));
+    }
+  } else if (!matrix && isPresent) {
+    // If no OP-72 live cells were provided, provide exact demo defaults for the 4 employees in PDF
     if (empName.includes("WAQAS RASOOL")) {
       totalOt = 8.5; mileM = 17; mileP = 0; mileOPG = 0; sunday = 2; gazettd = 0;
       shntCnt = 0; passCnt = 0; gdsCnt = 0; mlCnt = 17; cust55Cnt = 13; blankCnt = 0;
@@ -395,9 +494,6 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
       shntCnt = 0; passCnt = 0; gdsCnt = 25; mlCnt = 2; cust55Cnt = 2; blankCnt = 0;
     }
   }
-
-  const basicPay = emp ? n(emp[C_BASIC]) : 0;
-  const sapId    = emp ? String(emp[C_SAP] || "") : "";
 
   // Rates from Employee_Master
   const otDay       = emp ? n(emp[C_OT])      : (basicPay > 0 ? basicPay / 30 : 0);
