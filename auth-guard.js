@@ -4,6 +4,16 @@
   const authBaseUrl = window.location.port === "5500"
     ? `http://${window.location.hostname}:3000`
     : "";
+
+  const RESTRICTED_ADMIN_ALLOWED_PAGES = [
+    "index.html",
+    "genl-164.html",
+    "loco-18.html",
+    "raw-data.html",
+    "video.html",
+  ];
+  const EMPLOYEE_ALLOWED_PAGES = [employeePage, "video.html"];
+
   const pagePermissions = {
     "index.html": "dataEntry",
     "employee-master.html": "employeeMaster",
@@ -37,7 +47,50 @@
     });
   }
 
+  function applyRoleNavigation(user) {
+    if (!user) return;
+    if (user.role === "restricted-admin") {
+      document.querySelectorAll(".nav-link").forEach((link) => {
+        const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+        link.hidden = !RESTRICTED_ADMIN_ALLOWED_PAGES.includes(href);
+      });
+      return;
+    }
+    if (user.role === "employee") {
+      document.querySelectorAll(".nav-link").forEach((link) => {
+        const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+        link.hidden = !EMPLOYEE_ALLOWED_PAGES.includes(href);
+      });
+      return;
+    }
+    hideDeniedNavigation(user);
+  }
+
   const currentPage = currentPageName();
+
+  // Fast synchronous check from cached session to avoid UI flash
+  try {
+    const cachedRaw = localStorage.getItem(sessionKey);
+    if (cachedRaw) {
+      const cached = JSON.parse(cachedRaw);
+      if (cached?.role === "employee") {
+        if (currentPage === "index.html") {
+          window.location.replace(employeePage);
+          return;
+        }
+        if (!EMPLOYEE_ALLOWED_PAGES.includes(currentPage)) {
+          window.location.replace(employeePage);
+          return;
+        }
+      } else if (cached?.role === "restricted-admin") {
+        if (!RESTRICTED_ADMIN_ALLOWED_PAGES.includes(currentPage)) {
+          window.location.replace("index.html");
+          return;
+        }
+      }
+      applyRoleNavigation(cached);
+    }
+  } catch {}
 
   let user = null;
   try {
@@ -62,19 +115,26 @@
       window.location.replace(employeePage);
       return;
     }
-    const allowedPages = [employeePage, "video.html"];
-    if (!allowedPages.includes(currentPage)) {
+    if (!EMPLOYEE_ALLOWED_PAGES.includes(currentPage)) {
       window.location.replace(employeePage);
       return;
     }
-    document.querySelectorAll(".nav-link").forEach((link) => {
-      const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-      link.hidden = !allowedPages.includes(href);
-    });
+    applyRoleNavigation(user);
     return;
   }
 
-  hideDeniedNavigation(user);
+  if (user.role === "restricted-admin") {
+    if (!RESTRICTED_ADMIN_ALLOWED_PAGES.includes(currentPage)) {
+      window.location.replace("index.html");
+      return;
+    }
+    applyRoleNavigation(user);
+    return;
+  }
+
+  applyRoleNavigation(user);
   const requiredPermission = pagePermissions[currentPage];
-  if (requiredPermission && !allow(user, requiredPermission)) window.location.replace("index.html");
+  if (requiredPermission && !allow(user, requiredPermission)) {
+    window.location.replace("index.html");
+  }
 })();

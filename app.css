@@ -43,7 +43,7 @@ body.login-landing::before {
 body.login-landing .site-header,
 body.login-landing .nav-bar,
 body.login-landing .home-form-page {
-  display: none;
+  display: none !important;
 }
 
 body.login-landing .bg-shape {

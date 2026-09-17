@@ -67,6 +67,22 @@ function getAuthApiUrl(pathname) {
 }
 
 function applyNavigationPermissions(user) {
+  if (user?.role === "restricted-admin") {
+    const restrictedAllowed = ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "video.html"];
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+      link.hidden = !restrictedAllowed.includes(page);
+    });
+    return;
+  }
+  if (user?.role === "employee") {
+    const employeeAllowed = ["employee-home.html", "video.html"];
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+      link.hidden = !employeeAllowed.includes(page);
+    });
+    return;
+  }
   const permissionsByPage = {
     "employee-master.html": "employeeMaster",
     "genl-164.html": "general164",
@@ -130,20 +146,31 @@ function persistAuthSession() {
     return;
   }
 
-  localStorage.setItem(homeAuthSessionKey, JSON.stringify({ userId: activeUser.userId, role: activeUser.role }));
+  localStorage.setItem(
+    homeAuthSessionKey,
+    JSON.stringify({
+      userId: activeUser.userId,
+      role: activeUser.role,
+      permissions: activeUser.permissions || [],
+    })
+  );
 }
 
 async function restoreAuthSession() {
   try {
     const response = await fetch(getAuthApiUrl("/api/auth/session"), { credentials: "include" });
-    if (authRequestInProgress || activeUser) return;
+    if (authRequestInProgress) return;
     if (!response.ok) throw new Error("Not authenticated");
     const payload = await response.json();
     activeUser = payload.user;
     persistAuthSession();
+    if (activeUser.role === "employee") {
+      window.location.replace("employee-home.html");
+      return;
+    }
     renderAuthState();
   } catch {
-    if (authRequestInProgress || activeUser) return;
+    if (authRequestInProgress) return;
     activeUser = null;
     persistAuthSession();
     renderAuthState();
@@ -1307,6 +1334,22 @@ setupEmployeeAutocomplete(employee1NameInput, employee1Dropdown);
 setupEmployeeAutocomplete(employee2NameInput, employee2Dropdown);
 loadEmployeeMasterDataForForm();
 updateLocoLinkButtonUI();
+// Instant cache check to avoid UI flash while network fetch completes
+try {
+  const cachedRaw = localStorage.getItem(homeAuthSessionKey);
+  if (cachedRaw) {
+    const cached = JSON.parse(cachedRaw);
+    if (cached?.role === "employee") {
+      window.location.replace("employee-home.html");
+    } else if (cached?.role) {
+      applyNavigationPermissions(cached);
+    }
+  } else {
+    setLandingMode(true);
+    openLoginDialog();
+  }
+} catch {}
+
 restoreAuthSession().then(() => {
   if (!activeUser) {
     setLandingMode(true);

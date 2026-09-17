@@ -204,12 +204,6 @@ function getAdminAccounts() {
         "rawDataEdit",
         "general164",
         "loco18",
-        "employeeMaster",
-        "op72RawData",
-        "op72",
-        "amountSummary",
-        "groupMaster",
-        "holidays",
       ],
     },
   ];
