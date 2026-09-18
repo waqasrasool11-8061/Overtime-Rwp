@@ -64,6 +64,7 @@
           style="width: 100%; resize: vertical;"
         ></textarea>
         <p id="excelPasteValidationMsg" class="helper-text" style="margin-top: 8px;"></p>
+        <div id="excelPasteMonthSummary" class="paste-month-summary-box" style="display: none;"></div>
         <div id="excelPastePreview" class="sheet-wrap" style="display: none; margin-top: 10px; padding: 10px;"></div>
         <div class="actions" style="margin-top: 10px;">
           <button id="previewExcelPaste" class="btn-outline" type="button">Preview</button>
@@ -72,7 +73,29 @@
         </div>
       </section>
       <p id="rawDataSaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
-      <div class="sheet-wrap">
+
+      <!-- Quick Month Control Bar -->
+      <div id="rawDataControlBar" class="raw-month-control-bar" style="display: none;">
+        <div class="month-control-left">
+          <label class="month-jump-label" for="rawDataMonthJump">
+            <span>📅 Jump to Month:</span>
+            <select id="rawDataMonthJump" class="month-jump-select">
+              <option value="ALL">All Months (Overview)</option>
+            </select>
+          </label>
+          <button type="button" id="rawDataExpandAll" class="month-btn-action" title="Expand all month blocks">📂 Expand All</button>
+          <button type="button" id="rawDataCollapseAll" class="month-btn-action" title="Collapse all month blocks">📁 Collapse All</button>
+        </div>
+        <div class="month-control-right">
+          <span id="rawDataTotalStats" class="month-total-badge">Loading records...</span>
+        </div>
+      </div>
+
+      <!-- Dynamic Month Accordion Container -->
+      <div id="rawDataContainer" class="month-accordion-list"></div>
+
+      <!-- Legacy single table wrap (used if no data rows or fallback) -->
+      <div id="rawDataLegacyWrap" class="sheet-wrap" style="display: none;">
         <table id="rawDataTable">
           <colgroup id="rawDataColgroup"></colgroup>
           <thead id="rawDataHead"></thead>

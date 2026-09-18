@@ -58,6 +58,7 @@
         <p class="helper-text" style="margin-top: 0;">Copy A:M range from Excel, then paste below with Ctrl+V.</p>
         <textarea id="op72PasteInput" class="field-input" rows="8" placeholder="Paste Excel rows here (tab-separated columns A:M)." style="width: 100%; resize: vertical;"></textarea>
         <p id="op72PasteValidationMsg" class="helper-text" style="margin-top: 8px;"></p>
+        <div id="op72PasteMonthSummary" class="paste-month-summary-box" style="display: none;"></div>
         <div id="op72PastePreview" class="sheet-wrap" style="display: none; margin-top: 10px; padding: 10px;"></div>
         <div class="actions" style="margin-top: 10px;">
           <button id="previewOp72Paste" class="btn-outline" type="button">Preview</button>
@@ -66,7 +67,29 @@
         </div>
       </section>
       <p id="op72SaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
-      <div class="sheet-wrap">
+
+      <!-- Quick Month Control Bar -->
+      <div id="op72ControlBar" class="raw-month-control-bar" style="display: none;">
+        <div class="month-control-left">
+          <label class="month-jump-label" for="op72MonthJump">
+            <span>📅 Jump to Month:</span>
+            <select id="op72MonthJump" class="month-jump-select">
+              <option value="ALL">All Months (Overview)</option>
+            </select>
+          </label>
+          <button type="button" id="op72ExpandAll" class="month-btn-action" title="Expand all month blocks">📂 Expand All</button>
+          <button type="button" id="op72CollapseAll" class="month-btn-action" title="Collapse all month blocks">📁 Collapse All</button>
+        </div>
+        <div class="month-control-right">
+          <span id="op72TotalStats" class="month-total-badge">Loading records...</span>
+        </div>
+      </div>
+
+      <!-- Dynamic Month Accordion Container -->
+      <div id="op72Container" class="month-accordion-list"></div>
+
+      <!-- Legacy single table wrap (used if no data rows or fallback) -->
+      <div id="op72LegacyWrap" class="sheet-wrap" style="display: none;">
         <table id="op72RawDataTable">
           <colgroup id="op72Colgroup"></colgroup>
           <thead id="op72Head"></thead>

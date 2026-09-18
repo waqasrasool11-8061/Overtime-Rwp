@@ -2452,4 +2452,286 @@ td[contenteditable="true"]:focus {
   .chat-topbar-back-btn {
     display: inline-flex !important;
   }
+}
+
+/* ── Month Accordion & Quick Control Bar (RawData & OP72 Raw Data) ── */
+.raw-month-control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.month-control-left,
+.month-control-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.month-jump-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+.month-jump-select {
+  padding: 5px 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  min-width: 170px;
+}
+
+.month-btn-action {
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 7px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.month-btn-action:hover {
+  background: #f1f5f9;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.month-total-badge {
+  background: #0f2b48;
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* Month Accordion Container & Cards */
+.month-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.month-accordion-block {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.month-accordion-block:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.month-accordion-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.15s ease;
+}
+
+.month-accordion-header:hover {
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.month-accordion-header.is-open {
+  background: linear-gradient(180deg, #eaf2fd 0%, #dbeafe 100%);
+  border-bottom: 1.5px solid #93c5fd;
+}
+
+.month-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.month-chevron {
+  font-size: 0.8rem;
+  color: #2563eb;
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 14px;
+  text-align: center;
+}
+
+.month-accordion-header.is-open .month-chevron {
+  transform: rotate(90deg);
+}
+
+.month-title-text {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f2b48;
+  letter-spacing: 0.2px;
+}
+
+.month-row-badge {
+  background: #0f2b48;
+  color: #ffffff;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.month-accordion-header.is-open .month-row-badge {
+  background: #1d4ed8;
+}
+
+.month-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-month-copy {
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1.5px solid #93c5fd;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-month-copy:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.btn-month-copy:active {
+  transform: scale(0.96);
+}
+
+.month-select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  background: #ffffff;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.month-select-label:hover {
+  border-color: #94a3b8;
+}
+
+.month-select-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.month-accordion-body {
+  display: block;
+}
+
+.month-accordion-body.is-collapsed {
+  display: none;
+}
+
+.month-accordion-body .sheet-wrap {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.paste-month-summary-box {
+  margin: 10px 0;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #1e3a8a;
+  line-height: 1.5;
+}
+
+.paste-month-summary-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.paste-month-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.paste-month-chip {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+  .raw-month-control-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .month-control-left,
+  .month-control-right {
+    justify-content: space-between;
+  }
+  .month-accordion-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .month-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }

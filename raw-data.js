@@ -21,6 +21,16 @@ const previewExcelPasteBtn = document.getElementById("previewExcelPaste");
 const importExcelPasteBtn = document.getElementById("importExcelPaste");
 const cancelExcelPasteBtn = document.getElementById("cancelExcelPaste");
 
+// Month Accordion & Control Bar Elements
+const rawDataControlBar = document.getElementById("rawDataControlBar");
+const rawDataMonthJump = document.getElementById("rawDataMonthJump");
+const rawDataExpandAll = document.getElementById("rawDataExpandAll");
+const rawDataCollapseAll = document.getElementById("rawDataCollapseAll");
+const rawDataTotalStats = document.getElementById("rawDataTotalStats");
+const rawDataContainer = document.getElementById("rawDataContainer");
+const rawDataLegacyWrap = document.getElementById("rawDataLegacyWrap");
+const excelPasteMonthSummary = document.getElementById("excelPasteMonthSummary");
+
 let isDirty = false;
 let excelPastePreviewRows = [];
 
@@ -139,6 +149,74 @@ function formatDateDdMmmYy(value) {
   return `${dd}-${mmm}-${yy}`;
 }
 
+function parseDateToYyyyMm(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const monthMap = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+  };
+
+  // 1. DD-MMM-YYYY or DD-MMM-YY (e.g. 01-Jan-2026 or 01-Jan-26 or 01-JAN-26)
+  const dMmmYRegex = /^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})$/;
+  const m1 = raw.match(dMmmYRegex);
+  if (m1) {
+    const mmm = m1[2].toLowerCase();
+    const mm = monthMap[mmm];
+    if (mm) {
+      let yyyy = m1[3];
+      if (yyyy.length === 2) {
+        const yNum = Number(yyyy);
+        yyyy = yNum >= 50 ? String(1900 + yNum) : String(2000 + yNum);
+      }
+      return `${yyyy}-${mm}`;
+    }
+  }
+
+  // 2. YYYY-MM-DD or YYYY/MM/DD
+  const ymdRegex = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
+  const m2 = raw.match(ymdRegex);
+  if (m2) {
+    const yyyy = m2[1];
+    const mm = String(m2[2]).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  // 3. DD-MM-YYYY or DD/MM/YYYY
+  const dmyRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/;
+  const m3 = raw.match(dmyRegex);
+  if (m3) {
+    const yyyy = m3[3];
+    const mm = String(m3[2]).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  // 4. Try native Date parse
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  return null;
+}
+
+function formatMonthLabel(yyyyMm) {
+  if (!yyyyMm || yyyyMm === "UNKNOWN") return "Other / Unspecified Date";
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const parts = yyyyMm.split("-");
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const monthName = monthNames[monthIdx] || parts[1];
+  return `${monthName} - ${year}`;
+}
+
 function formatTimeHhMm(value) {
   if (value === null || value === undefined || value === "") {
     return "";
@@ -238,10 +316,11 @@ function syncHeaderOffsets() {
   });
 }
 
-function renderMergedHeader(headerRows, visibleColumnCount) {
+function buildMergedHeaderElement(headerRows, visibleColumnCount, monthKey) {
   const topRow = headerRows[0] || [];
   const secondRow = headerRows[1] || [];
 
+  const thead = document.createElement("thead");
   const tr1 = document.createElement("tr");
   const tr2 = document.createElement("tr");
 
@@ -251,8 +330,8 @@ function renderMergedHeader(headerRows, visibleColumnCount) {
 
   const selectAllCheckbox = document.createElement("input");
   selectAllCheckbox.type = "checkbox";
-  selectAllCheckbox.id = "selectAllDataRows";
-  selectAllCheckbox.title = "Select all data rows";
+  selectAllCheckbox.title = "Select all data rows in this month";
+  selectAllCheckbox.dataset.monthSelectHeader = monthKey || "";
   selectAllHeaderCell.appendChild(selectAllCheckbox);
   tr1.appendChild(selectAllHeaderCell);
 
@@ -291,21 +370,50 @@ function renderMergedHeader(headerRows, visibleColumnCount) {
       tr2.appendChild(createCell("th", secondRow[columnIndex], "header-row header-row-2", columnIndex, false));
     });
 
-  rawDataTableHead.appendChild(tr1);
-  rawDataTableHead.appendChild(tr2);
+  thead.appendChild(tr1);
+  thead.appendChild(tr2);
 
-  const selectAllControl = document.getElementById("selectAllDataRows");
-  if (selectAllControl) {
-    selectAllControl.addEventListener("change", () => {
-      const rowCheckboxes = rawDataTableBody.querySelectorAll("input[type='checkbox'][data-row-select='1']");
-      rowCheckboxes.forEach((checkbox) => {
-        checkbox.checked = selectAllControl.checked;
-      });
-    });
+  selectAllCheckbox.addEventListener("change", () => {
+    const table = selectAllCheckbox.closest("table");
+    if (!table) return;
+    const cbs = table.querySelectorAll("input[type='checkbox'][data-row-select='1']");
+    cbs.forEach(cb => cb.checked = selectAllCheckbox.checked);
+    const block = selectAllCheckbox.closest(".month-accordion-block");
+    if (block) {
+      const headerCb = block.querySelector("input[data-select-month]");
+      if (headerCb) headerCb.checked = selectAllCheckbox.checked;
+    }
+  });
+
+  return thead;
+}
+
+function buildColgroupElement(widths) {
+  const colgroup = document.createElement("colgroup");
+  widths.forEach((width, index) => {
+    const col = document.createElement("col");
+    col.style.width = `${width}ch`;
+    if (index === 1) {
+      col.className = "sticky-first-col";
+    }
+    colgroup.appendChild(col);
+  });
+  return colgroup;
+}
+
+function renderMergedHeader(headerRows, visibleColumnCount) {
+  rawDataTableHead.innerHTML = "";
+  const thead = buildMergedHeaderElement(headerRows, visibleColumnCount, "");
+  while (thead.firstChild) {
+    rawDataTableHead.appendChild(thead.firstChild);
   }
 }
 
 function addDataRow(row, visibleColumnCount, rowMeta) {
+  addDataRowToTable(rawDataTableBody, row, visibleColumnCount, rowMeta);
+}
+
+function addDataRowToTable(targetBody, row, visibleColumnCount, rowMeta) {
   const tr = document.createElement("tr");
   tr.dataset.rowIndex = String(Number(rowMeta?.rowIndex || -1));
 
@@ -319,10 +427,34 @@ function addDataRow(row, visibleColumnCount, rowMeta) {
   for (let columnIndex = 0; columnIndex < visibleColumnCount; columnIndex += 1) {
     tr.appendChild(createCell("td", row[columnIndex], "", columnIndex, true));
   }
-  rawDataTableBody.appendChild(tr);
+  targetBody.appendChild(tr);
 }
 
 function getCurrentSheetRows() {
+  if (rawDataContainer && rawDataContainer.children.length > 0) {
+    const blocks = Array.from(rawDataContainer.querySelectorAll(".month-accordion-block"));
+    // Sort blocks by monthKey ascending (earliest to latest) so stored data is chronologically consistent
+    blocks.sort((a, b) => {
+      const kA = a.dataset.monthKey || "";
+      const kB = b.dataset.monthKey || "";
+      if (kA === "UNKNOWN") return 1;
+      if (kB === "UNKNOWN") return -1;
+      return kA.localeCompare(kB);
+    });
+
+    const allTrs = [];
+    blocks.forEach((b) => {
+      const trs = Array.from(b.querySelectorAll("tbody tr"));
+      allTrs.push(...trs);
+    });
+
+    return allTrs.map((tr) =>
+      Array.from(tr.querySelectorAll("td"))
+        .slice(1)
+        .map((td) => td.textContent.trim())
+    );
+  }
+
   return Array.from(rawDataTableBody.querySelectorAll("tr")).map((tr) =>
     Array.from(tr.querySelectorAll("td"))
       .slice(1)
@@ -331,7 +463,8 @@ function getCurrentSheetRows() {
 }
 
 function getSelectedRowIndices() {
-  return Array.from(rawDataTableBody.querySelectorAll("tr"))
+  const container = rawDataContainer && rawDataContainer.children.length > 0 ? rawDataContainer : rawDataTableBody;
+  return Array.from(container.querySelectorAll("tbody tr"))
     .filter((tr) => {
       const checkbox = tr.querySelector("input[type='checkbox'][data-row-select='1']");
       return Boolean(checkbox?.checked);
@@ -341,7 +474,8 @@ function getSelectedRowIndices() {
 }
 
 function getSelectedRowsData() {
-  const checkedTrs = Array.from(rawDataTableBody.querySelectorAll("tr"))
+  const container = rawDataContainer && rawDataContainer.children.length > 0 ? rawDataContainer : rawDataTableBody;
+  const checkedTrs = Array.from(container.querySelectorAll("tbody tr"))
     .filter((tr) => {
       const checkbox = tr.querySelector("input[type='checkbox'][data-row-select='1']");
       return Boolean(checkbox?.checked);
@@ -356,7 +490,7 @@ function getSelectedRowsData() {
   }
 
   const activeTr = document.activeElement ? document.activeElement.closest("tr") : null;
-  if (activeTr && rawDataTableBody.contains(activeTr)) {
+  if (activeTr && container.contains(activeTr)) {
     return [
       Array.from(activeTr.querySelectorAll("td"))
         .slice(1)
@@ -365,6 +499,39 @@ function getSelectedRowsData() {
   }
 
   return [];
+}
+
+async function copyMonthDataToClipboard(monthKey, btn) {
+  const block = document.getElementById(`monthBlock_${monthKey}`);
+  if (!block) return;
+  const trs = Array.from(block.querySelectorAll("tbody tr"));
+  if (!trs.length) {
+    rawDataMsg.textContent = "No data rows to copy in this month.";
+    return;
+  }
+
+  const rowsData = trs.map((tr) =>
+    Array.from(tr.querySelectorAll("td")).slice(1).map((td) => td.textContent.trim())
+  );
+
+  const tsv = rowsData.map((row) => row.join("\t")).join("\n");
+  const success = await copyTextToClipboard(tsv);
+  if (success) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = "✅ Copied!";
+    btn.style.background = "#16a34a";
+    btn.style.borderColor = "#16a34a";
+    btn.style.color = "#ffffff";
+    setTimeout(() => {
+      btn.innerHTML = origHtml;
+      btn.style.background = "";
+      btn.style.borderColor = "";
+      btn.style.color = "";
+    }, 1600);
+    rawDataMsg.textContent = `Copied ${rowsData.length} rows for this month to clipboard (Excel ready).`;
+  } else {
+    rawDataMsg.textContent = "Failed to copy to clipboard.";
+  }
 }
 
 async function copyTextToClipboard(text) {
@@ -544,10 +711,13 @@ function scrollToLatestValidRecord() {
 }
 
 function renderRawDataTable() {
-  rawDataTableHead.innerHTML = "";
-  rawDataTableBody.innerHTML = "";
+  if (rawDataContainer) rawDataContainer.innerHTML = "";
+  if (rawDataTableHead) rawDataTableHead.innerHTML = "";
+  if (rawDataTableBody) rawDataTableBody.innerHTML = "";
 
   if (!allRows.length) {
+    if (rawDataControlBar) rawDataControlBar.style.display = "none";
+    if (rawDataLegacyWrap) rawDataLegacyWrap.style.display = "none";
     rawDataMsg.textContent = "Database connected - No Raw Data available.";
     return;
   }
@@ -558,27 +728,130 @@ function renderRawDataTable() {
   const dataRows = trimmedRows.slice(headerRowCount);
   const dataRowsMeta = allRowMeta.slice(headerRowCount);
 
+  if (!dataRows.length) {
+    if (rawDataControlBar) rawDataControlBar.style.display = "none";
+    if (rawDataLegacyWrap) rawDataLegacyWrap.style.display = "none";
+    rawDataMsg.textContent = "Database connected - No Raw Data available.";
+    return;
+  }
+
   const rowsForSizing = [
     ...headerRows.map((row) => ({ row, isDataRow: false })),
     ...dataRows.map((row) => ({ row, isDataRow: true })),
   ];
 
-  applyColumnWidths(calculateColumnWidths(rowsForSizing, visibleColumnCount));
+  const calculatedWidths = calculateColumnWidths(rowsForSizing, visibleColumnCount);
 
-  renderMergedHeader(headerRows, visibleColumnCount);
+  // Group data rows by month
+  const monthGroups = new Map();
+  let lastMonth = null;
 
-  dataRows.forEach((row, rowNumber) => addDataRow(row, visibleColumnCount, dataRowsMeta[rowNumber]));
+  dataRows.forEach((row, idx) => {
+    const meta = dataRowsMeta[idx];
+    let monthKey = parseDateToYyyyMm(row[0]);
+    if (!monthKey && lastMonth) {
+      monthKey = lastMonth;
+    } else if (!monthKey) {
+      monthKey = "UNKNOWN";
+    } else {
+      lastMonth = monthKey;
+    }
 
-  if (!dataRows.length) {
-    rawDataMsg.textContent = "Database connected - No Raw Data available.";
-  } else {
-    rawDataMsg.textContent = `Database connected - Loaded ${dataRows.length} data rows from SQLite.`;
+    if (!monthGroups.has(monthKey)) {
+      monthGroups.set(monthKey, {
+        key: monthKey,
+        label: formatMonthLabel(monthKey),
+        items: [],
+      });
+    }
+    monthGroups.get(monthKey).items.push({ row, meta });
+  });
+
+  // Sort months reverse chronologically (newest month first)
+  const sortedKeys = Array.from(monthGroups.keys()).sort((a, b) => {
+    if (a === "UNKNOWN") return 1;
+    if (b === "UNKNOWN") return -1;
+    return b.localeCompare(a);
+  });
+
+  // Setup Quick Control Bar
+  if (rawDataControlBar) {
+    rawDataControlBar.style.display = "flex";
+    if (rawDataTotalStats) {
+      rawDataTotalStats.textContent = `${dataRows.length} Records (${monthGroups.size} Months)`;
+    }
+    if (rawDataMonthJump) {
+      rawDataMonthJump.innerHTML = `<option value="ALL">All Months (${dataRows.length} Records)</option>`;
+      sortedKeys.forEach((key) => {
+        const group = monthGroups.get(key);
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = `${group.label} (${group.items.length} records)`;
+        rawDataMonthJump.appendChild(opt);
+      });
+    }
   }
 
-  window.requestAnimationFrame(() => {
-    syncHeaderOffsets();
-    scrollToLatestValidRecord();
-  });
+  if (rawDataLegacyWrap) rawDataLegacyWrap.style.display = "none";
+
+  if (rawDataContainer) {
+    rawDataContainer.style.display = "flex";
+
+    sortedKeys.forEach((key, index) => {
+      const group = monthGroups.get(key);
+      const isFirst = index === 0; // Newest month open by default
+
+      const block = document.createElement("div");
+      block.className = "month-accordion-block";
+      block.id = `monthBlock_${key}`;
+      block.dataset.monthKey = key;
+
+      const header = document.createElement("div");
+      header.className = `month-accordion-header ${isFirst ? "is-open" : ""}`;
+      header.dataset.toggleMonth = key;
+      header.innerHTML = `
+        <div class="month-header-title-group">
+          <span class="month-chevron">${isFirst ? "▼" : "▶"}</span>
+          <span class="month-title-text">📅 ${group.label}</span>
+          <span class="month-row-badge">${group.items.length} ${group.items.length === 1 ? "Record" : "Records"}</span>
+        </div>
+        <div class="month-header-actions">
+          <button type="button" class="btn-month-copy" data-copy-month="${key}" title="Copy ${group.label} records to clipboard (Excel ready)">
+            📋 Copy Month
+          </button>
+          <label class="month-select-label" title="Select/Deselect all records in ${group.label}">
+            <input type="checkbox" data-select-month="${key}"> Select All
+          </label>
+        </div>
+      `;
+
+      const body = document.createElement("div");
+      body.className = `month-accordion-body ${isFirst ? "" : "is-collapsed"}`;
+      body.id = `monthBody_${key}`;
+
+      const sheetWrap = document.createElement("div");
+      sheetWrap.className = "sheet-wrap";
+
+      const table = document.createElement("table");
+      table.dataset.monthTable = key;
+      table.appendChild(buildColgroupElement(calculatedWidths));
+      table.appendChild(buildMergedHeaderElement(headerRows, visibleColumnCount, key));
+
+      const tbody = document.createElement("tbody");
+      group.items.forEach(({ row, meta }) => {
+        addDataRowToTable(tbody, row, visibleColumnCount, meta);
+      });
+      table.appendChild(tbody);
+      sheetWrap.appendChild(table);
+      body.appendChild(sheetWrap);
+
+      block.appendChild(header);
+      block.appendChild(body);
+      rawDataContainer.appendChild(block);
+    });
+  }
+
+  rawDataMsg.textContent = `Database connected - Loaded ${dataRows.length} data rows across ${monthGroups.size} month blocks from SQLite.`;
 }
 
 function renderAddRecordPanel() {
@@ -621,6 +894,10 @@ function resetExcelPasteState() {
   excelPasteValidationMsg.style.color = "";
   excelPastePreview.innerHTML = "";
   excelPastePreview.style.display = "none";
+  if (excelPasteMonthSummary) {
+    excelPasteMonthSummary.innerHTML = "";
+    excelPasteMonthSummary.style.display = "none";
+  }
   importExcelPasteBtn.disabled = true;
 }
 
@@ -756,7 +1033,29 @@ function handleExcelPreview() {
 
   excelPastePreviewRows = parsed.rows;
   renderExcelPreview(parsed.rows, parsed.detectedColumns);
-  const baseMsg = "Preview ready. Click Import to append all rows transactionally.";
+
+  // Calculate month breakdown for multi-month imports
+  const monthCounts = new Map();
+  parsed.rows.forEach((row) => {
+    if (Array.isArray(row)) {
+      const monthKey = parseDateToYyyyMm(row[0]) || "UNKNOWN";
+      monthCounts.set(monthKey, (monthCounts.get(monthKey) || 0) + 1);
+    }
+  });
+
+  if (excelPasteMonthSummary && monthCounts.size > 0) {
+    const chipsHtml = Array.from(monthCounts.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mKey, count]) => `<span class="paste-month-chip">📅 ${formatMonthLabel(mKey)}: ${count} row${count === 1 ? "" : "s"}</span>`)
+      .join(" ");
+    excelPasteMonthSummary.innerHTML = `
+      <strong>📅 Multi-Month Distribution (${parsed.rows.length} rows across ${monthCounts.size} month${monthCounts.size === 1 ? "" : "s"}):</strong>
+      <div class="paste-month-summary-chips">${chipsHtml}</div>
+    `;
+    excelPasteMonthSummary.style.display = "block";
+  }
+
+  const baseMsg = `Preview ready (${parsed.rows.length} rows across ${monthCounts.size} month(s)). Click Import to append all rows transactionally.`;
   excelPasteValidationMsg.textContent = parsed.warningNote
     ? `${baseMsg} ${parsed.warningNote}`
     : baseMsg;
@@ -770,9 +1069,102 @@ function resetAddRecordPanel() {
   });
 }
 
-rawDataTableBody.addEventListener("input", () => {
-  setDirtyState(true);
-});
+if (rawDataTableBody) {
+  rawDataTableBody.addEventListener("input", () => {
+    setDirtyState(true);
+  });
+}
+
+if (rawDataContainer) {
+  // Track dirty state for any cell edit inside any month block
+  rawDataContainer.addEventListener("input", () => {
+    setDirtyState(true);
+  });
+
+  // Handle month accordion toggles, copy month, and select month
+  rawDataContainer.addEventListener("click", (e) => {
+    // 1. Copy Month Button
+    const copyBtn = e.target.closest("button[data-copy-month]");
+    if (copyBtn) {
+      e.stopPropagation();
+      const monthKey = copyBtn.dataset.copyMonth;
+      copyMonthDataToClipboard(monthKey, copyBtn);
+      return;
+    }
+
+    // 2. Select All Month Checkbox
+    const selectMonthCb = e.target.closest("input[data-select-month]");
+    if (selectMonthCb) {
+      e.stopPropagation();
+      const monthKey = selectMonthCb.dataset.selectMonth;
+      const block = document.getElementById(`monthBlock_${monthKey}`);
+      if (block) {
+        const rowCbs = block.querySelectorAll("input[type='checkbox'][data-row-select='1']");
+        rowCbs.forEach((cb) => { cb.checked = selectMonthCb.checked; });
+        const headerCb = block.querySelector("input[data-month-select-header]");
+        if (headerCb) headerCb.checked = selectMonthCb.checked;
+      }
+      return;
+    }
+
+    // 3. Header Click (Accordion toggle)
+    const header = e.target.closest(".month-accordion-header");
+    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label")) {
+      const monthKey = header.dataset.toggleMonth;
+      const body = document.getElementById(`monthBody_${monthKey}`);
+      const chevron = header.querySelector(".month-chevron");
+      const isOpen = header.classList.contains("is-open");
+
+      if (isOpen) {
+        header.classList.remove("is-open");
+        if (body) body.classList.add("is-collapsed");
+        if (chevron) chevron.textContent = "▶";
+      } else {
+        header.classList.add("is-open");
+        if (body) body.classList.remove("is-collapsed");
+        if (chevron) chevron.textContent = "▼";
+      }
+    }
+  });
+}
+
+if (rawDataMonthJump) {
+  rawDataMonthJump.addEventListener("change", () => {
+    const val = rawDataMonthJump.value;
+    if (!val || val === "ALL") {
+      if (rawDataContainer) rawDataContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      const block = document.getElementById(`monthBlock_${val}`);
+      if (block) {
+        const header = block.querySelector(".month-accordion-header");
+        const body = block.querySelector(".month-accordion-body");
+        const chevron = block.querySelector(".month-chevron");
+        if (header) header.classList.add("is-open");
+        if (body) body.classList.remove("is-collapsed");
+        if (chevron) chevron.textContent = "▼";
+        block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  });
+}
+
+if (rawDataExpandAll) {
+  rawDataExpandAll.addEventListener("click", () => {
+    if (!rawDataContainer) return;
+    rawDataContainer.querySelectorAll(".month-accordion-header").forEach((h) => h.classList.add("is-open"));
+    rawDataContainer.querySelectorAll(".month-accordion-body").forEach((b) => b.classList.remove("is-collapsed"));
+    rawDataContainer.querySelectorAll(".month-chevron").forEach((c) => { c.textContent = "▼"; });
+  });
+}
+
+if (rawDataCollapseAll) {
+  rawDataCollapseAll.addEventListener("click", () => {
+    if (!rawDataContainer) return;
+    rawDataContainer.querySelectorAll(".month-accordion-header").forEach((h) => h.classList.remove("is-open"));
+    rawDataContainer.querySelectorAll(".month-accordion-body").forEach((b) => b.classList.add("is-collapsed"));
+    rawDataContainer.querySelectorAll(".month-chevron").forEach((c) => { c.textContent = "▶"; });
+  });
+}
 
 document.querySelectorAll(".nav-bar a").forEach((link) => {
   link.addEventListener("click", async (event) => {

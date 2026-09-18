@@ -28,6 +28,16 @@ const pastePreview = document.getElementById("op72PastePreview");
 const importPasteButton = document.getElementById("importOp72Paste");
 const copySelectedOp72RowsBtn = document.getElementById("copySelectedOp72Rows");
 
+// Month Accordion & Control Bar Elements
+const op72ControlBar = document.getElementById("op72ControlBar");
+const op72MonthJump = document.getElementById("op72MonthJump");
+const op72ExpandAll = document.getElementById("op72ExpandAll");
+const op72CollapseAll = document.getElementById("op72CollapseAll");
+const op72TotalStats = document.getElementById("op72TotalStats");
+const op72Container = document.getElementById("op72Container");
+const op72LegacyWrap = document.getElementById("op72LegacyWrap");
+const op72PasteMonthSummary = document.getElementById("op72PasteMonthSummary");
+
 let rows = [];
 let rowMeta = [];
 let isDirty = false;
@@ -70,25 +80,100 @@ function renderEntryFields() {
   entryFields.replaceChildren(table);
 }
 
-function renderHeader() {
+function parseDateToYyyyMm(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const monthMap = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+  };
+
+  // 1. DD-MMM-YYYY or DD-MMM-YY (e.g. 01-Jan-2026 or 01-Jan-26 or 01-JAN-26)
+  const dMmmYRegex = /^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})$/;
+  const m1 = raw.match(dMmmYRegex);
+  if (m1) {
+    const mmm = m1[2].toLowerCase();
+    const mm = monthMap[mmm];
+    if (mm) {
+      let yyyy = m1[3];
+      if (yyyy.length === 2) {
+        const yNum = Number(yyyy);
+        yyyy = yNum >= 50 ? String(1900 + yNum) : String(2000 + yNum);
+      }
+      return `${yyyy}-${mm}`;
+    }
+  }
+
+  // 2. YYYY-MM-DD or YYYY/MM/DD
+  const ymdRegex = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
+  const m2 = raw.match(ymdRegex);
+  if (m2) {
+    const yyyy = m2[1];
+    const mm = String(m2[2]).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  // 3. DD-MM-YYYY or DD/MM/YYYY
+  const dmyRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/;
+  const m3 = raw.match(dmyRegex);
+  if (m3) {
+    const yyyy = m3[3];
+    const mm = String(m3[2]).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  // 4. Try native Date parse
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+    return `${yyyy}-${mm}`;
+  }
+
+  return null;
+}
+
+function formatMonthLabel(yyyyMm) {
+  if (!yyyyMm || yyyyMm === "UNKNOWN") return "Other / Unspecified Date";
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const parts = yyyyMm.split("-");
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const monthName = monthNames[monthIdx] || parts[1];
+  return `${monthName} - ${year}`;
+}
+
+function buildOp72HeaderElement(monthKey) {
+  const thead = document.createElement("thead");
   const firstRow = document.createElement("tr");
   const secondRow = document.createElement("tr");
+
   const selectCell = document.createElement("th");
+  selectCell.className = "header-row header-row-1";
+  selectCell.rowSpan = 2;
+
   const selectAll = document.createElement("input");
   selectAll.type = "checkbox";
-  selectAll.title = "Select all OP72 data rows";
-  selectCell.rowSpan = 2;
+  selectAll.title = "Select all OP72 data rows in this month";
+  selectAll.dataset.monthSelectHeader = monthKey || "";
   selectCell.appendChild(selectAll);
   firstRow.appendChild(selectCell);
 
   OP72_COLUMNS.forEach((column, index) => {
     if (index === 6 || index === 9) {
       const groupCell = document.createElement("th");
+      groupCell.className = "header-row header-row-1";
       groupCell.textContent = index === 6 ? "Outward" : "Inward";
       groupCell.colSpan = 3;
       firstRow.appendChild(groupCell);
     } else if (![7, 8, 10, 11].includes(index)) {
       const cell = document.createElement("th");
+      cell.className = "header-row header-row-1";
       cell.textContent = column;
       cell.rowSpan = 2;
       firstRow.appendChild(cell);
@@ -97,13 +182,45 @@ function renderHeader() {
 
   [6, 7, 8, 9, 10, 11].forEach((index) => {
     const cell = document.createElement("th");
+    cell.className = "header-row header-row-2";
     cell.textContent = OP72_COLUMNS[index];
     secondRow.appendChild(cell);
   });
-  tableHead.replaceChildren(firstRow, secondRow);
+
+  thead.appendChild(firstRow);
+  thead.appendChild(secondRow);
+
   selectAll.addEventListener("change", () => {
-    tableBody.querySelectorAll("input[data-row-select]").forEach((input) => { input.checked = selectAll.checked; });
+    const table = selectAll.closest("table");
+    if (!table) return;
+    const cbs = table.querySelectorAll("input[type='checkbox'][data-row-select='1']");
+    cbs.forEach((cb) => { cb.checked = selectAll.checked; });
+    const block = selectAll.closest(".month-accordion-block");
+    if (block) {
+      const headerCb = block.querySelector("input[data-select-month]");
+      if (headerCb) headerCb.checked = selectAll.checked;
+    }
   });
+
+  return thead;
+}
+
+function buildOp72ColgroupElement() {
+  const colgroupElem = document.createElement("colgroup");
+  for (let index = 0; index < 14; index += 1) {
+    const col = document.createElement("col");
+    col.style.width = `${index === 0 ? 8 : 12}ch`;
+    if (index === 1) {
+      col.className = "sticky-first-col";
+    }
+    colgroupElem.appendChild(col);
+  }
+  return colgroupElem;
+}
+
+function renderHeader() {
+  const thead = buildOp72HeaderElement("");
+  tableHead.replaceChildren(...Array.from(thead.children));
 }
 
 function formatTimeHhMm(value) {
@@ -140,52 +257,212 @@ function formatCellValue(value, columnIndex, isDataRow) {
   return String(value ?? "");
 }
 
+function addOp72RowToTable(targetBody, row, meta) {
+  const tr = document.createElement("tr");
+  tr.dataset.rowIndex = String(meta?.rowIndex ?? -1);
+  const selectCell = document.createElement("td");
+  const isData = meta?.rowKind !== "header";
+
+  if (isData) {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.rowSelect = "1";
+    selectCell.appendChild(checkbox);
+  }
+  tr.appendChild(selectCell);
+
+  OP72_COLUMNS.forEach((_, columnIndex) => {
+    const cell = document.createElement("td");
+    cell.textContent = formatCellValue(row[columnIndex], columnIndex, isData);
+    cell.contentEditable = isData ? "true" : "false";
+    if (isData) {
+      cell.addEventListener("input", () => setDirtyState(true));
+    }
+    if (columnIndex === 0) {
+      cell.classList.add("sticky-first-col");
+    }
+    tr.appendChild(cell);
+  });
+
+  targetBody.appendChild(tr);
+}
+
 function renderTable() {
-  renderHeader();
-  colgroup.replaceChildren(...Array.from({ length: 14 }, (_, index) => {
-    const col = document.createElement("col");
-    col.style.width = `${index === 0 ? 8 : 12}ch`;
-    return col;
-  }));
-  tableBody.replaceChildren();
+  if (op72Container) op72Container.innerHTML = "";
+  if (tableHead) tableHead.innerHTML = "";
+  if (tableBody) tableBody.innerHTML = "";
+
+  if (!rows.length) {
+    if (op72ControlBar) op72ControlBar.style.display = "none";
+    if (op72LegacyWrap) op72LegacyWrap.style.display = "none";
+    setMessage("Database connected - No OP72 Raw Data available.");
+    return;
+  }
+
+  const dataRowItems = [];
   rows.forEach((row, index) => {
     const meta = rowMeta[index] || { rowIndex: index, rowKind: "data" };
-    const tr = document.createElement("tr");
-    tr.dataset.rowIndex = String(meta.rowIndex);
-    const selectCell = document.createElement("td");
-    const isData = meta.rowKind === "data";
-    if (isData) {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.rowSelect = "1";
-      selectCell.appendChild(checkbox);
-    }
-    tr.appendChild(selectCell);
-    OP72_COLUMNS.forEach((_, columnIndex) => {
-      const cell = document.createElement("td");
-      cell.textContent = formatCellValue(row[columnIndex], columnIndex, isData);
-      cell.contentEditable = isData ? "true" : "false";
-      if (isData) cell.addEventListener("input", () => setDirtyState(true));
-      tr.appendChild(cell);
-    });
-    tableBody.appendChild(tr);
+    dataRowItems.push({ row, meta });
   });
+
+  if (!dataRowItems.length) {
+    if (op72ControlBar) op72ControlBar.style.display = "none";
+    if (op72LegacyWrap) op72LegacyWrap.style.display = "none";
+    setMessage("Database connected - No OP72 Raw Data available.");
+    return;
+  }
+
+  // Group data rows by month
+  const monthGroups = new Map();
+  let lastMonth = null;
+
+  dataRowItems.forEach(({ row, meta }) => {
+    let monthKey = parseDateToYyyyMm(row[0]);
+    if (!monthKey && lastMonth) {
+      monthKey = lastMonth;
+    } else if (!monthKey) {
+      monthKey = "UNKNOWN";
+    } else {
+      lastMonth = monthKey;
+    }
+
+    if (!monthGroups.has(monthKey)) {
+      monthGroups.set(monthKey, {
+        key: monthKey,
+        label: formatMonthLabel(monthKey),
+        items: [],
+      });
+    }
+    monthGroups.get(monthKey).items.push({ row, meta });
+  });
+
+  // Sort months reverse chronologically (newest month first)
+  const sortedKeys = Array.from(monthGroups.keys()).sort((a, b) => {
+    if (a === "UNKNOWN") return 1;
+    if (b === "UNKNOWN") return -1;
+    return b.localeCompare(a);
+  });
+
+  // Setup Quick Control Bar
+  if (op72ControlBar) {
+    op72ControlBar.style.display = "flex";
+    if (op72TotalStats) {
+      op72TotalStats.textContent = `${dataRowItems.length} Records (${monthGroups.size} Months)`;
+    }
+    if (op72MonthJump) {
+      op72MonthJump.innerHTML = `<option value="ALL">All Months (${dataRowItems.length} Records)</option>`;
+      sortedKeys.forEach((key) => {
+        const group = monthGroups.get(key);
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = `${group.label} (${group.items.length} records)`;
+        op72MonthJump.appendChild(opt);
+      });
+    }
+  }
+
+  if (op72LegacyWrap) op72LegacyWrap.style.display = "none";
+
+  if (op72Container) {
+    op72Container.style.display = "flex";
+
+    sortedKeys.forEach((key, index) => {
+      const group = monthGroups.get(key);
+      const isFirst = index === 0; // Newest month open by default
+
+      const block = document.createElement("div");
+      block.className = "month-accordion-block";
+      block.id = `op72MonthBlock_${key}`;
+      block.dataset.monthKey = key;
+
+      const header = document.createElement("div");
+      header.className = `month-accordion-header ${isFirst ? "is-open" : ""}`;
+      header.dataset.toggleMonth = key;
+      header.innerHTML = `
+        <div class="month-header-title-group">
+          <span class="month-chevron">${isFirst ? "▼" : "▶"}</span>
+          <span class="month-title-text">📅 ${group.label}</span>
+          <span class="month-row-badge">${group.items.length} ${group.items.length === 1 ? "Record" : "Records"}</span>
+        </div>
+        <div class="month-header-actions">
+          <button type="button" class="btn-month-copy" data-copy-month="${key}" title="Copy ${group.label} records to clipboard (Excel ready)">
+            📋 Copy Month
+          </button>
+          <label class="month-select-label" title="Select/Deselect all records in ${group.label}">
+            <input type="checkbox" data-select-month="${key}"> Select All
+          </label>
+        </div>
+      `;
+
+      const body = document.createElement("div");
+      body.className = `month-accordion-body ${isFirst ? "" : "is-collapsed"}`;
+      body.id = `op72MonthBody_${key}`;
+
+      const sheetWrap = document.createElement("div");
+      sheetWrap.className = "sheet-wrap";
+
+      const table = document.createElement("table");
+      table.dataset.monthTable = key;
+      table.appendChild(buildOp72ColgroupElement());
+      table.appendChild(buildOp72HeaderElement(key));
+
+      const tbody = document.createElement("tbody");
+      group.items.forEach(({ row, meta }) => {
+        addOp72RowToTable(tbody, row, meta);
+      });
+      table.appendChild(tbody);
+      sheetWrap.appendChild(table);
+      body.appendChild(sheetWrap);
+
+      block.appendChild(header);
+      block.appendChild(body);
+      op72Container.appendChild(block);
+    });
+  }
+
+  setMessage(`OP72 Raw Data loaded (${dataRowItems.length} records across ${monthGroups.size} months).`);
 }
 
 function currentRows() {
+  if (op72Container && op72Container.children.length > 0) {
+    const blocks = Array.from(op72Container.querySelectorAll(".month-accordion-block"));
+    // Sort blocks by monthKey ascending (earliest to latest) so stored data is chronologically consistent
+    blocks.sort((a, b) => {
+      const kA = a.dataset.monthKey || "";
+      const kB = b.dataset.monthKey || "";
+      if (kA === "UNKNOWN") return 1;
+      if (kB === "UNKNOWN") return -1;
+      return kA.localeCompare(kB);
+    });
+
+    const allTrs = [];
+    blocks.forEach((b) => {
+      const trs = Array.from(b.querySelectorAll("tbody tr"));
+      allTrs.push(...trs);
+    });
+
+    return allTrs.map((tr) =>
+      Array.from(tr.querySelectorAll("td"))
+        .slice(1)
+        .map((cell) => cell.textContent.trim())
+    );
+  }
+
   return Array.from(tableBody.querySelectorAll("tr"), (tr) =>
     Array.from(tr.querySelectorAll("td")).slice(1).map((cell) => cell.textContent.trim())
   );
 }
 
 function selectedRowIndices() {
-  return Array.from(tableBody.querySelectorAll("input[data-row-select]:checked"))
+  const container = op72Container && op72Container.children.length > 0 ? op72Container : tableBody;
+  return Array.from(container.querySelectorAll("tbody tr input[data-row-select='1']:checked"))
     .map((input) => Number(input.closest("tr")?.dataset.rowIndex))
-    .filter(Number.isInteger);
+    .filter((value) => Number.isInteger(value) && value >= 0);
 }
 
 function getSelectedOp72RowsData() {
-  const checkedTrs = Array.from(tableBody.querySelectorAll("tr"))
+  const container = op72Container && op72Container.children.length > 0 ? op72Container : tableBody;
+  const checkedTrs = Array.from(container.querySelectorAll("tbody tr"))
     .filter((tr) => {
       const checkbox = tr.querySelector("input[data-row-select='1']");
       return Boolean(checkbox?.checked);
@@ -200,7 +477,7 @@ function getSelectedOp72RowsData() {
   }
 
   const activeTr = document.activeElement ? document.activeElement.closest("tr") : null;
-  if (activeTr && tableBody.contains(activeTr)) {
+  if (activeTr && container.contains(activeTr)) {
     return [
       Array.from(activeTr.querySelectorAll("td"))
         .slice(1)
@@ -209,6 +486,39 @@ function getSelectedOp72RowsData() {
   }
 
   return [];
+}
+
+async function copyMonthDataToClipboard(monthKey, btn) {
+  const block = document.getElementById(`op72MonthBlock_${monthKey}`);
+  if (!block) return;
+  const trs = Array.from(block.querySelectorAll("tbody tr"));
+  if (!trs.length) {
+    setMessage("No data rows to copy in this month.", true);
+    return;
+  }
+
+  const rowsData = trs.map((tr) =>
+    Array.from(tr.querySelectorAll("td")).slice(1).map((td) => td.textContent.trim())
+  );
+
+  const tsv = rowsData.map((row) => row.join("\t")).join("\n");
+  const success = await copyTextToClipboard(tsv);
+  if (success) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = "✅ Copied!";
+    btn.style.background = "#16a34a";
+    btn.style.borderColor = "#16a34a";
+    btn.style.color = "#ffffff";
+    setTimeout(() => {
+      btn.innerHTML = origHtml;
+      btn.style.background = "";
+      btn.style.borderColor = "";
+      btn.style.color = "";
+    }, 1600);
+    setMessage(`Copied ${rowsData.length} rows for this month to clipboard (Excel ready).`);
+  } else {
+    setMessage("Failed to copy to clipboard.", true);
+  }
 }
 
 async function copyTextToClipboard(text) {
@@ -319,7 +629,18 @@ document.getElementById("togglePasteOp72Records").addEventListener("click", () =
   pastePanel.style.display = pastePanel.style.display === "none" ? "block" : "none";
   entryPanel.style.display = "none";
 });
-document.getElementById("cancelOp72Paste").addEventListener("click", () => { pastePanel.style.display = "none"; });
+document.getElementById("cancelOp72Paste").addEventListener("click", () => {
+  pastePanel.style.display = "none";
+  pasteInput.value = "";
+  pasteRows = [];
+  if (op72PasteMonthSummary) {
+    op72PasteMonthSummary.innerHTML = "";
+    op72PasteMonthSummary.style.display = "none";
+  }
+  pastePreview.style.display = "none";
+  pasteValidation.textContent = "";
+  importPasteButton.disabled = true;
+});
 pasteInput.addEventListener("paste", () => {
   window.setTimeout(() => {
     document.getElementById("previewOp72Paste").click();
@@ -335,14 +656,43 @@ document.getElementById("previewOp72Paste").addEventListener("click", () => {
     pasteValidation.style.color = "#b42318";
     importPasteButton.disabled = true;
     pastePreview.style.display = "none";
+    if (op72PasteMonthSummary) {
+      op72PasteMonthSummary.innerHTML = "";
+      op72PasteMonthSummary.style.display = "none";
+    }
     return;
+  }
+
+  // Multi-month summary
+  const monthCounts = new Map();
+  let lastMonth = null;
+  pasteRows.forEach((r) => {
+    let m = parseDateToYyyyMm(r[0]);
+    if (!m && lastMonth) m = lastMonth;
+    else if (!m) m = "UNKNOWN";
+    else lastMonth = m;
+    monthCounts.set(m, (monthCounts.get(m) || 0) + 1);
+  });
+
+  if (op72PasteMonthSummary) {
+    const sortedMonthKeys = Array.from(monthCounts.keys()).sort();
+    const chipsHtml = sortedMonthKeys.map((key) => {
+      const lbl = formatMonthLabel(key);
+      const cnt = monthCounts.get(key);
+      return `<span class="paste-month-chip">📅 <strong>${lbl}</strong>: ${cnt} row${cnt === 1 ? "" : "s"}</span>`;
+    }).join(" ");
+    op72PasteMonthSummary.innerHTML = `
+      <strong>📅 Multi-Month Distribution (${pasteRows.length} rows across ${monthCounts.size} month${monthCounts.size === 1 ? "" : "s"}):</strong>
+      <div class="paste-month-summary-chips">${chipsHtml}</div>
+    `;
+    op72PasteMonthSummary.style.display = "block";
   }
 
   const warningNote = skippedRows.length
     ? ` (${skippedRows.length} row(s) skipped — had more than ${OP72_COLUMNS.length} columns)`
     : "";
 
-  const baseMsg = `${pasteRows.length} valid row(s) ready to import.`;
+  const baseMsg = `${pasteRows.length} valid row(s) ready to import across ${monthCounts.size} month(s).`;
   pasteValidation.textContent = warningNote ? `${baseMsg}${warningNote}` : baseMsg;
   pasteValidation.style.color = skippedRows.length ? "#7a4b00" : "#0d7a4b";
   importPasteButton.disabled = false;
@@ -390,10 +740,14 @@ document.getElementById("importOp72Paste").addEventListener("click", async () =>
     await request(OP72_API_PATHS.dataRows, { method: "PUT", body: JSON.stringify({ rows: currentRows().concat(normalizedPasteRows) }) });
     pasteInput.value = "";
     pasteRows = [];
+    if (op72PasteMonthSummary) {
+      op72PasteMonthSummary.innerHTML = "";
+      op72PasteMonthSummary.style.display = "none";
+    }
     importPasteButton.disabled = true;
     pastePanel.style.display = "none";
     await loadWorkbook();
-    setMessage("OP72 Raw Data rows imported.");
+    setMessage("OP72 Raw Data rows imported successfully.");
   } catch (error) { setMessage(`Import failed: ${error.message}`, true); }
 });
 if (copySelectedOp72RowsBtn) {
@@ -448,6 +802,95 @@ window.addEventListener("beforeunload", (event) => {
   event.preventDefault();
   event.returnValue = "";
 });
+
+if (op72Container) {
+  op72Container.addEventListener("input", () => {
+    setDirtyState(true);
+  });
+
+  op72Container.addEventListener("click", (e) => {
+    // 1. Copy Month Button
+    const copyBtn = e.target.closest("button[data-copy-month]");
+    if (copyBtn) {
+      e.stopPropagation();
+      const monthKey = copyBtn.dataset.copyMonth;
+      copyMonthDataToClipboard(monthKey, copyBtn);
+      return;
+    }
+
+    // 2. Select All Month Checkbox
+    const selectMonthCb = e.target.closest("input[data-select-month]");
+    if (selectMonthCb) {
+      e.stopPropagation();
+      const monthKey = selectMonthCb.dataset.selectMonth;
+      const block = document.getElementById(`op72MonthBlock_${monthKey}`);
+      if (block) {
+        const rowCbs = block.querySelectorAll("tbody tr input[data-row-select='1']");
+        rowCbs.forEach((cb) => { cb.checked = selectMonthCb.checked; });
+        const headerCb = block.querySelector("input[data-month-select-header]");
+        if (headerCb) headerCb.checked = selectMonthCb.checked;
+      }
+      return;
+    }
+
+    // 3. Header Click (Accordion toggle)
+    const header = e.target.closest(".month-accordion-header");
+    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label")) {
+      const monthKey = header.dataset.toggleMonth;
+      const body = document.getElementById(`op72MonthBody_${monthKey}`);
+      const chevron = header.querySelector(".month-chevron");
+      const isOpen = header.classList.contains("is-open");
+
+      if (isOpen) {
+        header.classList.remove("is-open");
+        if (body) body.classList.add("is-collapsed");
+        if (chevron) chevron.textContent = "▶";
+      } else {
+        header.classList.add("is-open");
+        if (body) body.classList.remove("is-collapsed");
+        if (chevron) chevron.textContent = "▼";
+      }
+    }
+  });
+}
+
+if (op72MonthJump) {
+  op72MonthJump.addEventListener("change", () => {
+    const val = op72MonthJump.value;
+    if (!val || val === "ALL") {
+      if (op72Container) op72Container.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      const block = document.getElementById(`op72MonthBlock_${val}`);
+      if (block) {
+        const header = block.querySelector(".month-accordion-header");
+        const body = block.querySelector(".month-accordion-body");
+        const chevron = block.querySelector(".month-chevron");
+        if (header) header.classList.add("is-open");
+        if (body) body.classList.remove("is-collapsed");
+        if (chevron) chevron.textContent = "▼";
+        block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  });
+}
+
+if (op72ExpandAll) {
+  op72ExpandAll.addEventListener("click", () => {
+    if (!op72Container) return;
+    op72Container.querySelectorAll(".month-accordion-header").forEach((h) => h.classList.add("is-open"));
+    op72Container.querySelectorAll(".month-accordion-body").forEach((b) => b.classList.remove("is-collapsed"));
+    op72Container.querySelectorAll(".month-chevron").forEach((c) => { c.textContent = "▼"; });
+  });
+}
+
+if (op72CollapseAll) {
+  op72CollapseAll.addEventListener("click", () => {
+    if (!op72Container) return;
+    op72Container.querySelectorAll(".month-accordion-header").forEach((h) => h.classList.remove("is-open"));
+    op72Container.querySelectorAll(".month-accordion-body").forEach((b) => b.classList.add("is-collapsed"));
+    op72Container.querySelectorAll(".month-chevron").forEach((c) => { c.textContent = "▶"; });
+  });
+}
 
 renderEntryFields();
 loadWorkbook().catch((error) => setMessage(`Load failed: ${error.message}`, true));
