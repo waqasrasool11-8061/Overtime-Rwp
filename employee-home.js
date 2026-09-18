@@ -314,6 +314,66 @@ async function fetchOp72Records(employeeName, monthStr) {
   return [];
 }
 
+// ── OP-72 VBA-matched duty types for Sunday & Gazetted (M, P, OP, G) ───────────
+const VALID_HIGHLIGHT_DUTIES = new Set(["M", "P", "OP", "G"]);
+
+function hasValidDuty(dutyText) {
+  if (!dutyText) return false;
+  const parts = String(dutyText).toUpperCase().split("/");
+  return parts.some((part) => {
+    const trimmed = part.trim();
+    const stripped = trimmed.replace(/^\d+/, "").trim();
+    return VALID_HIGHLIGHT_DUTIES.has(stripped) || VALID_HIGHLIGHT_DUTIES.has(trimmed);
+  });
+}
+
+function getLiveOp72SummaryForEmployee(targetEmpName, monthStr) {
+  try {
+    const savedMonth = (localStorage.getItem("OP72SelectedMonth") || "").trim();
+    if (savedMonth && monthStr && savedMonth !== monthStr) return null;
+
+    const rawCells = localStorage.getItem("OP72EditableCells");
+    if (!rawCells) return null;
+    const cells = JSON.parse(rawCells);
+    if (!Array.isArray(cells) || cells.length < 1060 + 11 * 20) return null;
+
+    const empList = cells.slice(0, 10).map(n => String(n || "").trim());
+    const normTarget = normStr(targetEmpName);
+    let foundIdx = -1;
+    for (let i = 0; i < empList.length; i++) {
+      if (empList[i] && (normStr(empList[i]) === normTarget || normStr(empList[i]).includes(normTarget) || normTarget.includes(normStr(empList[i])))) {
+        foundIdx = i;
+        break;
+      }
+    }
+    if (foundIdx < 0) return null;
+
+    const summaryStart = 1060;
+    const getSumVal = (rowIdx) => {
+      const valIdx = summaryStart + rowIdx * 20 + foundIdx * 2 + 1;
+      return String(cells[valIdx] ?? "0").trim();
+    };
+
+    return {
+      otHhmm: getSumVal(0),
+      totalOt: cleanNum(getSumVal(1)),
+      mileM: cleanNum(getSumVal(2)),
+      mileP: cleanNum(getSumVal(3)),
+      mileOPG: cleanNum(getSumVal(4)),
+      sunday: cleanNum(getSumVal(5)),
+      gazetted: cleanNum(getSumVal(6)),
+      opMail: cleanNum(getSumVal(7)),
+      shntCnt: cleanNum(getSumVal(8)),
+      passCnt: cleanNum(getSumVal(9)),
+      gdsCnt: cleanNum(getSumVal(10)),
+      foundIdx
+    };
+  } catch (err) {
+    console.warn("getLiveOp72SummaryForEmployee error:", err);
+    return null;
+  }
+}
+
 // ── Tab 1: Render Single Employee OP-72 ────────────────────────────────────────
 async function renderOp72SingleSheet(empName, monthStr, empRecord) {
   const [yStr, mStr] = monthStr.split("-");
@@ -512,7 +572,8 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
           leave55Cnt += 1;
         }
 
-        if (hasActiveDuty && !dayHasLeave) {
+        // Official VBA / OP-72 rule: only valid running duties (M, P, OP, G) qualify as Sunday or Gazetted duty
+        if (hasValidDuty(dutyText) && !dayHasLeave) {
           if (isSunday) sundayDutyCnt += 1;
           if (isGazetted) gazettedDutyCnt += 1;
         }
@@ -520,9 +581,10 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
     }
 
     const tr = document.createElement("tr");
-    if (isGazetted && isSunday) tr.className = "op-sunday op-holiday";
-    else if (isGazetted) tr.className = "op-holiday";
-    else if (isSunday) tr.className = "op-sunday";
+    const hasDuty = hasValidDuty(dutyText);
+    if (hasDuty && isGazetted && isSunday) tr.className = "op-sunday op-holiday";
+    else if (hasDuty && isGazetted) tr.className = "op-holiday";
+    else if (hasDuty && isSunday) tr.className = "op-sunday";
 
     const tdDate = document.createElement("td");
     tdDate.className = "op-date-cell";
@@ -591,6 +653,22 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
     const calcH = Math.floor(totalOtHours);
     const calcM = Math.round((totalOtHours % 1) * 60);
     otHhmm = `${calcH}:${String(calcM).padStart(2, "0")}`;
+  }
+
+  // If live OP-72 sheet was calculated in this session, match it exactly
+  const liveOp72 = getLiveOp72SummaryForEmployee(empName, monthStr);
+  if (liveOp72) {
+    totalOtDays = liveOp72.totalOt;
+    otHhmm = liveOp72.otHhmm;
+    mileM_calc = liveOp72.mileM;
+    mileP_calc = liveOp72.mileP;
+    mileOPG_calc = liveOp72.mileOPG;
+    sundayDutyCnt = liveOp72.sunday;
+    gazettedDutyCnt = liveOp72.gazetted;
+    opMailCnt = liveOp72.opMail;
+    opShntCnt = liveOp72.shntCnt;
+    opPassCnt = liveOp72.passCnt;
+    opGdsCnt = liveOp72.gdsCnt;
   }
 
   // Store calculated summary for Tab 2
@@ -678,14 +756,18 @@ function renderAmountSummarySingleSheet(empName, monthStr, empRecord) {
   const otDay = empRecord ? cleanNum(empRecord[C_OT]) : (basicPay > 0 ? basicPay / 30 : 0);
 
   // Rates
+  const desgOpRates = (typeof getOperatingRatesForDesignation === "function")
+    ? getOperatingRatesForDesignation(desg)
+    : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+
   const mileMRate   = empRecord ? cleanNum(empRecord[C_MAIL]) : 0;
   const milePRate   = empRecord ? cleanNum(empRecord[C_PASS]) : 0;
   const mileOPGRate = empRecord ? cleanNum(empRecord[C_SHNT]) : 0;
   const sdGhRate    = empRecord ? (cleanNum(empRecord[C_SDGH]) || otDay) : otDay;
-  const mlRate      = empRecord ? (cleanNum(empRecord[C_M_ML]) || 100) : 100;
-  const shntRate    = empRecord ? (cleanNum(empRecord[C_OP_AL]) || 120) : 120;
-  const passRate    = empRecord ? (cleanNum(empRecord[C_P_AL]) || 75) : 75;
-  const gdsRate     = empRecord ? (cleanNum(empRecord[C_G_AL]) || 50) : 50;
+  const mlRate      = desgOpRates.ml;
+  const shntRate    = desgOpRates.shnt;
+  const passRate    = desgOpRates.pass;
+  const gdsRate     = desgOpRates.gds;
   const blankRate   = empRecord ? (cleanNum(empRecord[C_CUSTOM]) || otDay) : otDay;
   const cust55Rate  = empRecord ? (cleanNum(empRecord[C_LEAVE_55]) || otDay) : otDay;
 
@@ -1050,11 +1132,15 @@ function renderEmployeeMasterDetails(empRecord) {
   if (shntRateSpan) shntRateSpan.textContent = shntRate > 0 ? `Rs. ${fmt(shntRate)}` : "—";
   if (gdsRateSpan) gdsRateSpan.textContent = gdsRate > 0 ? `Rs. ${fmt(gdsRate)}` : "—";
 
+  const desgOpRates = (typeof getOperatingRatesForDesignation === "function")
+    ? getOperatingRatesForDesignation(desg)
+    : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+
   if (sdGhRateSpan) sdGhRateSpan.textContent = sdGhRate > 0 ? `Rs. ${fmt(sdGhRate)}` : (ot > 0 ? `Rs. ${fmt(ot)}` : "—");
-  if (opMailRateSpan) opMailRateSpan.textContent = opMailRate > 0 ? `Rs. ${fmt(opMailRate)}` : "Rs. 100.00";
-  if (opShntRateSpan) opShntRateSpan.textContent = opShntRate > 0 ? `Rs. ${fmt(opShntRate)}` : "Rs. 120.00";
-  if (opPassRateSpan) opPassRateSpan.textContent = opPassRate > 0 ? `Rs. ${fmt(opPassRate)}` : "Rs. 75.00";
-  if (opGdsRateSpan) opGdsRateSpan.textContent = opGdsRate > 0 ? `Rs. ${fmt(opGdsRate)}` : "Rs. 50.00";
+  if (opMailRateSpan) opMailRateSpan.textContent = `Rs. ${fmt(desgOpRates.ml)}`;
+  if (opShntRateSpan) opShntRateSpan.textContent = `Rs. ${fmt(desgOpRates.shnt)}`;
+  if (opPassRateSpan) opPassRateSpan.textContent = `Rs. ${fmt(desgOpRates.pass)}`;
+  if (opGdsRateSpan) opGdsRateSpan.textContent = `Rs. ${fmt(desgOpRates.gds)}`;
   if (customRateSpan) customRateSpan.textContent = customRate > 0 ? `Rs. ${fmt(customRate)}` : (ot > 0 ? `Rs. ${fmt(ot)}` : "—");
   if (leave55RateSpan) leave55RateSpan.textContent = leave55Rate > 0 ? `Rs. ${fmt(leave55Rate)}` : (ot > 0 ? `Rs. ${fmt(ot)}` : "—");
 }

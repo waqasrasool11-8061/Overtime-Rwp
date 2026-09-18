@@ -22,7 +22,40 @@ function parseNumeric(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function calculateEmployeeRates(rowValues) {
+const DEFAULT_DESIGNATION_RATES = {
+  DRIVER: { key: "DRIVER", name: "Driver", ml: 200, shnt: 0, pass: 150, gds: 120 },
+  DY_DRIVER: { key: "DY_DRIVER", name: "Dy Driver", ml: 0, shnt: 120, pass: 0, gds: 0 },
+  ASSISTANT_DRIVER: { key: "ASSISTANT_DRIVER", name: "Assistant Driver", ml: 100, shnt: 120, pass: 75, gds: 50 },
+};
+
+function getDesignationKey(desg) {
+  const d = String(desg || "").trim().toUpperCase();
+  if (d.includes("ASSISTANT")) return "ASSISTANT_DRIVER";
+  if (d.includes("DY") || d.includes("DEPUTY")) return "DY_DRIVER";
+  if (d.includes("DRIVER")) return "DRIVER";
+  return d.replace(/[\s\.\-_]+/g, "_");
+}
+
+function resolveOperatingRates(desg, customRatesMap = null) {
+  const map = customRatesMap || DEFAULT_DESIGNATION_RATES;
+  const raw = String(desg || "").trim().toUpperCase();
+  const key = getDesignationKey(raw);
+
+  if (map[key]) return map[key];
+  for (const k of Object.keys(map)) {
+    if (String(map[k].name || "").trim().toUpperCase() === raw) {
+      return map[k];
+    }
+  }
+
+  if (raw.includes("ASSISTANT")) return map.ASSISTANT_DRIVER || DEFAULT_DESIGNATION_RATES.ASSISTANT_DRIVER;
+  if (raw.includes("DY") || raw.includes("DEPUTY")) return map.DY_DRIVER || DEFAULT_DESIGNATION_RATES.DY_DRIVER;
+  if (raw.includes("DRIVER")) return map.DRIVER || DEFAULT_DESIGNATION_RATES.DRIVER;
+
+  return map.ASSISTANT_DRIVER || DEFAULT_DESIGNATION_RATES.ASSISTANT_DRIVER;
+}
+
+function calculateEmployeeRates(rowValues, customRatesMap = null) {
   const row = [...rowValues];
   while (row.length < 22) row.push(null);
 
@@ -48,11 +81,13 @@ function calculateEmployeeRates(rowValues) {
   row[9] = fValue * 20 / 100;
   row[10] = basePay / 30;
 
-  // Fixed allowances if not set
-  if (row[11] === null || row[11] === undefined || row[11] === "") row[11] = 100;
-  if (row[12] === null || row[12] === undefined || row[12] === "") row[12] = 120;
-  if (row[13] === null || row[13] === undefined || row[13] === "") row[13] = 75;
-  if (row[14] === null || row[14] === undefined || row[14] === "") row[14] = 50;
+  // Operating allowances linked to designation
+  const desg = String(row[2] || "").trim();
+  const opRates = resolveOperatingRates(desg, customRatesMap);
+  if (row[11] === null || row[11] === undefined || row[11] === "") row[11] = opRates.ml;
+  if (row[12] === null || row[12] === undefined || row[12] === "") row[12] = opRates.shnt;
+  if (row[13] === null || row[13] === undefined || row[13] === "") row[13] = opRates.pass;
+  if (row[14] === null || row[14] === undefined || row[14] === "") row[14] = opRates.gds;
 
   row[15] = fValue * 55 / 100;
   row[16] = fValue * 55 / 100;
@@ -198,10 +233,11 @@ async function saveEmployeeAndRevision(db, data) {
         workbook.id
       );
       rowIndex = Math.max((workbook.header_row_count || 4) - 1, Number(maxRowIndexRes?.max_idx || 3)) + 1;
-      targetRow[11] = 100;
-      targetRow[12] = 120;
-      targetRow[13] = 75;
-      targetRow[14] = 50;
+      const opRates = resolveOperatingRates(desg);
+      targetRow[11] = opRates.ml;
+      targetRow[12] = opRates.shnt;
+      targetRow[13] = opRates.pass;
+      targetRow[14] = opRates.gds;
     }
 
     while (targetRow.length < 22) targetRow.push("");
@@ -591,6 +627,62 @@ async function resetPostingStationLock(db, identifier) {
   return { success: true, message: `Posting station edit lock reset for ${identifier}.` };
 }
 
+async function getDesignationOperatingRates(db) {
+  try {
+    const rows = await db.all(`SELECT designation_key, designation_name, ml_rate, shnt_rate, pass_rate, gds_rate FROM designation_operating_rates`);
+    if (!rows || rows.length === 0) return { ...DEFAULT_DESIGNATION_RATES };
+    const result = {};
+    rows.forEach(r => {
+      result[r.designation_key] = {
+        key: r.designation_key,
+        name: r.designation_name,
+        ml: Number(r.ml_rate),
+        shnt: Number(r.shnt_rate),
+        pass: Number(r.pass_rate),
+        gds: Number(r.gds_rate)
+      };
+    });
+    return { ...DEFAULT_DESIGNATION_RATES, ...result };
+  } catch (err) {
+    console.warn("getDesignationOperatingRates error:", err.message);
+    return { ...DEFAULT_DESIGNATION_RATES };
+  }
+}
+
+async function saveDesignationOperatingRates(db, rates) {
+  if (!rates || typeof rates !== "object") throw new Error("rates object is required.");
+
+  await db.exec("BEGIN TRANSACTION");
+  try {
+    for (const [key, item] of Object.entries(rates)) {
+      const k = String(item.key || key).trim().toUpperCase();
+      const name = String(item.name || k).trim();
+      const ml = parseNumeric(item.ml);
+      const shnt = parseNumeric(item.shnt);
+      const pass = parseNumeric(item.pass);
+      const gds = parseNumeric(item.gds);
+
+      await db.run(
+        `INSERT INTO designation_operating_rates (designation_key, designation_name, ml_rate, shnt_rate, pass_rate, gds_rate, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(designation_key) DO UPDATE SET
+           designation_name = excluded.designation_name,
+           ml_rate = excluded.ml_rate,
+           shnt_rate = excluded.shnt_rate,
+           pass_rate = excluded.pass_rate,
+           gds_rate = excluded.gds_rate,
+           updated_at = datetime('now')`,
+        k, name, ml, shnt, pass, gds
+      );
+    }
+    await db.exec("COMMIT");
+    return { success: true, rates };
+  } catch (err) {
+    await db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
 module.exports = {
   normEmpId,
   calculateEmployeeRates,
@@ -603,4 +695,9 @@ module.exports = {
   getEmployeePostingStationStatus,
   updateEmployeePostingStation,
   resetPostingStationLock,
+  getDesignationOperatingRates,
+  saveDesignationOperatingRates,
+  resolveOperatingRates,
+  DEFAULT_DESIGNATION_RATES,
 };
+

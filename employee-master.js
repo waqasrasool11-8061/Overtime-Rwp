@@ -74,6 +74,17 @@ function calculateFormulaCells(rowValues) {
   row[8] = fValue * 20 / 100;
   row[9] = fValue * 20 / 100;
   row[10] = basePay / 30;
+
+  // Link Operating Allowance rates to designation if empty or uninitialized
+  const desg = row[2] ? String(row[2]).trim() : "";
+  if (typeof getOperatingRatesForDesignation === "function") {
+    const op = getOperatingRatesForDesignation(desg);
+    if (row[11] === null || row[11] === undefined || String(row[11]).trim() === "") row[11] = op.ml;
+    if (row[12] === null || row[12] === undefined || String(row[12]).trim() === "") row[12] = op.shnt;
+    if (row[13] === null || row[13] === undefined || String(row[13]).trim() === "") row[13] = op.pass;
+    if (row[14] === null || row[14] === undefined || String(row[14]).trim() === "") row[14] = op.gds;
+  }
+
   row[15] = fValue * 55 / 100;
   row[16] = fValue * 55 / 100;
 
@@ -246,6 +257,13 @@ async function fetchEmployeeMasterFromBackend() {
       }
     }
 
+    if (typeof syncDesignationRatesFromBackend === "function") {
+      await syncDesignationRatesFromBackend();
+      if (typeof renderDesignationOperatingRates === "function") {
+        renderDesignationOperatingRates();
+      }
+    }
+
     if (wbRes && wbRes.ok) {
       const wbData = await wbRes.json();
       if (Array.isArray(wbData.rows) && wbData.rows.length > 0) {
@@ -309,6 +327,12 @@ const formHeaderTitle = document.getElementById("formHeaderTitle");
 const revFilterSelect = document.getElementById("revFilterSelect");
 const payRevTableBody = document.getElementById("payRevTableBody");
 const revStatusMsg = document.getElementById("revStatusMsg");
+
+// Operating rates elements (Designation-wise)
+const desgOpRatesTbody = document.getElementById("desgOpRatesTbody");
+const btnResetOpRatesToDefault = document.getElementById("btnResetOpRatesToDefault");
+const btnSaveAllOpRates = document.getElementById("btnSaveAllOpRates");
+const opRatesStatusMsg = document.getElementById("opRatesStatusMsg");
 
 // Rate preview elements
 const prevOtVal = document.getElementById("prevOtVal");
@@ -808,12 +832,21 @@ if (payRevForm) {
     if (foundIdx >= 0) {
       targetRow = [...masterRows[foundIdx]];
       while (targetRow.length < colCount) targetRow.push("");
+      const prevDesg = String(targetRow[2] || "").trim().toUpperCase();
+      if (prevDesg !== desg.toUpperCase()) {
+        const op = typeof getOperatingRatesForDesignation === "function" ? getOperatingRatesForDesignation(desg) : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+        targetRow[11] = op.ml; // M ML
+        targetRow[12] = op.shnt; // OP
+        targetRow[13] = op.pass; // P
+        targetRow[14] = op.gds;  // G
+      }
     } else {
-      // Defaults for fixed rate allowances
-      targetRow[11] = 100; // M ML
-      targetRow[12] = 120; // OP
-      targetRow[13] = 75;  // P
-      targetRow[14] = 50;  // G
+      // Defaults for fixed rate allowances linked to designation
+      const op = typeof getOperatingRatesForDesignation === "function" ? getOperatingRatesForDesignation(desg) : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+      targetRow[11] = op.ml; // M ML
+      targetRow[12] = op.shnt; // OP
+      targetRow[13] = op.pass; // P
+      targetRow[14] = op.gds;  // G
     }
 
     targetRow[0] = sap;
@@ -850,9 +883,228 @@ if (payRevForm) {
   });
 }
 
+// ── Designation-Wise Operating Allowance Rates Management ──────────────────────
+function renderDesignationOperatingRates() {
+  if (!desgOpRatesTbody) return;
+  desgOpRatesTbody.innerHTML = "";
+
+  const allRates = typeof getAllDesignationOperatingRates === "function"
+    ? getAllDesignationOperatingRates()
+    : (typeof DEFAULT_DESIGNATION_OPERATING_RATES !== "undefined" ? DEFAULT_DESIGNATION_OPERATING_RATES : {});
+
+  const standardKeys = ["DRIVER", "DY_DRIVER", "ASSISTANT_DRIVER"];
+  const allKeys = Array.from(new Set([...standardKeys, ...Object.keys(allRates)]));
+
+  allKeys.forEach((key) => {
+    const item = allRates[key] || {};
+    const name = item.name || (key === "DRIVER" ? "Driver" : key === "DY_DRIVER" ? "Dy Driver" : key === "ASSISTANT_DRIVER" ? "Assistant Driver" : key);
+    const ml = item.ml !== undefined && item.ml !== null ? item.ml : 0;
+    const shnt = item.shnt !== undefined && item.shnt !== null ? item.shnt : 0;
+    const pass = item.pass !== undefined && item.pass !== null ? item.pass : 0;
+    const gds = item.gds !== undefined && item.gds !== null ? item.gds : 0;
+
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #e2e8f0";
+    tr.innerHTML = `
+      <td style="padding: 7px 10px; font-weight: 600; color: #1e293b;">${name}</td>
+      <td style="padding: 7px 10px;">
+        <input type="number" min="0" step="any" class="op-rate-ml" data-desg="${key}" value="${ml}" style="width: 85px; padding: 4px 6px; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right;" />
+      </td>
+      <td style="padding: 7px 10px;">
+        <input type="number" min="0" step="any" class="op-rate-shnt" data-desg="${key}" value="${shnt}" style="width: 85px; padding: 4px 6px; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right;" />
+      </td>
+      <td style="padding: 7px 10px;">
+        <input type="number" min="0" step="any" class="op-rate-pass" data-desg="${key}" value="${pass}" style="width: 85px; padding: 4px 6px; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right;" />
+      </td>
+      <td style="padding: 7px 10px;">
+        <input type="number" min="0" step="any" class="op-rate-gds" data-desg="${key}" value="${gds}" style="width: 85px; padding: 4px 6px; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right;" />
+      </td>
+    `;
+    desgOpRatesTbody.appendChild(tr);
+  });
+}
+
+async function saveAllOperatingRatesFromUI() {
+  if (!desgOpRatesTbody) return;
+  const rows = Array.from(desgOpRatesTbody.querySelectorAll("tr"));
+  const newRates = {};
+
+  rows.forEach((tr) => {
+    const mlInput = tr.querySelector(".op-rate-ml");
+    const shntInput = tr.querySelector(".op-rate-shnt");
+    const passInput = tr.querySelector(".op-rate-pass");
+    const gdsInput = tr.querySelector(".op-rate-gds");
+    if (!mlInput) return;
+
+    const key = mlInput.dataset.desg;
+    const name = tr.cells[0]?.textContent?.trim() || key;
+    const ml = parseFloat(mlInput.value) || 0;
+    const shnt = parseFloat(shntInput.value) || 0;
+    const pass = parseFloat(passInput.value) || 0;
+    const gds = parseFloat(gdsInput.value) || 0;
+
+    newRates[key] = {
+      key,
+      name,
+      ml,
+      shnt,
+      pass,
+      gds
+    };
+  });
+
+  // 1. Save locally to localStorage
+  if (typeof saveAllDesignationOperatingRates === "function") {
+    saveAllDesignationOperatingRates(newRates);
+  }
+
+  // 2. Save to backend API (SQLite designation_operating_rates table)
+  if (typeof saveDesignationRatesToBackend === "function") {
+    try {
+      await saveDesignationRatesToBackend(newRates);
+    } catch (err) {
+      console.warn("Backend save of designation rates failed:", err);
+    }
+  }
+
+  // 3. Update existing masterRows columns 11-14 in localStorage and sync to SQLite
+  let masterRows = [];
+  try {
+    const s = JSON.parse(localStorage.getItem(employeeKey) || "[]");
+    if (Array.isArray(s) && s.length) masterRows = s;
+  } catch {}
+
+  if (!masterRows.length && defaultRows.length > headerRowCount) {
+    masterRows = defaultRows.slice(headerRowCount);
+  }
+
+  if (masterRows.length > 0) {
+    masterRows.forEach((r) => {
+      if (!Array.isArray(r)) return;
+      const desg = r[2] ? String(r[2]).trim() : "";
+      const op = typeof getOperatingRatesForDesignation === "function"
+        ? getOperatingRatesForDesignation(desg)
+        : (newRates[desg] || { ml: 0, shnt: 0, pass: 0, gds: 0 });
+      r[11] = op.ml;
+      r[12] = op.shnt;
+      r[13] = op.pass;
+      r[14] = op.gds;
+    });
+
+    localStorage.setItem(employeeKey, JSON.stringify(masterRows, null, 2));
+
+    const headerRows = defaultRows.slice(0, headerRowCount);
+    renderTable(headerRows.concat(masterRows));
+
+    try {
+      const baseUrl = getEmployeeApiBaseUrl();
+      fetch(`${baseUrl}/api/employee-master/data-rows`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ rows: masterRows })
+      }).catch((e) => console.warn("data-rows backend sync error:", e));
+    } catch {}
+  }
+
+  if (opRatesStatusMsg) {
+    opRatesStatusMsg.textContent = "✅ Operating allowance rates saved & updated across Employee Master & Amount Summary!";
+    opRatesStatusMsg.style.color = "#15803d";
+    setTimeout(() => {
+      if (opRatesStatusMsg && opRatesStatusMsg.textContent.startsWith("✅")) {
+        opRatesStatusMsg.textContent = "";
+      }
+    }, 5000);
+  }
+}
+
+async function resetOperatingRatesToDefaults() {
+  const confirmed = confirm(
+    "Reset all Operating Allowance rates to official Pakistan Railways standards?\n\n" +
+    "• Driver: ML = 200, SHNT/OP = 0, PASSNGER = 150, GDS = 120\n" +
+    "• Dy Driver: ML = 0, SHNT/OP = 120, PASSNGER = 0, GDS = 0\n" +
+    "• Assistant Driver: ML = 100, SHNT/OP = 120, PASSNGER = 75, GDS = 50\n\n" +
+    "This will update the Master sheet and Amount Summary calculations."
+  );
+  if (!confirmed) return;
+
+  const defaultRates = typeof DEFAULT_DESIGNATION_OPERATING_RATES !== "undefined"
+    ? DEFAULT_DESIGNATION_OPERATING_RATES
+    : {
+        DRIVER: { key: "DRIVER", name: "Driver", ml: 200, shnt: 0, pass: 150, gds: 120 },
+        DY_DRIVER: { key: "DY_DRIVER", name: "Dy Driver", ml: 0, shnt: 120, pass: 0, gds: 0 },
+        ASSISTANT_DRIVER: { key: "ASSISTANT_DRIVER", name: "Assistant Driver", ml: 100, shnt: 120, pass: 75, gds: 50 },
+      };
+
+  if (typeof saveAllDesignationOperatingRates === "function") {
+    saveAllDesignationOperatingRates(defaultRates);
+  }
+
+  if (typeof saveDesignationRatesToBackend === "function") {
+    try {
+      await saveDesignationRatesToBackend(defaultRates);
+    } catch (e) {
+      console.warn("Backend save error:", e);
+    }
+  }
+
+  renderDesignationOperatingRates();
+
+  let masterRows = [];
+  try {
+    const s = JSON.parse(localStorage.getItem(employeeKey) || "[]");
+    if (Array.isArray(s) && s.length) masterRows = s;
+  } catch {}
+
+  if (!masterRows.length && defaultRows.length > headerRowCount) {
+    masterRows = defaultRows.slice(headerRowCount);
+  }
+
+  if (masterRows.length > 0) {
+    masterRows.forEach((r) => {
+      if (!Array.isArray(r)) return;
+      const desg = r[2] ? String(r[2]).trim() : "";
+      const op = typeof getOperatingRatesForDesignation === "function"
+        ? getOperatingRatesForDesignation(desg)
+        : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+      r[11] = op.ml;
+      r[12] = op.shnt;
+      r[13] = op.pass;
+      r[14] = op.gds;
+    });
+
+    localStorage.setItem(employeeKey, JSON.stringify(masterRows, null, 2));
+
+    const headerRows = defaultRows.slice(0, headerRowCount);
+    renderTable(headerRows.concat(masterRows));
+
+    try {
+      const baseUrl = getEmployeeApiBaseUrl();
+      fetch(`${baseUrl}/api/employee-master/data-rows`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ rows: masterRows })
+      }).catch((e) => console.warn("data-rows backend sync error:", e));
+    } catch {}
+  }
+
+  if (opRatesStatusMsg) {
+    opRatesStatusMsg.textContent = "↺ Operating allowance rates reset to standard official defaults.";
+    opRatesStatusMsg.style.color = "#b45309";
+    setTimeout(() => {
+      if (opRatesStatusMsg && opRatesStatusMsg.textContent.startsWith("↺")) {
+        opRatesStatusMsg.textContent = "";
+      }
+    }, 5000);
+  }
+}
+
 function openEmployeeModal(targetEmpKey = "", isAddNew = false) {
   populateEmpDropdowns();
+  renderDesignationOperatingRates();
   if (revStatusMsg) revStatusMsg.textContent = "";
+  if (opRatesStatusMsg) opRatesStatusMsg.textContent = "";
 
   if (isAddNew || targetEmpKey === "__NEW__") {
     switchToAddNewMode();
@@ -899,6 +1151,18 @@ if (closePayRevisionsDialog && payRevisionsDialog) {
   });
 }
 
+if (btnSaveAllOpRates) {
+  btnSaveAllOpRates.addEventListener("click", saveAllOperatingRatesFromUI);
+}
+
+if (btnResetOpRatesToDefault) {
+  btnResetOpRatesToDefault.addEventListener("click", resetOperatingRatesToDefaults);
+}
+
+window.addEventListener("designationRatesUpdated", () => {
+  renderDesignationOperatingRates();
+});
+
 window.addEventListener("resize", () => {
   window.requestAnimationFrame(() => {
     syncHeaderOffsets();
@@ -907,4 +1171,5 @@ window.addEventListener("resize", () => {
 
 // Initial load
 loadSheet();
+renderDesignationOperatingRates();
 fetchEmployeeMasterFromBackend();

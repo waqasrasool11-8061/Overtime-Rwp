@@ -75,7 +75,25 @@ async function initializeEmployeeSchema(db) {
       modified_at TEXT NOT NULL DEFAULT (datetime('now')),
       edit_count INTEGER NOT NULL DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS designation_operating_rates (
+      designation_key TEXT PRIMARY KEY,
+      designation_name TEXT NOT NULL,
+      ml_rate REAL NOT NULL DEFAULT 0,
+      shnt_rate REAL NOT NULL DEFAULT 0,
+      pass_rate REAL NOT NULL DEFAULT 0,
+      gds_rate REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  await db.run(
+    `INSERT OR IGNORE INTO designation_operating_rates (designation_key, designation_name, ml_rate, shnt_rate, pass_rate, gds_rate)
+     VALUES
+      ('DRIVER', 'Driver', 200, 0, 150, 120),
+      ('DY_DRIVER', 'Dy Driver', 0, 120, 0, 0),
+      ('ASSISTANT_DRIVER', 'Assistant Driver', 100, 120, 75, 50)`
+  );
 
   await db.run(
     `INSERT OR IGNORE INTO employee_master_workbooks (code, sheet_name, header_row_count, max_columns)

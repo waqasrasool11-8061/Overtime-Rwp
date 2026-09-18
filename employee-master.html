@@ -336,6 +336,42 @@
         <p id="revStatusMsg" class="helper-text" style="margin: 8px 0 0 0;"></p>
       </div>
 
+      <!-- Designation-Wise Operating Allowance Rates Container -->
+      <div class="pay-rev-form-card" id="operatingRatesContainer" style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h4 style="margin: 0; color: #166534; font-size: 0.94rem; display: flex; align-items: center; gap: 6px;">
+              <span>🚂</span> Operating Allowance Rates (Designation-Wise)
+            </h4>
+            <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #475569;">
+              Set the 4 official Operating Allowance rates (ML, SHNT/OP, PASSNGER, GDS) per designation. These link directly to Amount Summary calculations and Master Sheet.
+            </p>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="btnResetOpRatesToDefault" class="btn-outline" style="font-size: 0.78rem; padding: 3px 8px; color: #b45309; border-color: #fcd34d; background: #fffbeb;" title="Reset all designations to official Pakistan Railways default rates">↺ Reset Defaults</button>
+            <button type="button" id="btnSaveAllOpRates" class="btn-primary" style="font-size: 0.8rem; padding: 4px 12px; background: #16a34a; border-color: #15803d; font-weight: 700;">💾 Save Operating Rates</button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table id="desgOpRatesTable" style="width: 100%; border-collapse: collapse; font-size: 0.84rem; text-align: left; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+            <thead>
+              <tr style="background: #e2e8f0; color: #1e293b;">
+                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">Designation</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">ML Rate (Rs.)</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">SHNT/OP Rate (Rs.)</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">PASSNGER Rate (Rs.)</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">GDS Rate (Rs.)</th>
+              </tr>
+            </thead>
+            <tbody id="desgOpRatesTbody">
+              <!-- Dynamically populated or rendered -->
+            </tbody>
+          </table>
+        </div>
+        <p id="opRatesStatusMsg" class="helper-text" style="margin: 8px 0 0 0; font-size: 0.8rem;"></p>
+      </div>
+
       <!-- Filter & Revisions History Table -->
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; margin-bottom: 8px;">
         <h4 style="margin: 0; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 6px;">
@@ -375,7 +411,7 @@
 
   <script src="auth-guard.js"></script>
   <script src="Employee_Master.data.js"></script>
-  <script src="pay-revisions.js"></script>
-  <script src="employee-master.js?v=2.5"></script>
+  <script src="pay-revisions.js?v=2.0"></script>
+  <script src="employee-master.js?v=2.6"></script>
 </body>
 </html>

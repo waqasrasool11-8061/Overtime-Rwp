@@ -70,6 +70,8 @@ const {
   getEmployeePostingStationStatus,
   updateEmployeePostingStation,
   resetPostingStationLock,
+  getDesignationOperatingRates,
+  saveDesignationOperatingRates,
 } = require("./backend/employeeRepository");
 const {
   appendDataRows,
@@ -1575,6 +1577,30 @@ app.delete("/api/employee-master/pay-revision", async (req, res) => {
     return res.json({ message: "Pay revision deleted successfully.", ...result });
   } catch (error) {
     return res.status(500).json({ message: "Failed to delete pay revision.", detail: error.message });
+  }
+});
+
+app.get("/api/employee-master/operating-rates", async (req, res) => {
+  try {
+    const db = await getEmployeeDb();
+    const rates = await getDesignationOperatingRates(db);
+    return res.json({ rates });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load designation operating rates.", detail: error.message });
+  }
+});
+
+app.post("/api/employee-master/operating-rates", async (req, res) => {
+  try {
+    const submittedRates = req.body?.rates;
+    if (!submittedRates || typeof submittedRates !== "object") {
+      return res.status(400).json({ message: "rates object is required." });
+    }
+    const db = await getEmployeeDb();
+    const result = await saveDesignationOperatingRates(db, submittedRates);
+    return res.json({ message: "Designation operating rates saved successfully.", ...result });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to save designation operating rates.", detail: error.message });
   }
 });
 

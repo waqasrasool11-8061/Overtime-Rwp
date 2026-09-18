@@ -495,16 +495,23 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
     }
   }
 
+  // Designation & linked Operating Allowance rates
+  const desg = (emp ? String(emp[C_DESG] || emp[C_CAT] || "") : "").trim();
+  const desgUpper = desg.toUpperCase();
+  const desgOpRates = (typeof getOperatingRatesForDesignation === "function")
+    ? getOperatingRatesForDesignation(desg)
+    : { ml: 100, shnt: 120, pass: 75, gds: 50 };
+
   // Rates from Employee_Master
   const otDay       = emp ? n(emp[C_OT])      : (basicPay > 0 ? basicPay / 30 : 0);
   const mileMRate   = emp ? n(emp[C_MAIL])    : 0;
   const milePRate   = emp ? n(emp[C_PASS])    : 0;
   const mileOPGRate = emp ? n(emp[C_SHNT])    : 0;
   const sdGhRate    = emp ? n(emp[C_SDGH])    : otDay;
-  const mlRate      = emp ? (n(emp[C_M_ML]) || R_ML)    : R_ML;
-  const shntRate    = emp ? (n(emp[C_OP_AL]) || R_SHNT) : R_SHNT;
-  const passRate    = emp ? (n(emp[C_P_AL]) || R_PASS)  : R_PASS;
-  const gdsRate     = emp ? (n(emp[C_G_AL]) || R_GDS)   : R_GDS;
+  const mlRate      = desgOpRates.ml;
+  const shntRate    = desgOpRates.shnt;
+  const passRate    = desgOpRates.pass;
+  const gdsRate     = desgOpRates.gds;
   const blankRate   = emp ? (n(emp[C_CUSTOM]) || otDay) : otDay;
   const cust55Rate  = emp ? (n(emp[C_LEAVE_55]) || otDay): otDay;
 
@@ -520,12 +527,11 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
 
   // Mileage designation capping rules
   let mileTotal = rawMile;
-  const desg = (emp ? String(emp[C_DESG] || emp[C_CAT] || "") : "").trim().toUpperCase();
-  if (desg.includes("ASSISTANT") && mileTotal > 14000) {
+  if (desgUpper.includes("ASSISTANT") && mileTotal > 14000) {
     mileTotal = 14000;
-  } else if ((desg.includes("DY") || desg.includes("DEPUTY")) && mileTotal > 15000) {
+  } else if ((desgUpper.includes("DY") || desgUpper.includes("DEPUTY")) && mileTotal > 15000) {
     mileTotal = 15000;
-  } else if (desg.includes("DRIVER") && !desg.includes("ASSISTANT") && !desg.includes("DY") && !desg.includes("DEPUTY") && mileTotal > 32000) {
+  } else if (desgUpper.includes("DRIVER") && !desgUpper.includes("ASSISTANT") && !desgUpper.includes("DY") && !desgUpper.includes("DEPUTY") && mileTotal > 32000) {
     mileTotal = 32000;
   }
 
@@ -952,4 +958,11 @@ window.addEventListener("payRevisionsUpdated", () => {
     // Graceful offline fallback
   }
 })();
+
+if (typeof window !== "undefined") {
+  window.addEventListener("designationRatesUpdated", () => {
+    if (amtsLoadBtn) amtsLoadBtn.click();
+  });
+}
+
 

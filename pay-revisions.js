@@ -2,6 +2,109 @@
 // Shared Pay Revision History & Effective-Month-Based Basic Pay & Rates Engine
 
 const PAY_REVISIONS_STORAGE_KEY = "EmployeePayRevisions";
+const DESIGNATION_RATES_STORAGE_KEY = "DesignationOperatingRates";
+
+// Standard official Pakistan Railways operating allowance rates by designation
+const DEFAULT_DESIGNATION_OPERATING_RATES = {
+  DRIVER: {
+    key: "DRIVER",
+    name: "Driver",
+    ml: 200,
+    shnt: 0,
+    pass: 150,
+    gds: 120
+  },
+  DY_DRIVER: {
+    key: "DY_DRIVER",
+    name: "Dy Driver",
+    ml: 0,
+    shnt: 120,
+    pass: 0,
+    gds: 0
+  },
+  ASSISTANT_DRIVER: {
+    key: "ASSISTANT_DRIVER",
+    name: "Assistant Driver",
+    ml: 100,
+    shnt: 120,
+    pass: 75,
+    gds: 50
+  }
+};
+
+function normalizeDesgKey(desg) {
+  const d = String(desg || "").trim().toUpperCase();
+  if (d.includes("ASSISTANT")) return "ASSISTANT_DRIVER";
+  if (d.includes("DY") || d.includes("DEPUTY")) return "DY_DRIVER";
+  if (d.includes("DRIVER")) return "DRIVER";
+  return d.replace(/[\s\.\-_]+/g, "_");
+}
+
+/**
+ * Retrieves all designation-wise operating allowance rates
+ */
+function getAllDesignationOperatingRates() {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(DESIGNATION_RATES_STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+        return {
+          ...DEFAULT_DESIGNATION_OPERATING_RATES,
+          ...parsed
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("getAllDesignationOperatingRates error:", err);
+  }
+  return { ...DEFAULT_DESIGNATION_OPERATING_RATES };
+}
+
+/**
+ * Returns the 4 operating rates for a specific designation { ml, shnt, pass, gds }
+ */
+function getOperatingRatesForDesignation(designation) {
+  const allRates = getAllDesignationOperatingRates();
+  const rawDesg = String(designation || "").trim().toUpperCase();
+
+  const normKey = normalizeDesgKey(rawDesg);
+  if (allRates[normKey]) return allRates[normKey];
+
+  for (const k of Object.keys(allRates)) {
+    if (String(allRates[k].name || "").trim().toUpperCase() === rawDesg) {
+      return allRates[k];
+    }
+  }
+
+  if (rawDesg.includes("ASSISTANT")) {
+    return allRates.ASSISTANT_DRIVER || DEFAULT_DESIGNATION_OPERATING_RATES.ASSISTANT_DRIVER;
+  }
+  if (rawDesg.includes("DY") || rawDesg.includes("DEPUTY")) {
+    return allRates.DY_DRIVER || DEFAULT_DESIGNATION_OPERATING_RATES.DY_DRIVER;
+  }
+  if (rawDesg.includes("DRIVER")) {
+    return allRates.DRIVER || DEFAULT_DESIGNATION_OPERATING_RATES.DRIVER;
+  }
+
+  return allRates.ASSISTANT_DRIVER || DEFAULT_DESIGNATION_OPERATING_RATES.ASSISTANT_DRIVER;
+}
+
+/**
+ * Saves designation rates dictionary to localStorage and dispatches event
+ */
+function saveAllDesignationOperatingRates(ratesDict) {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(DESIGNATION_RATES_STORAGE_KEY, JSON.stringify(ratesDict, null, 2));
+    }
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+      window.dispatchEvent(new CustomEvent("designationRatesUpdated", { detail: ratesDict }));
+    }
+  } catch (err) {
+    console.error("saveAllDesignationOperatingRates error:", err);
+  }
+}
 
 // Column Indices in Employee_Master (0-based)
 const REV_C_SAP       = 0;
@@ -157,6 +260,9 @@ function deriveEmployeeRecordFromBasic(baseRow, basicPay, revisionInfo = null) {
 
   const fValue = bp / 30;
 
+  const desg = (revisionInfo && revisionInfo.designation) || row[REV_C_DESG] || (baseRow ? baseRow[REV_C_DESG] : "");
+  const opRates = getOperatingRatesForDesignation(desg);
+
   row[REV_C_BASIC]    = bp;
   row[REV_C_OT]       = fValue;
   row[REV_C_MAIL]     = fValue * 30 / 100;
@@ -164,10 +270,10 @@ function deriveEmployeeRecordFromBasic(baseRow, basicPay, revisionInfo = null) {
   row[REV_C_SHNT]     = fValue * 20 / 100;
   row[REV_C_GDS]      = fValue * 20 / 100;
   row[REV_C_SDGH]     = bp / 30;
-  row[REV_C_M_ML]     = 100;
-  row[REV_C_OP_AL]    = 120;
-  row[REV_C_P_AL]     = 75;
-  row[REV_C_G_AL]     = 50;
+  row[REV_C_M_ML]     = opRates.ml;
+  row[REV_C_OP_AL]    = opRates.shnt;
+  row[REV_C_P_AL]     = opRates.pass;
+  row[REV_C_G_AL]     = opRates.gds;
   row[REV_C_CUSTOM]   = fValue * 55 / 100;
   row[REV_C_LEAVE_55] = fValue * 55 / 100;
 
@@ -333,9 +439,54 @@ async function deletePayRevisionFromBackend(empKey, effectiveMonth) {
   return result;
 }
 
+/**
+ * Syncs designation rates from SQLite backend API
+ */
+async function syncDesignationRatesFromBackend() {
+  try {
+    const baseUrl = getPayRevisionApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/employee-master/operating-rates`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.rates && typeof data.rates === "object" && Object.keys(data.rates).length > 0) {
+        saveAllDesignationOperatingRates(data.rates);
+        return data.rates;
+      }
+    }
+  } catch (err) {
+    console.warn("syncDesignationRatesFromBackend warning:", err.message);
+  }
+  return null;
+}
+
+/**
+ * Saves designation rates to backend API and updates local storage
+ */
+async function saveDesignationRatesToBackend(rates) {
+  const baseUrl = getPayRevisionApiBaseUrl();
+  const res = await fetch(`${baseUrl}/api/employee-master/operating-rates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ rates }),
+  });
+
+  if (!res.ok) {
+    const errPayload = await res.json().catch(() => ({}));
+    throw new Error(errPayload.message || `HTTP ${res.status}`);
+  }
+
+  saveAllDesignationOperatingRates(rates);
+  return await res.json();
+}
+
 // Auto-sync in browser background on script load
 if (typeof window !== "undefined" && typeof fetch === "function") {
   syncPayRevisionsFromBackend().catch(() => {});
+  syncDesignationRatesFromBackend().catch(() => {});
 }
 
 // Export for Node.js test environment if required
@@ -350,6 +501,13 @@ if (typeof module !== "undefined" && module.exports) {
     syncPayRevisionsFromBackend,
     savePayRevisionToBackend,
     deletePayRevisionFromBackend,
+    getAllDesignationOperatingRates,
+    getOperatingRatesForDesignation,
+    saveAllDesignationOperatingRates,
+    syncDesignationRatesFromBackend,
+    saveDesignationRatesToBackend,
+    DEFAULT_DESIGNATION_OPERATING_RATES,
+    DESIGNATION_RATES_STORAGE_KEY,
     PAY_REVISIONS_STORAGE_KEY
   };
 }
