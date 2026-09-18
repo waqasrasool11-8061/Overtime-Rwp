@@ -473,7 +473,7 @@
 
           <div class="embed-header-actions">
             <button class="btn-ctrl" type="button" id="refreshTrainzBtn" title="Reload Trainz iframe">&#x1F504; Refresh</button>
-            <a class="btn-ctrl btn-primary-ctrl" id="openTrainzExternalBtn" href="/trs-dep-pak/Pak-Trainz.html" target="_blank" rel="noopener noreferrer" title="Open Trainz page in new browser tab">&#x2197; New Tab</a>
+            <a class="btn-ctrl btn-primary-ctrl" id="openTrainzExternalBtn" href="https://pak-trainz.onrender.com/" target="_blank" rel="noopener noreferrer" title="Open Trainz page in new browser tab">&#x2197; New Tab</a>
             <button class="btn-ctrl" type="button" id="fullscreenTrainzBtn" title="Toggle Fullscreen">&#x26F6; Fullscreen</button>
           </div>
         </div>
@@ -481,9 +481,10 @@
         <!-- Trainz Quick Navigation Subnav -->
         <div class="embed-subnav" id="trainzSubnav">
           <span class="embed-subnav-label">&#x1F4C1; Modules:</span>
-          <button class="embed-chip-btn active" type="button" data-trainz-page="Pak-Trainz.html">&#x1F3E0; Pak-Trainz Main</button>
-          <button class="embed-chip-btn" type="button" data-trainz-page="gallery.html">&#x1F5BC;&#xFE0F; Photo Gallery</button>
-          <button class="embed-chip-btn" type="button" data-trainz-page="videos.html">&#x1F3AC; Simulator Videos</button>
+          <button class="embed-chip-btn active" type="button" data-trainz-page="https://pak-trainz.onrender.com/">&#x1F3E0; Pak-Trainz Main</button>
+          <button class="embed-chip-btn" type="button" data-trainz-page="https://pak-trainz.onrender.com/gallery.html">&#x1F5BC;&#xFE0F; Photo Gallery</button>
+          <button class="embed-chip-btn" type="button" data-trainz-page="https://pak-trainz.onrender.com/videos.html">&#x1F3AC; Simulator Videos</button>
+          <button class="embed-chip-btn" type="button" data-trainz-page="https://pak-trainz.onrender.com/#downloads">&#x1F4E5; Downloads</button>
         </div>
 
         <div class="embed-frame-wrapper">
@@ -492,20 +493,20 @@
             <div class="placeholder-icon">&#x1F687;</div>
             <h3>Trainz HTML Page Embed Container</h3>
             <p>
-              Paste your Trainz HTML webpage URL or local path below:
+              Paste your Trainz HTML webpage URL or online link below:
             </p>
             <div class="placeholder-url-bar">
-              <input type="text" id="trainzUrlInput" placeholder="/trs-dep-pak/Pak-Trainz.html" autocomplete="off">
+              <input type="text" id="trainzUrlInput" placeholder="https://pak-trainz.onrender.com/" autocomplete="off">
               <button type="button" id="loadTrainzUrlBtn">Load Page</button>
             </div>
           </div>
 
-          <!-- Trainz HTML Embed iframe (pre-loaded) -->
+          <!-- Trainz HTML Embed iframe (pre-loaded with live URL) -->
           <iframe
             id="trainzIframe"
             class="embed-iframe"
             title="Pak Trainz Developers"
-            src="/trs-dep-pak/Pak-Trainz.html"
+            src="https://pak-trainz.onrender.com/"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen>
           </iframe>
@@ -518,22 +519,20 @@
   <script src="auth-guard.js"></script>
   <script>
     // =========================================================================
-    // EMBED CONFIGURATION - PERMANENT CHANNELS & LOCAL MODULES
+    // EMBED CONFIGURATION - PERMANENT CHANNELS & LIVE TRAINZ PORTAL
     // =========================================================================
     const YOUTUBE_CHANNEL_ID = "UCu5n8C002APsCGfw_NDKnSQ";
     const YOUTUBE_UPLOADS_PLAYLIST_ID = "UUu5n8C002APsCGfw_NDKnSQ";
     const YOUTUBE_EXTERNAL_CHANNEL_URL = "https://youtube.com/@trainzcontentsdeveloper?si=MQBkOUT72c3GviUt";
     const YOUTUBE_PLAYLIST_EMBED = `https://www.youtube.com/embed/videoseries?list=${YOUTUBE_UPLOADS_PLAYLIST_ID}`;
 
-    // Trainz paths: works in both Express server (http) and direct file opening (file://)
-    const TRAINZ_BASE_PATH = window.location.protocol === "file:"
-      ? "../TRS DEP PAK/"
-      : "/trs-dep-pak/";
+    // Live Pak Trainz portal deployed on Render
+    const TRAINZ_BASE_PATH = "https://pak-trainz.onrender.com/";
 
     const DEFAULT_CONFIG = {
       youtubeUrl: YOUTUBE_PLAYLIST_EMBED,
       youtubeExternal: YOUTUBE_EXTERNAL_CHANNEL_URL,
-      trainzUrl: TRAINZ_BASE_PATH + "Pak-Trainz.html"
+      trainzUrl: "https://pak-trainz.onrender.com/"
     };
 
     // DOM Elements - YouTube
@@ -594,9 +593,13 @@
 
     // Function to load Trainz URL
     function loadTrainzUrl(target) {
-      let finalUrl = target;
-      if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://") && !finalUrl.startsWith("/") && !finalUrl.startsWith("../")) {
-        finalUrl = TRAINZ_BASE_PATH + finalUrl;
+      let finalUrl = target || "https://pak-trainz.onrender.com/";
+      if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
+        if (finalUrl.startsWith("/")) {
+          finalUrl = "https://pak-trainz.onrender.com" + finalUrl;
+        } else {
+          finalUrl = "https://pak-trainz.onrender.com/" + finalUrl;
+        }
       }
       trainzIframe.src = finalUrl;
       openTrainzExternalBtn.href = finalUrl;
