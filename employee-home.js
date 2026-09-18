@@ -238,27 +238,44 @@ function isDIDuty(dutyStr) {
 
 // ── Tab Management ────────────────────────────────────────────────────────────
 function switchTab(tabId) {
-  [tabBtnOp72, tabBtnAmountSummary, tabBtnChat, tabBtnChangePassword].forEach(b => b && b.classList.remove("active"));
+  [tabBtnOp72, tabBtnAmountSummary, tabBtnChat, tabBtnChangePassword].forEach(b => {
+    if (b) {
+      b.classList.remove("active");
+      b.setAttribute("aria-selected", "false");
+    }
+  });
   [tabContentOp72, tabContentAmountSummary, tabContentChat, tabContentChangePassword].forEach(c => c && c.classList.remove("active"));
 
   if (tabId === "op72") {
     if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
-    tabBtnOp72.classList.add("active");
-    tabContentOp72.classList.add("active");
+    if (tabBtnOp72) {
+      tabBtnOp72.classList.add("active");
+      tabBtnOp72.setAttribute("aria-selected", "true");
+    }
+    if (tabContentOp72) tabContentOp72.classList.add("active");
   } else if (tabId === "amountSummary") {
     if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
-    tabBtnAmountSummary.classList.add("active");
-    tabContentAmountSummary.classList.add("active");
+    if (tabBtnAmountSummary) {
+      tabBtnAmountSummary.classList.add("active");
+      tabBtnAmountSummary.setAttribute("aria-selected", "true");
+    }
+    if (tabContentAmountSummary) tabContentAmountSummary.classList.add("active");
   } else if (tabId === "chat") {
-    tabBtnChat.classList.add("active");
-    tabContentChat.classList.add("active");
+    if (tabBtnChat) {
+      tabBtnChat.classList.add("active");
+      tabBtnChat.setAttribute("aria-selected", "true");
+    }
+    if (tabContentChat) tabContentChat.classList.add("active");
     loadChatMessages();
     if (!window._empChatInterval) {
       window._empChatInterval = setInterval(loadChatMessages, 5000);
     }
   } else if (tabId === "changePassword") {
     if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
-    if (tabBtnChangePassword) tabBtnChangePassword.classList.add("active");
+    if (tabBtnChangePassword) {
+      tabBtnChangePassword.classList.add("active");
+      tabBtnChangePassword.setAttribute("aria-selected", "true");
+    }
     if (tabContentChangePassword) tabContentChangePassword.classList.add("active");
   }
 }

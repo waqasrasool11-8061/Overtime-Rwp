@@ -17,42 +17,124 @@
   <link rel="icon" type="image/png" href="/icons/icon-192.png">
   <script src="/pwa.js" defer></script>
   <style>
-    /* ── Employee Portal Tabs & Styling ── */
+    /* ── Employee Portal Navigation Tabs (Prominent Clickable Buttons) ── */
     .emp-portal-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      border-bottom: 2px solid var(--border-color, #d0d7de);
-      margin-bottom: 18px;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      margin-bottom: 22px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05), 0 2px 5px rgba(0, 0, 0, 0.03);
+      align-items: stretch;
     }
 
     .emp-tab-btn {
-      background: transparent;
-      border: none;
-      border-bottom: 3px solid transparent;
-      padding: 10px 18px;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text-subtle, #57606a);
+      flex: 1 1 auto;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: #1e293b;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      transition: all 0.2s ease;
-      margin-bottom: -2px;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+      user-select: none;
+      text-decoration: none;
+      line-height: 1.3;
+      white-space: nowrap;
     }
 
+    .emp-tab-btn .emp-tab-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.18s ease;
+    }
+
+    .emp-tab-btn .emp-tab-text {
+      font-size: 0.95rem;
+      letter-spacing: 0.1px;
+    }
+
+    /* Hover effect - clearly shows it's a clickable button */
     .emp-tab-btn:hover {
-      color: var(--primary-color, #0969da);
-      background: rgba(9, 105, 218, 0.05);
-      border-radius: 6px 6px 0 0;
+      background: #f0f7ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 12px rgba(37, 99, 235, 0.18);
     }
 
+    .emp-tab-btn:hover .emp-tab-icon {
+      transform: scale(1.15);
+    }
+
+    /* Click / Mouse Down state */
+    .emp-tab-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Active Selected Tab State - Primary Railway Blue gradient */
     .emp-tab-btn.active {
-      color: var(--primary-color, #0969da);
-      border-bottom-color: var(--primary-color, #0969da);
-      background: rgba(9, 105, 218, 0.08);
-      border-radius: 6px 6px 0 0;
+      background: linear-gradient(135deg, #0f2b48 0%, #1e4d7b 100%);
+      color: #ffffff !important;
+      border-color: #0b223a;
+      box-shadow: 0 4px 12px rgba(15, 43, 72, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .emp-tab-btn.active .emp-tab-text {
+      color: #ffffff !important;
+    }
+
+    .emp-tab-btn.active:hover {
+      background: linear-gradient(135deg, #0a2037 0%, #184169 100%);
+      border-color: #061524;
+      color: #ffffff !important;
+      box-shadow: 0 6px 15px rgba(15, 43, 72, 0.42);
+    }
+
+    .emp-tab-btn:focus-visible {
+      outline: 3px solid #2563eb;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 900px) {
+      .emp-tab-btn {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 200px;
+        white-space: normal;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 540px) {
+      .emp-portal-tabs {
+        gap: 8px;
+        padding: 8px;
+      }
+      .emp-tab-btn {
+        flex: 1 1 100%;
+        min-width: 100%;
+        justify-content: flex-start;
+        padding: 10px 14px;
+        font-size: 0.91rem;
+      }
+      .emp-tab-btn .emp-tab-text {
+        font-size: 0.91rem;
+      }
     }
 
     .emp-tab-content {
@@ -1046,19 +1128,23 @@
         </div>
       </div>
 
-      <!-- 4 Employee Portal Tabs -->
-      <div class="emp-portal-tabs">
-        <button id="tabBtnOp72" class="emp-tab-btn active" type="button">
-          &#x1F4CB; 1. OP-72 Work &amp; OverTime
+      <!-- 4 Employee Portal Navigation Tabs (Clickable Buttons) -->
+      <div class="emp-portal-tabs" role="tablist" aria-label="Employee Portal Sections">
+        <button id="tabBtnOp72" class="emp-tab-btn active" type="button" role="tab" aria-selected="true" aria-controls="tabContentOp72" title="View OP-72 Work & OverTime Records">
+          <span class="emp-tab-icon">&#x1F4CB;</span>
+          <span class="emp-tab-text">1. OP-72 Work &amp; OverTime</span>
         </button>
-        <button id="tabBtnAmountSummary" class="emp-tab-btn" type="button">
-          &#x1F4B0; 2. Amount Summary
+        <button id="tabBtnAmountSummary" class="emp-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="tabContentAmountSummary" title="View Monthly Amount Summary">
+          <span class="emp-tab-icon">&#x1F4B0;</span>
+          <span class="emp-tab-text">2. Amount Summary</span>
         </button>
-        <button id="tabBtnChat" class="emp-tab-btn" type="button">
-          &#x1F4AC; 3. Chat with Main Admin (Vicky Ch)
+        <button id="tabBtnChat" class="emp-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="tabContentChat" title="Chat with Main Admin (Vicky Ch)">
+          <span class="emp-tab-icon">&#x1F4AC;</span>
+          <span class="emp-tab-text">3. Chat with Main Admin (Vicky Ch)</span>
         </button>
-        <button id="tabBtnChangePassword" class="emp-tab-btn" type="button">
-          &#x1F512; 4. Change Password
+        <button id="tabBtnChangePassword" class="emp-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="tabContentChangePassword" title="Change Account Password">
+          <span class="emp-tab-icon">&#x1F512;</span>
+          <span class="emp-tab-text">4. Change Password</span>
         </button>
       </div>
 
