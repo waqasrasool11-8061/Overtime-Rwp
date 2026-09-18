@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Chat Inbox — Vicky Ch</title>
+  <link rel="stylesheet" href="app.css?v=6.0">
+  <!-- PWA & Mobile App Support -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e3e62">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PR Overtime">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" href="/icons/icon-192.png">
+  <script src="/pwa.js" defer></script>
+</head>
+
+<body>
+  <div class="bg-shape bg-shape-one"></div>
+  <div class="bg-shape bg-shape-two"></div>
+
+  <header class="site-header">
+    <img class="site-banner" src="website banner.jpg" alt="Website banner">
+    <h1>Admin Chat Inbox</h1>
+    <p>Running Staff Overtime Inquiries, Discrepancies &amp; Direct Support Desk</p>
+  </header>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="employee-master.html">Employee master</a>
+    <a class="nav-link" href="group-master.html">Group Master</a>
+    <a class="nav-link" href="holidays.html">Holidays</a>
+    <a class="nav-link" href="op-72.html">OP-72</a>
+    <a class="nav-link" href="op72-raw-data.html">OP72 Raw Data</a>
+    <a class="nav-link" href="genl-164.html">GENL-164</a>
+    <a class="nav-link" href="loco-18.html">Loco-18</a>
+    <a class="nav-link" href="amount-summary.html">Amount Summary</a>
+    <a class="nav-link" href="raw-data.html">RawData</a>
+    <a class="nav-link" href="raw-data-search.html">RawData Search</a>
+    <a class="nav-link" href="employee-home.html">Employee Portal</a>
+    <a class="nav-link" href="video.html">Video</a>
+    <a class="nav-link" href="user-management.html">User Management</a>
+    <a class="nav-link active" href="chat-inbox.html">Chat Inbox <span class="chat-nav-badge" style="display: none;"></span></a>
+  </nav>
+
+  <main class="simple-page chat-inbox-page">
+    <section class="panel chat-inbox-card">
+      <div class="chat-inbox-layout">
+
+        <!-- Left Sidebar: Conversations & Directory -->
+        <aside class="chat-threads-sidebar" id="chatSidebar">
+          <div class="chat-sidebar-header">
+            <div class="chat-sidebar-title-row">
+              <h2>💬 Staff Conversations</h2>
+              <span id="sidebarTotalUnread" class="chat-unread-pill" style="display: none;">0 unread</span>
+            </div>
+
+            <div class="chat-search-input-wrap">
+              <span class="chat-search-icon">🔍</span>
+              <input type="text" id="chatSearchInput" placeholder="Search employee name, SAP, or designation..." autocomplete="off">
+            </div>
+          </div>
+
+          <!-- Filter Tabs -->
+          <div class="chat-filter-tabs">
+            <button type="button" class="chat-tab-btn active" data-tab="all" id="tabFilterAll">All Chats (<span id="countAllChats">0</span>)</button>
+            <button type="button" class="chat-tab-btn" data-tab="unread" id="tabFilterUnread">Unread (<span id="countUnreadChats">0</span>)</button>
+            <button type="button" class="chat-tab-btn" data-tab="directory" id="tabFilterDirectory">Staff Directory</button>
+          </div>
+
+          <!-- Threads List -->
+          <ul id="chatThreadsList" class="chat-threads-list">
+            <!-- Dynamically populated thread items -->
+          </ul>
+        </aside>
+
+        <!-- Right Panel: Chat Thread / Empty State -->
+        <section class="chat-main-panel" id="chatMainPanel">
+
+          <!-- Empty View (No thread selected) -->
+          <div id="chatEmptyView" class="chat-empty-view">
+            <div class="chat-empty-icon">✉️</div>
+            <h3 class="chat-empty-title">Select a Conversation</h3>
+            <p class="chat-empty-subtitle">Choose an employee from the left panel to read incoming inquiry tickets, overtime discrepancy messages, and reply individually.</p>
+          </div>
+
+          <!-- Active Conversation View -->
+          <div id="chatActiveView" class="chat-active-view" style="display: none;">
+
+            <!-- Active Thread Topbar -->
+            <div class="chat-thread-topbar">
+              <div class="chat-topbar-left">
+                <button type="button" class="chat-topbar-back-btn" id="btnBackToSidebar" title="Back to staff list">← Back</button>
+                <div class="chat-avatar" id="activeChatAvatar">WR</div>
+                <div class="chat-topbar-details">
+                  <h3 id="activeChatName">WAQAS RASOOL</h3>
+                  <div class="chat-topbar-badges">
+                    <span class="chat-topbar-pill" id="activeChatSap">SAP: 76249</span>
+                    <span class="chat-topbar-pill" id="activeChatDesg">Assistant Driver</span>
+                    <span class="chat-topbar-pill pill-station" id="activeChatStation">RAWALPINDI</span>
+                    <a href="#" id="activeChatPortalLink" target="_blank" style="font-size: 0.74rem; font-weight: 600; color: #0284c7; text-decoration: underline; margin-left: 4px;">View OP-72 Portal ↗</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chat-topbar-right">
+                <button type="button" id="btnRefreshThread" class="btn-outline" style="font-size: 0.78rem; padding: 4px 10px;" title="Refresh messages">🔄 Refresh</button>
+              </div>
+            </div>
+
+            <!-- Message History Stream -->
+            <div id="chatStream" class="chat-stream">
+              <!-- Dynamically populated message bubbles -->
+            </div>
+
+            <!-- Quick Replies Bar -->
+            <div class="chat-quick-bar">
+              <span class="chat-quick-label">⚡ Quick Reply:</span>
+              <button type="button" class="chat-quick-chip" data-text="Checked and corrected in OP-72 sheet. Kindly refresh and verify.">✅ Corrected in OP-72</button>
+              <button type="button" class="chat-quick-chip" data-text="Please provide your train number, duty date and timings for verification.">⚠️ Need Duty Details</button>
+              <button type="button" class="chat-quick-chip" data-text="Amount Summary has been updated with the corrected figures.">💰 Amount Summary Updated</button>
+              <button type="button" class="chat-quick-chip" data-text="Your query has been noted and is currently under review by shed office.">⏳ Under Review</button>
+              <button type="button" class="chat-quick-chip" data-text="Please visit Rawalpindi Shed Billing office with your running journal.">🏢 Visit Shed Office</button>
+            </div>
+
+            <!-- Message Composer Form -->
+            <form id="chatComposerForm" class="chat-composer-bar">
+              <textarea id="chatMessageInput" class="chat-composer-input" rows="1" placeholder="Type a reply to employee... (Press Enter to send, Shift+Enter for new line)" required></textarea>
+              <button type="submit" id="btnSendMessage" class="chat-composer-btn-send">
+                <span>Send</span> ➤
+              </button>
+            </form>
+
+          </div>
+
+        </section>
+
+      </div>
+    </section>
+  </main>
+
+  <script src="auth-guard.js"></script>
+  <script src="Employee_Master.data.js"></script>
+  <script src="chat-inbox.js?v=1.0"></script>
+</body>
+
+</html>

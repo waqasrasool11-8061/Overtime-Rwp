@@ -28,6 +28,7 @@
     "group-master.html": "groupMaster",
     "holidays.html": "holidays",
     "user-management.html": "userManagement",
+    "chat-inbox.html": "chatInbox",
   };
   const navPermissions = { ...pagePermissions };
 
@@ -114,6 +115,31 @@
     return true;
   }
 
+  async function updateChatBadge() {
+    try {
+      const res = await fetch(`${authBaseUrl}/api/chat/unread-count`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const count = Number(data.unreadCount || 0);
+      document.querySelectorAll(".chat-nav-badge").forEach((badge) => {
+        if (count > 0) {
+          badge.textContent = count > 99 ? "99+" : String(count);
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      });
+    } catch {}
+  }
+
+  function setupAdminChatBadge(u) {
+    if (!u || u.role === "employee") return;
+    updateChatBadge();
+    if (!window._chatBadgeInterval) {
+      window._chatBadgeInterval = setInterval(updateChatBadge, 20000);
+    }
+  }
+
   // Fast synchronous check from cached session to avoid UI flash
   try {
     const cachedRaw = localStorage.getItem(sessionKey);
@@ -122,6 +148,7 @@
       if (cached) {
         if (!checkPageAccess(cached)) return;
         applyRoleNavigation(cached);
+        setupAdminChatBadge(cached);
       }
     }
   } catch {}
@@ -146,4 +173,5 @@
 
   if (!checkPageAccess(user)) return;
   applyRoleNavigation(user);
+  setupAdminChatBadge(user);
 })();

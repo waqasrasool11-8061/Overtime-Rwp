@@ -242,16 +242,22 @@ function switchTab(tabId) {
   [tabContentOp72, tabContentAmountSummary, tabContentChat, tabContentChangePassword].forEach(c => c && c.classList.remove("active"));
 
   if (tabId === "op72") {
+    if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
     tabBtnOp72.classList.add("active");
     tabContentOp72.classList.add("active");
   } else if (tabId === "amountSummary") {
+    if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
     tabBtnAmountSummary.classList.add("active");
     tabContentAmountSummary.classList.add("active");
   } else if (tabId === "chat") {
     tabBtnChat.classList.add("active");
     tabContentChat.classList.add("active");
     loadChatMessages();
+    if (!window._empChatInterval) {
+      window._empChatInterval = setInterval(loadChatMessages, 5000);
+    }
   } else if (tabId === "changePassword") {
+    if (window._empChatInterval) { clearInterval(window._empChatInterval); window._empChatInterval = null; }
     if (tabBtnChangePassword) tabBtnChangePassword.classList.add("active");
     if (tabContentChangePassword) tabContentChangePassword.classList.add("active");
   }

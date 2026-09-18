@@ -136,6 +136,7 @@ const PERMISSIONS = Object.freeze([
   "groupMaster",
   "holidays",
   "userManagement",
+  "chatInbox",
 ]);
 const FULL_ADMIN_PERMISSIONS = Object.freeze([...PERMISSIONS]);
 const USER_CREDENTIALS_JSON_PATH = path.join(__dirname, "backend", "user_credentials.json");
@@ -153,6 +154,7 @@ const PAGE_PERMISSION_MAP = Object.freeze({
   "group-master.html": ["groupMaster"],
   "holidays.html": ["holidays"],
   "user-management.html": ["userManagement"],
+  "chat-inbox.html": ["chatInbox"],
   "employee-home.html": [],
   "video.html": [],
 });
@@ -171,7 +173,8 @@ const ALL_APP_PAGES = Object.freeze([
   "raw-data-search.html",
   "employee-home.html",
   "video.html",
-  "user-management.html"
+  "user-management.html",
+  "chat-inbox.html"
 ]);
 
 function readUserCredentials() {
@@ -842,6 +845,29 @@ function saveChatMessages(messages) {
   }
 }
 
+function getEmployeeMasterLookup() {
+  try {
+    const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
+    const parsed = JSON.parse(sourceText);
+    const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+    const headerRows = Number(parsed?.headerRows || 4);
+    const map = new Map();
+    for (const row of rows.slice(headerRows)) {
+      if (!Array.isArray(row)) continue;
+      const sapId = normalizeText(row[0]);
+      const name = normalizeText(row[1]);
+      const designation = normalizeText(row[2]);
+      const station = normalizeText(row[4]);
+      if (name) {
+        map.set(name.toLowerCase(), { sapId, name, designation, station });
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 app.get("/api/chat/messages", (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
@@ -880,6 +906,7 @@ app.post("/api/chat/messages", (req, res) => {
   if (!text) return res.status(400).json({ message: "Message text is required." });
 
   const receiver = normalizeText(req.body?.receiver) || (session.role === "employee" ? "Vicky Ch" : "ALL");
+  const isEmployee = session.role === "employee";
 
   const newMsg = {
     id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -888,6 +915,7 @@ app.post("/api/chat/messages", (req, res) => {
     receiver: receiver,
     text: text,
     timestamp: new Date().toISOString(),
+    read: !isEmployee, // messages sent by employee start as unread (read: false) for admin
   };
 
   const all = readChatMessages();
@@ -895,6 +923,106 @@ app.post("/api/chat/messages", (req, res) => {
   saveChatMessages(all);
 
   return res.status(201).json({ message: newMsg });
+});
+
+app.get("/api/chat/unread-count", (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+
+  const all = readChatMessages();
+  if (session.role === "employee") {
+    return res.json({ unreadCount: 0 });
+  }
+
+  // Count unread messages sent by employees
+  const unreadCount = all.filter((m) => m.senderRole === "employee" && !m.read).length;
+  return res.json({ unreadCount });
+});
+
+app.get("/api/chat/threads", (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+  if (session.role === "employee") {
+    return res.status(403).json({ message: "Access restricted to administrators." });
+  }
+
+  const all = readChatMessages();
+  const empLookup = getEmployeeMasterLookup();
+  const threadMap = new Map();
+
+  for (const m of all) {
+    if (m.receiver === "ALL" && m.senderRole !== "employee") continue;
+
+    let empName = "";
+    if (m.senderRole === "employee") {
+      empName = normalizeText(m.sender);
+    } else if (m.receiver && m.receiver !== "ALL") {
+      empName = normalizeText(m.receiver);
+    }
+    if (!empName) continue;
+
+    const key = empName.toLowerCase();
+    if (!threadMap.has(key)) {
+      const info = empLookup.get(key) || { sapId: "", name: empName, designation: "Staff", station: "RWP" };
+      threadMap.set(key, {
+        employeeName: info.name || empName,
+        sapId: info.sapId || "",
+        designation: info.designation || "Staff",
+        station: info.station || "RWP",
+        lastMessage: "",
+        lastTimestamp: "",
+        unreadCount: 0,
+        totalMessages: 0,
+      });
+    }
+
+    const thread = threadMap.get(key);
+    thread.totalMessages++;
+    if (!thread.lastTimestamp || new Date(m.timestamp) >= new Date(thread.lastTimestamp)) {
+      thread.lastMessage = m.text;
+      thread.lastTimestamp = m.timestamp;
+    }
+    if (m.senderRole === "employee" && !m.read) {
+      thread.unreadCount++;
+    }
+  }
+
+  const threads = Array.from(threadMap.values()).sort((a, b) => {
+    if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+    if (b.unreadCount > 0 && a.unreadCount === 0) return 1;
+    return new Date(b.lastTimestamp || 0).getTime() - new Date(a.lastTimestamp || 0).getTime();
+  });
+
+  const totalUnread = threads.reduce((acc, t) => acc + (t.unreadCount || 0), 0);
+  return res.json({ threads, totalUnread });
+});
+
+app.post("/api/chat/mark-read", (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Authentication required." });
+  if (session.role === "employee") {
+    return res.status(403).json({ message: "Access restricted to administrators." });
+  }
+
+  const employeeName = normalizeText(req.body?.employee).toLowerCase();
+  if (!employeeName) return res.status(400).json({ message: "Employee name is required." });
+
+  const all = readChatMessages();
+  let changed = false;
+
+  for (const m of all) {
+    if (String(m.sender || "").toLowerCase() === employeeName && m.senderRole === "employee" && !m.read) {
+      m.read = true;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveChatMessages(all);
+  }
+
+  const unreadCount = all.filter((m) => m.senderRole === "employee" && !m.read).length;
+  return res.json({ success: true, unreadCount });
 });
 
 app.use("/api", requireApiPermission);

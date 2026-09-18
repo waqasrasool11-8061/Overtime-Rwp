@@ -125,6 +125,7 @@
     "raw-data-search.html": "RawData Search",
     "employee-home.html": "Emp Portal",
     "user-management.html": "User Mgmt",
+    "chat-inbox.html": "Chat Inbox",
   };
 
   function formatAccessSummary(admin) {
