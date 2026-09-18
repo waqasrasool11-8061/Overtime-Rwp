@@ -14,5 +14,30 @@
     "receiver": "Vicky Ch",
     "text": "SALAM",
     "timestamp": "2026-08-18T03:42:21.107Z"
+  },
+  {
+    "sender": "VERIFY_USER",
+    "senderRole": "employee",
+    "receiver": "admin",
+    "text": "Hello from verification script",
+    "read": true
+  },
+  {
+    "id": "msg_1789753312944_chmr3nemj",
+    "sender": "VERIFY_USER",
+    "senderRole": "employee",
+    "receiver": "admin",
+    "text": "Hello from verification script",
+    "timestamp": "2026-09-18T17:41:52.945Z",
+    "read": true
+  },
+  {
+    "id": "msg_1789753332284_ntn7xqonw",
+    "sender": "VERIFY_USER",
+    "senderRole": "employee",
+    "receiver": "admin",
+    "text": "Hello from verification script",
+    "timestamp": "2026-09-18T17:42:12.284Z",
+    "read": true
   }
 ]

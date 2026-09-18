@@ -362,6 +362,12 @@ select {
   background: #f9fcff;
 }
 
+.entry-form input:not([type="number"]):not([type="hidden"]):not([type="password"]),
+.entry-form textarea,
+.entry-form select {
+  text-transform: uppercase;
+}
+
 .compact-journey input,
 .compact-journey select {
   min-height: 30px;

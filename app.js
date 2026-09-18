@@ -1035,9 +1035,9 @@ form.addEventListener("submit", async (event) => {
 
   const formData = new FormData(form);
 
-  const employee1Name = String(formData.get("employee1Name") || "").trim();
-  const employee2Name = String(formData.get("employee2Name") || "").trim();
-  const dutyType = String(formData.get("dutyType") || "").trim();
+  const employee1Name = String(formData.get("employee1Name") || "").trim().toUpperCase();
+  const employee2Name = String(formData.get("employee2Name") || "").trim().toUpperCase();
+  const dutyType = String(formData.get("dutyType") || "").trim().toUpperCase();
 
   if (!employee1Name) {
     employee1NameInput.setCustomValidity("Please enter Employee 1 Name.");
@@ -1068,15 +1068,15 @@ form.addEventListener("submit", async (event) => {
     dutyType,
     mileageKm: mileageNumber,
     overTimeOt: normalizedOt,
-    outwardDuty: String(formData.get("outwardDuty") || "").trim(),
+    outwardDuty: String(formData.get("outwardDuty") || "").trim().toUpperCase(),
     outwardDutyCommenced: normalizedOutwardCommenced,
     outwardDuration: normalizedOutwardDuration,
     outwardDutyTerminated: normalizedOutwardTerminated,
-    inwardDuty: String(formData.get("inwardDuty") || "").trim(),
+    inwardDuty: String(formData.get("inwardDuty") || "").trim().toUpperCase(),
     inwardDutyCommenced: normalizedInwardCommenced,
     inwardDuration: normalizedInwardDuration,
     inwardDutyTerminated: normalizedInwardTerminated,
-    remarks: String(formData.get("remarks") || "").trim(),
+    remarks: String(formData.get("remarks") || "").trim().toUpperCase(),
   };
 
   try {
@@ -1304,6 +1304,33 @@ employee1NameInput.addEventListener("input", () => employee1NameInput.setCustomV
 employee2NameInput.addEventListener("input", () => employee2NameInput.setCustomValidity(""));
 dutyTypeSelect.addEventListener("change", () => dutyTypeSelect.setCustomValidity(""));
 dutyTypeSelect.addEventListener("input", () => dutyTypeSelect.setCustomValidity(""));
+
+// Automatically convert all text typing in data entry form to capital letters
+form.addEventListener("input", (event) => {
+  const el = event.target;
+  if (!el) return;
+  const tag = el.tagName;
+  const type = (el.type || "").toLowerCase();
+  if (
+    (tag === "INPUT" && type !== "number" && type !== "password" && type !== "hidden" && type !== "submit" && type !== "button" && type !== "checkbox" && type !== "radio") ||
+    tag === "TEXTAREA"
+  ) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const orig = el.value;
+    const upper = orig.toUpperCase();
+    if (orig !== upper) {
+      el.value = upper;
+      if (start !== null && end !== null) {
+        try {
+          el.setSelectionRange(start, end);
+        } catch {
+          // ignore if not supported
+        }
+      }
+    }
+  }
+});
 
 homeLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();

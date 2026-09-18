@@ -28,33 +28,17 @@ function hashPassword(plainTextPassword) {
   return bcrypt.hashSync(String(plainTextPassword).trim(), 10);
 }
 
-// ── Holidays persistence ────────────────────────────────────────────────────
-const HOLIDAYS_FILE_PATH = path.join(__dirname, "data", "holidays.json");
-
-function loadHolidaysFromDisk() {
-  try {
-    if (fs.existsSync(HOLIDAYS_FILE_PATH)) {
-      const raw    = fs.readFileSync(HOLIDAYS_FILE_PATH, "utf8");
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      // Backward compat: old format was ["YYYY-MM-DD"], new is [{date,name}]
-      return parsed.map((item) =>
-        typeof item === "string"
-          ? { date: item, name: "" }
-          : { date: String(item.date || ""), name: String(item.name || "") }
-      ).filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
-    }
-  } catch { /* ignore corrupt file */ }
-  return [];
-}
-
-function saveHolidaysToDisk(list) {
-  fs.writeFileSync(HOLIDAYS_FILE_PATH, JSON.stringify(list, null, 2), "utf8");
-}
-
-// In-memory holidays list — array of {date:"YYYY-MM-DD", name:"string"}
-let holidaysList = loadHolidaysFromDisk();
-// ────────────────────────────────────────────────────────────────────────────
+const {
+  getCloudStoreDb,
+  getChatMessages,
+  saveChatMessage,
+  markChatRead,
+  getUnreadChatCount,
+  getChatThreads,
+  getHolidays,
+  addOrUpdateHolidays,
+  deleteHolidays,
+} = require("./backend/cloudStore");
 
 const { getDb } = require("./backend/db");
 const { migrateRawDataIfNeeded } = require("./backend/rawDataMigration");
@@ -810,40 +794,7 @@ app.post("/api/auth/change-password", (req, res) => {
   return res.json({ message: "Your password has been changed successfully." });
 });
 
-// ── Chat Messages Storage & Endpoints ─────────────────────────────────────────
-const CHAT_STORAGE_PATH = path.join(__dirname, "backend", "chat_messages.json");
-
-function readChatMessages() {
-  try {
-    if (!fs.existsSync(CHAT_STORAGE_PATH)) {
-      const initial = [
-        {
-          id: "msg_welcome",
-          sender: "Vicky Ch",
-          senderRole: "admin",
-          receiver: "ALL",
-          text: "Welcome to Employee Portal! If you notice any overtime calculation discrepancy, wrong duty type, or leave error, please send a message here.",
-          timestamp: new Date().toISOString(),
-        }
-      ];
-      fs.writeFileSync(CHAT_STORAGE_PATH, JSON.stringify(initial, null, 2), "utf8");
-      return initial;
-    }
-    const raw = fs.readFileSync(CHAT_STORAGE_PATH, "utf8");
-    const list = JSON.parse(raw);
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveChatMessages(messages) {
-  try {
-    fs.writeFileSync(CHAT_STORAGE_PATH, JSON.stringify(messages, null, 2), "utf8");
-  } catch (err) {
-    console.error("Failed to save chat messages:", err);
-  }
-}
+// ── Employee Master Lookup ──────────────────────────────────────────────────
 
 function getEmployeeMasterLookup() {
   try {
@@ -868,37 +819,24 @@ function getEmployeeMasterLookup() {
   }
 }
 
-app.get("/api/chat/messages", (req, res) => {
+// ── Chat Messages Storage & Endpoints (CloudStore backed) ───────────────────
+app.get("/api/chat/messages", async (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
 
-  const all = readChatMessages();
-  const employeeFilter = req.query.employee ? normalizeText(req.query.employee).toLowerCase() : "";
+  const employeeFilter = req.query.employee ? normalizeText(req.query.employee) : "";
 
   if (session.role === "employee") {
-    const empName = session.userId.toLowerCase();
-    const userMsgs = all.filter((m) => 
-      m.receiver === "ALL" || 
-      String(m.sender || "").toLowerCase() === empName || 
-      String(m.receiver || "").toLowerCase() === empName
-    );
+    const userMsgs = await getChatMessages(session.userId);
     return res.json({ messages: userMsgs });
   }
 
   // Admin view
-  if (employeeFilter) {
-    const threadMsgs = all.filter((m) => 
-      m.receiver === "ALL" ||
-      String(m.sender || "").toLowerCase() === employeeFilter || 
-      String(m.receiver || "").toLowerCase() === employeeFilter
-    );
-    return res.json({ messages: threadMsgs });
-  }
-
-  return res.json({ messages: all });
+  const messages = await getChatMessages(employeeFilter);
+  return res.json({ messages });
 });
 
-app.post("/api/chat/messages", (req, res) => {
+app.post("/api/chat/messages", async (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
 
@@ -918,110 +856,47 @@ app.post("/api/chat/messages", (req, res) => {
     read: !isEmployee, // messages sent by employee start as unread (read: false) for admin
   };
 
-  const all = readChatMessages();
-  all.push(newMsg);
-  saveChatMessages(all);
+  await saveChatMessage(newMsg);
 
   return res.status(201).json({ message: newMsg });
 });
 
-app.get("/api/chat/unread-count", (req, res) => {
+app.get("/api/chat/unread-count", async (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
 
-  const all = readChatMessages();
   if (session.role === "employee") {
     return res.json({ unreadCount: 0 });
   }
 
-  // Count unread messages sent by employees
-  const unreadCount = all.filter((m) => m.senderRole === "employee" && !m.read).length;
+  const unreadCount = await getUnreadChatCount();
   return res.json({ unreadCount });
 });
 
-app.get("/api/chat/threads", (req, res) => {
+app.get("/api/chat/threads", async (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
   if (session.role === "employee") {
     return res.status(403).json({ message: "Access restricted to administrators." });
   }
 
-  const all = readChatMessages();
   const empLookup = getEmployeeMasterLookup();
-  const threadMap = new Map();
-
-  for (const m of all) {
-    if (m.receiver === "ALL" && m.senderRole !== "employee") continue;
-
-    let empName = "";
-    if (m.senderRole === "employee") {
-      empName = normalizeText(m.sender);
-    } else if (m.receiver && m.receiver !== "ALL") {
-      empName = normalizeText(m.receiver);
-    }
-    if (!empName) continue;
-
-    const key = empName.toLowerCase();
-    if (!threadMap.has(key)) {
-      const info = empLookup.get(key) || { sapId: "", name: empName, designation: "Staff", station: "RWP" };
-      threadMap.set(key, {
-        employeeName: info.name || empName,
-        sapId: info.sapId || "",
-        designation: info.designation || "Staff",
-        station: info.station || "RWP",
-        lastMessage: "",
-        lastTimestamp: "",
-        unreadCount: 0,
-        totalMessages: 0,
-      });
-    }
-
-    const thread = threadMap.get(key);
-    thread.totalMessages++;
-    if (!thread.lastTimestamp || new Date(m.timestamp) >= new Date(thread.lastTimestamp)) {
-      thread.lastMessage = m.text;
-      thread.lastTimestamp = m.timestamp;
-    }
-    if (m.senderRole === "employee" && !m.read) {
-      thread.unreadCount++;
-    }
-  }
-
-  const threads = Array.from(threadMap.values()).sort((a, b) => {
-    if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
-    if (b.unreadCount > 0 && a.unreadCount === 0) return 1;
-    return new Date(b.lastTimestamp || 0).getTime() - new Date(a.lastTimestamp || 0).getTime();
-  });
-
-  const totalUnread = threads.reduce((acc, t) => acc + (t.unreadCount || 0), 0);
+  const { threads, totalUnread } = await getChatThreads(empLookup);
   return res.json({ threads, totalUnread });
 });
 
-app.post("/api/chat/mark-read", (req, res) => {
+app.post("/api/chat/mark-read", async (req, res) => {
   const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
   if (session.role === "employee") {
     return res.status(403).json({ message: "Access restricted to administrators." });
   }
 
-  const employeeName = normalizeText(req.body?.employee).toLowerCase();
+  const employeeName = normalizeText(req.body?.employee);
   if (!employeeName) return res.status(400).json({ message: "Employee name is required." });
 
-  const all = readChatMessages();
-  let changed = false;
-
-  for (const m of all) {
-    if (String(m.sender || "").toLowerCase() === employeeName && m.senderRole === "employee" && !m.read) {
-      m.read = true;
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    saveChatMessages(all);
-  }
-
-  const unreadCount = all.filter((m) => m.senderRole === "employee" && !m.read).length;
+  await markChatRead(employeeName);
+  const unreadCount = await getUnreadChatCount();
   return res.json({ success: true, unreadCount });
 });
 
@@ -1839,66 +1714,53 @@ app.put("/api/op72/search-updates", async (req, res) => {
   }
 });
 
-// ── Holidays API ─────────────────────────────────────────────────────────────
+// ── Holidays API (CloudStore backed) ─────────────────────────────────────────
 
 // GET /api/holidays?month=YYYY-MM  — returns all holidays, optionally filtered by month
-// Response: { holidays: [{date, name}, ...] }
-app.get("/api/holidays", (req, res) => {
-  const monthFilter = String(req.query?.month || "").trim();
-  if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
-    const filtered = holidaysList.filter((h) => h.date.startsWith(monthFilter));
-    return res.json({ holidays: filtered });
+app.get("/api/holidays", async (req, res) => {
+  try {
+    const monthFilter = String(req.query?.month || "").trim();
+    const holidays = await getHolidays(monthFilter);
+    return res.json({ holidays });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load holidays.", detail: error.message });
   }
-  return res.json({ holidays: holidaysList });
 });
 
 // POST /api/holidays — add one or more holiday dates with optional names
 // body: { dates: ["YYYY-MM-DD", ...], names: {"YYYY-MM-DD": "Holiday Name", ...} }
-app.post("/api/holidays", (req, res) => {
-  const submitted = Array.isArray(req.body?.dates) ? req.body.dates : [];
-  const names     = req.body?.names && typeof req.body.names === "object" ? req.body.names : {};
+app.post("/api/holidays", async (req, res) => {
+  try {
+    const submitted = Array.isArray(req.body?.dates) ? req.body.dates : [];
+    const names     = req.body?.names && typeof req.body.names === "object" ? req.body.names : {};
 
-  const valid = submitted
-    .map((d) => String(d).trim())
-    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-
-  if (!valid.length) {
-    return res.status(400).json({ message: "dates array with YYYY-MM-DD values is required." });
-  }
-
-  const added = [];
-  valid.forEach((d) => {
-    const existing = holidaysList.find((h) => h.date === d);
-    const holName  = String(names[d] || "").trim();
-    if (existing) {
-      // Update name if provided
-      if (holName) existing.name = holName;
-    } else {
-      holidaysList.push({ date: d, name: holName });
-      added.push(d);
+    const added = await addOrUpdateHolidays(submitted, names);
+    if (!added.length) {
+      return res.status(400).json({ message: "dates array with YYYY-MM-DD values is required." });
     }
-  });
-  holidaysList.sort((a, b) => a.date.localeCompare(b.date));
-  saveHolidaysToDisk(holidaysList);
-  return res.status(201).json({ message: `${added.length} holiday(s) added.`, added, total: holidaysList.length });
+
+    const all = await getHolidays();
+    return res.status(201).json({ message: `${added.length} holiday(s) added.`, added, total: all.length });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to save holidays.", detail: error.message });
+  }
 });
 
 // DELETE /api/holidays — remove one or more holiday dates
 // body: { dates: ["YYYY-MM-DD", ...] }
-app.delete("/api/holidays", (req, res) => {
-  const submitted = Array.isArray(req.body?.dates) ? req.body.dates : [];
-  const toRemove  = new Set(
-    submitted.map((d) => String(d).trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
-  );
+app.delete("/api/holidays", async (req, res) => {
+  try {
+    const submitted = Array.isArray(req.body?.dates) ? req.body.dates : [];
+    const removedCount = await deleteHolidays(submitted);
+    if (!removedCount) {
+      return res.status(400).json({ message: "dates array with YYYY-MM-DD values is required." });
+    }
 
-  if (!toRemove.size) {
-    return res.status(400).json({ message: "dates array with YYYY-MM-DD values is required." });
+    const all = await getHolidays();
+    return res.json({ message: `${removedCount} holiday(s) removed.`, total: all.length });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete holidays.", detail: error.message });
   }
-
-  const before   = holidaysList.length;
-  holidaysList   = holidaysList.filter((h) => !toRemove.has(h.date));
-  saveHolidaysToDisk(holidaysList);
-  return res.json({ message: `${before - holidaysList.length} holiday(s) removed.`, total: holidaysList.length });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2070,6 +1932,7 @@ app.use((req, res) => {
     const migrationResult = await migrateRawDataIfNeeded();
     await createOp72Database();
     const empMigrationResult = await migrateEmployeeMasterIfNeeded();
+    await getCloudStoreDb();
     console.log(
       `[raw-data] migration status: ${migrationResult.imported ? "imported" : "already-initialized"}, source rows=${migrationResult.rowCountInSource}`
     );
