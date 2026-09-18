@@ -129,6 +129,9 @@
   };
 
   function formatAccessSummary(admin) {
+    if (admin.role === "guest") {
+      return "View Only (All Pages Layout Visit - Video Full Access)";
+    }
     if (admin.role === "admin" || (Array.isArray(admin.allowedPages) && admin.allowedPages.includes("*"))) {
       return "Full Access (All Modules)";
     }
@@ -150,6 +153,7 @@
         const isMain = admin.role === "admin";
         const isRestricted = admin.role === "restricted-admin";
         const isSubAdmin = admin.role === "sub-admin";
+        const isGuest = admin.role === "guest";
 
         let roleLabel = "Admin";
         let roleBadgeClass = "badge-role-main";
@@ -167,6 +171,10 @@
           roleLabel = "Sub Admin / Clerk";
           roleBadgeClass = "badge-role-subadmin";
           cardClass = "is-sub-admin";
+        } else if (isGuest) {
+          roleLabel = "Guest (View Only)";
+          roleBadgeClass = "badge-role-guest";
+          cardClass = "is-guest";
         } else {
           roleLabel = admin.role || "User";
           roleBadgeClass = "badge-role-restricted";
@@ -174,7 +182,7 @@
         }
 
         const accessSummary = formatAccessSummary(admin);
-        const isCoreAdmin = ["vicky ch", "vicky raja"].includes(String(admin.userId || "").toLowerCase());
+        const isCoreAdmin = ["vicky ch", "vicky raja", "guest"].includes(String(admin.userId || "").toLowerCase());
         const adminKey = `admin_${admin.userId}`;
         const isRevealed = revealedPasswords.has(adminKey);
         const displayPassword = isRevealed ? escapeHtml(admin.password) : "••••••••";

@@ -187,6 +187,13 @@ function readUserCredentials() {
             allowedPages: ["index.html", "video.html"],
             permissions: ["dataEntry"],
           },
+          "guest": {
+            userId: "GUEST",
+            password: hashPassword("1234"),
+            role: "guest",
+            allowedPages: ["*"],
+            permissions: ["guestView"],
+          },
         },
         employees: {},
       };
@@ -226,6 +233,15 @@ function readUserCredentials() {
         permissions: ["dataEntry"],
       };
     }
+    if (!parsed.admins["guest"]) {
+      parsed.admins["guest"] = {
+        userId: "GUEST",
+        password: hashPassword("1234"),
+        role: "guest",
+        allowedPages: ["*"],
+        permissions: ["guestView"],
+      };
+    }
     return parsed;
   } catch (err) {
     console.error("Failed to read user credentials:", err);
@@ -251,6 +267,13 @@ function readUserCredentials() {
           role: "sub-admin",
           allowedPages: ["index.html", "video.html"],
           permissions: ["dataEntry"],
+        },
+        "guest": {
+          userId: "GUEST",
+          password: hashPassword("1234"),
+          role: "guest",
+          allowedPages: ["*"],
+          permissions: ["guestView"],
         },
       },
       employees: {},
@@ -287,6 +310,9 @@ function getAdminAccounts() {
       allowedPages = allowedPages.length
         ? allowedPages
         : ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"];
+    } else if (role === "guest") {
+      allowedPages = ["*"];
+      permissions = ["guestView"];
     } else {
       // Sub-admin / Clerk
       allowedPages = allowedPages.length ? allowedPages : ["index.html", "video.html"];
@@ -423,10 +449,23 @@ function permissionForRequest(req) {
 }
 
 function requireApiPermission(req, res, next) {
+  const session = currentSession(req);
+  const url = String(req.originalUrl || req.path).split("?")[0];
+
+  if (session && session.role === "guest") {
+    if (url === "/api/auth/change-password") {
+      return res.status(403).json({ message: "Password change is disabled for the GUEST account." });
+    }
+    if (req.method !== "GET" && url !== "/api/auth/logout") {
+      return res.status(403).json({ message: "Action not allowed. GUEST account has view-only access." });
+    }
+    req.authUser = session;
+    return next();
+  }
+
   const required = permissionForRequest(req);
   if (!required) return next();
 
-  const session = currentSession(req);
   if (!session) return res.status(401).json({ message: "Authentication required." });
   const requiredPermissions = Array.isArray(required) ? required : [required];
   if (!requiredPermissions.some((permission) => session.permissions.includes(permission))) {
@@ -1059,8 +1098,8 @@ app.delete("/api/admin/users/:userId", (req, res) => {
   try {
     const userId = normalizeText(req.params.userId);
     const key = userId.toLowerCase();
-    if (key === "vicky ch" || key === "vicky raja") {
-      return res.status(400).json({ message: `Cannot delete primary administrator '${userId}'.` });
+    if (key === "vicky ch" || key === "vicky raja" || key === "guest") {
+      return res.status(400).json({ message: `Cannot delete system account '${userId}'.` });
     }
 
     const creds = readUserCredentials();

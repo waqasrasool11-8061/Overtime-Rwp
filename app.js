@@ -67,7 +67,7 @@ function getAuthApiUrl(pathname) {
 }
 
 function applyNavigationPermissions(user) {
-  if (user?.role === "admin") {
+  if (user?.role === "admin" || user?.role === "guest") {
     document.querySelectorAll(".nav-link").forEach((link) => {
       link.hidden = false;
     });
@@ -947,6 +947,11 @@ form.addEventListener("submit", async (event) => {
   if (!activeUser) {
     loginStateText.textContent = "Please sign in first.";
     openLoginDialog();
+    return;
+  }
+
+  if (activeUser?.role === "guest") {
+    showFormNotice("Guest Mode: Adding or submitting data is disabled. You have view-only access to explore the layout.", true);
     return;
   }
 
