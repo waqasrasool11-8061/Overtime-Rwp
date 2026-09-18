@@ -140,13 +140,66 @@ const PERMISSIONS = Object.freeze([
 const FULL_ADMIN_PERMISSIONS = Object.freeze([...PERMISSIONS]);
 const USER_CREDENTIALS_JSON_PATH = path.join(__dirname, "backend", "user_credentials.json");
 
+const PAGE_PERMISSION_MAP = Object.freeze({
+  "index.html": ["dataEntry"],
+  "employee-master.html": ["employeeMaster"],
+  "genl-164.html": ["general164"],
+  "loco-18.html": ["loco18"],
+  "raw-data.html": ["rawDataSearch", "rawDataEdit"],
+  "raw-data-search.html": ["rawDataSearch"],
+  "op72-raw-data.html": ["op72RawData"],
+  "op-72.html": ["op72"],
+  "amount-summary.html": ["amountSummary"],
+  "group-master.html": ["groupMaster"],
+  "holidays.html": ["holidays"],
+  "user-management.html": ["userManagement"],
+  "employee-home.html": [],
+  "video.html": [],
+});
+
+const ALL_APP_PAGES = Object.freeze([
+  "index.html",
+  "employee-master.html",
+  "group-master.html",
+  "holidays.html",
+  "op-72.html",
+  "op72-raw-data.html",
+  "genl-164.html",
+  "loco-18.html",
+  "amount-summary.html",
+  "raw-data.html",
+  "raw-data-search.html",
+  "employee-home.html",
+  "video.html",
+  "user-management.html"
+]);
+
 function readUserCredentials() {
   try {
     if (!fs.existsSync(USER_CREDENTIALS_JSON_PATH)) {
       const initial = {
         admins: {
-          "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin" },
-          "vicky raja": { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" },
+          "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] },
+          "vicky raja": {
+            userId: "Vicky Raja",
+            password: "Waqas@1002",
+            role: "restricted-admin",
+            allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
+          },
+          "ehtisham": {
+            userId: "EHTISHAM",
+            password: hashPassword("MKWSHED"),
+            role: "sub-admin",
+            allowedPages: ["index.html", "video.html"],
+            permissions: ["dataEntry"],
+          },
+          "arsalan shah": {
+            userId: "ARSALAN SHAH",
+            password: hashPassword("LLMSHED"),
+            role: "sub-admin",
+            allowedPages: ["index.html", "video.html"],
+            permissions: ["dataEntry"],
+          },
         },
         employees: {},
       };
@@ -158,18 +211,60 @@ function readUserCredentials() {
     if (!parsed.admins) parsed.admins = {};
     if (!parsed.employees) parsed.employees = {};
     if (!parsed.admins["vicky ch"]) {
-      parsed.admins["vicky ch"] = { userId: "Vicky Ch", password: "Suit@1002", role: "admin" };
+      parsed.admins["vicky ch"] = { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] };
     }
     if (!parsed.admins["vicky raja"]) {
-      parsed.admins["vicky raja"] = { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" };
+      parsed.admins["vicky raja"] = {
+        userId: "Vicky Raja",
+        password: "Waqas@1002",
+        role: "restricted-admin",
+        allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
+      };
+    }
+    if (!parsed.admins["ehtisham"]) {
+      parsed.admins["ehtisham"] = {
+        userId: "EHTISHAM",
+        password: hashPassword("MKWSHED"),
+        role: "sub-admin",
+        allowedPages: ["index.html", "video.html"],
+        permissions: ["dataEntry"],
+      };
+    }
+    if (!parsed.admins["arsalan shah"]) {
+      parsed.admins["arsalan shah"] = {
+        userId: "ARSALAN SHAH",
+        password: hashPassword("LLMSHED"),
+        role: "sub-admin",
+        allowedPages: ["index.html", "video.html"],
+        permissions: ["dataEntry"],
+      };
     }
     return parsed;
   } catch (err) {
     console.error("Failed to read user credentials:", err);
     return {
       admins: {
-        "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin" },
-        "vicky raja": { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" },
+        "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] },
+        "vicky raja": {
+          userId: "Vicky Raja",
+          password: "Waqas@1002",
+          role: "restricted-admin",
+          allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
+        },
+        "ehtisham": {
+          userId: "EHTISHAM",
+          password: hashPassword("MKWSHED"),
+          role: "sub-admin",
+          allowedPages: ["index.html", "video.html"],
+          permissions: ["dataEntry"],
+        },
+        "arsalan shah": {
+          userId: "ARSALAN SHAH",
+          password: hashPassword("LLMSHED"),
+          role: "sub-admin",
+          allowedPages: ["index.html", "video.html"],
+          permissions: ["dataEntry"],
+        },
       },
       employees: {},
     };
@@ -186,29 +281,47 @@ function saveUserCredentials(data) {
 
 function getAdminAccounts() {
   const creds = readUserCredentials();
-  const vickyCh = creds.admins["vicky ch"] || { userId: "Vicky Ch", password: "Suit@1002", role: "admin" };
-  const vickyRaja = creds.admins["vicky raja"] || { userId: "Vicky Raja", password: "Waqas@1002", role: "restricted-admin" };
+  const accounts = [];
 
-  return [
-    {
-      userId: vickyCh.userId || "Vicky Ch",
-      password: vickyCh.password || "Suit@1002",
-      role: "admin",
-      permissions: FULL_ADMIN_PERMISSIONS,
-    },
-    {
-      userId: vickyRaja.userId || "Vicky Raja",
-      password: vickyRaja.password || "Waqas@1002",
-      role: "restricted-admin",
-      permissions: [
-        "dataEntry",
-        "rawDataSearch",
-        "rawDataEdit",
-        "general164",
-        "loco18",
-      ],
-    },
-  ];
+  for (const [key, admin] of Object.entries(creds.admins || {})) {
+    if (!admin || typeof admin !== "object") continue;
+    const userId = admin.userId || key;
+    const role = admin.role || "sub-admin";
+    let allowedPages = Array.isArray(admin.allowedPages) ? [...admin.allowedPages] : [];
+    let permissions = Array.isArray(admin.permissions) ? [...admin.permissions] : [];
+
+    if (role === "admin") {
+      permissions = FULL_ADMIN_PERMISSIONS;
+      allowedPages = allowedPages.length ? allowedPages : ["*"];
+    } else if (role === "restricted-admin") {
+      permissions = permissions.length
+        ? permissions
+        : ["dataEntry", "rawDataSearch", "rawDataEdit", "general164", "loco18"];
+      allowedPages = allowedPages.length
+        ? allowedPages
+        : ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"];
+    } else {
+      // Sub-admin / Clerk
+      allowedPages = allowedPages.length ? allowedPages : ["index.html", "video.html"];
+      if (!permissions.length) {
+        const perms = new Set();
+        allowedPages.forEach((p) => {
+          (PAGE_PERMISSION_MAP[p] || []).forEach((perm) => perms.add(perm));
+        });
+        permissions = Array.from(perms);
+      }
+    }
+
+    accounts.push({
+      userId,
+      password: admin.password,
+      role,
+      permissions: [...permissions],
+      allowedPages: [...allowedPages],
+    });
+  }
+
+  return accounts;
 }
 
 function getCookieValue(req, name) {
@@ -218,7 +331,13 @@ function getCookieValue(req, name) {
 }
 
 function publicUser(user) {
-  return { userId: user.userId, sapId: user.sapId || "", role: user.role, permissions: [...user.permissions] };
+  return {
+    userId: user.userId,
+    sapId: user.sapId || "",
+    role: user.role,
+    permissions: [...(user.permissions || [])],
+    allowedPages: Array.isArray(user.allowedPages) ? [...user.allowedPages] : [],
+  };
 }
 
 function findEmployeeAccount(userId, password) {
@@ -603,6 +722,7 @@ app.post("/api/auth/login", (req, res) => {
     sapId: user.sapId || "",
     role: user.role,
     permissions: [...user.permissions],
+    allowedPages: Array.isArray(user.allowedPages) ? [...user.allowedPages] : [],
     expiresAt: Date.now() + SESSION_TTL_MS,
   });
   const isProd = process.env.NODE_ENV === "production";
@@ -642,8 +762,8 @@ app.post("/api/auth/change-password", (req, res) => {
     return res.status(400).json({ message: "New password must be at least 4 characters long." });
   }
 
-  // Check if session user is admin
-  if (session.role === "admin" || session.role === "restricted-admin") {
+  // Check if session user is admin or sub-admin
+  if (session.role === "admin" || session.role === "restricted-admin" || session.role === "sub-admin") {
     const creds = readUserCredentials();
     const key = session.userId.toLowerCase();
     const admin = creds.admins[key];
@@ -652,7 +772,7 @@ app.post("/api/auth/change-password", (req, res) => {
     }
     admin.password = hashPassword(newPassword);
     saveUserCredentials(creds);
-    return res.json({ message: "Admin password changed successfully." });
+    return res.json({ message: "Password changed successfully." });
   }
 
   // Session user is employee
@@ -795,6 +915,7 @@ app.get("/api/admin/users", (req, res) => {
       role: a.role,
       password: isBcryptHash(a.password) ? "[Encrypted]" : a.password,
       permissions: a.permissions,
+      allowedPages: a.allowedPages,
     }));
 
     const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
@@ -827,6 +948,128 @@ app.get("/api/admin/users", (req, res) => {
     return res.json({ admins, employees });
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch users.", detail: error.message });
+  }
+});
+
+app.post("/api/admin/users", (req, res) => {
+  try {
+    const { userId, password, role, allowedPages } = req.body || {};
+    const cleanUserId = normalizeText(userId);
+    const cleanPassword = normalizeText(password);
+    const cleanRole = normalizeText(role) || "sub-admin";
+
+    if (!cleanUserId) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
+    if (!cleanPassword || cleanPassword.length < 4) {
+      return res.status(400).json({ message: "Password must be at least 4 characters long." });
+    }
+
+    const creds = readUserCredentials();
+    const key = cleanUserId.toLowerCase();
+
+    if (creds.admins[key]) {
+      return res.status(409).json({ message: `User '${cleanUserId}' already exists.` });
+    }
+
+    let pages = Array.isArray(allowedPages) && allowedPages.length > 0 ? allowedPages : ["index.html", "video.html"];
+    if (cleanRole === "admin") {
+      pages = ["*"];
+    }
+
+    const perms = new Set();
+    pages.forEach((p) => {
+      (PAGE_PERMISSION_MAP[p] || []).forEach((perm) => perms.add(perm));
+    });
+    if (cleanRole === "admin") {
+      FULL_ADMIN_PERMISSIONS.forEach((p) => perms.add(p));
+    }
+
+    creds.admins[key] = {
+      userId: cleanUserId,
+      password: hashPassword(cleanPassword),
+      role: cleanRole,
+      allowedPages: pages,
+      permissions: Array.from(perms),
+      createdAt: new Date().toISOString(),
+    };
+
+    saveUserCredentials(creds);
+    return res.status(201).json({
+      message: `User '${cleanUserId}' created successfully.`,
+      user: {
+        userId: cleanUserId,
+        role: cleanRole,
+        allowedPages: pages,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to create user.", detail: error.message });
+  }
+});
+
+app.put("/api/admin/users/access", (req, res) => {
+  try {
+    const { userId, role, allowedPages } = req.body || {};
+    const cleanUserId = normalizeText(userId);
+    if (!cleanUserId) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
+
+    const creds = readUserCredentials();
+    const key = cleanUserId.toLowerCase();
+    if (!creds.admins[key]) {
+      return res.status(404).json({ message: `User '${cleanUserId}' not found.` });
+    }
+
+    if (key === "vicky ch") {
+      return res.status(400).json({ message: "Main administrator permissions cannot be modified here." });
+    }
+
+    const cleanRole = normalizeText(role) || creds.admins[key].role || "sub-admin";
+    let pages = Array.isArray(allowedPages) ? allowedPages : creds.admins[key].allowedPages || ["index.html", "video.html"];
+    if (cleanRole === "admin") {
+      pages = ["*"];
+    }
+
+    const perms = new Set();
+    pages.forEach((p) => {
+      (PAGE_PERMISSION_MAP[p] || []).forEach((perm) => perms.add(perm));
+    });
+    if (cleanRole === "admin") {
+      FULL_ADMIN_PERMISSIONS.forEach((p) => perms.add(p));
+    }
+
+    creds.admins[key].role = cleanRole;
+    creds.admins[key].allowedPages = pages;
+    creds.admins[key].permissions = Array.from(perms);
+    creds.admins[key].updatedAt = new Date().toISOString();
+
+    saveUserCredentials(creds);
+    return res.json({ message: `Access permissions for '${cleanUserId}' updated successfully.` });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to update user access.", detail: error.message });
+  }
+});
+
+app.delete("/api/admin/users/:userId", (req, res) => {
+  try {
+    const userId = normalizeText(req.params.userId);
+    const key = userId.toLowerCase();
+    if (key === "vicky ch" || key === "vicky raja") {
+      return res.status(400).json({ message: `Cannot delete primary administrator '${userId}'.` });
+    }
+
+    const creds = readUserCredentials();
+    if (!creds.admins[key]) {
+      return res.status(404).json({ message: `User '${userId}' not found.` });
+    }
+
+    delete creds.admins[key];
+    saveUserCredentials(creds);
+    return res.json({ message: `User '${userId}' deleted successfully.` });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete user.", detail: error.message });
   }
 });
 

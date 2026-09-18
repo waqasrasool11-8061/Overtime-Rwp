@@ -48,19 +48,34 @@
     });
   }
 
+  function getUserAllowedPages(user) {
+    if (!user) return null;
+    if (user.role === "admin") return ["*"];
+    if (Array.isArray(user.allowedPages) && user.allowedPages.length > 0) {
+      return user.allowedPages.map((p) => String(p).toLowerCase());
+    }
+    if (user.role === "restricted-admin") {
+      return RESTRICTED_ADMIN_ALLOWED_PAGES;
+    }
+    if (user.role === "employee") {
+      return EMPLOYEE_ALLOWED_PAGES;
+    }
+    return null;
+  }
+
   function applyRoleNavigation(user) {
     if (!user) return;
-    if (user.role === "restricted-admin") {
+    const allowed = getUserAllowedPages(user);
+    if (allowed && !allowed.includes("*")) {
       document.querySelectorAll(".nav-link").forEach((link) => {
         const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-        link.hidden = !RESTRICTED_ADMIN_ALLOWED_PAGES.includes(href);
+        link.hidden = !allowed.includes(href);
       });
       return;
     }
-    if (user.role === "employee") {
+    if (user.role === "admin") {
       document.querySelectorAll(".nav-link").forEach((link) => {
-        const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-        link.hidden = !EMPLOYEE_ALLOWED_PAGES.includes(href);
+        link.hidden = false;
       });
       return;
     }
@@ -69,27 +84,45 @@
 
   const currentPage = currentPageName();
 
+  function checkPageAccess(user) {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+
+    if (user.role === "employee") {
+      if (currentPage === "index.html" || !EMPLOYEE_ALLOWED_PAGES.includes(currentPage)) {
+        window.location.replace(employeePage);
+        return false;
+      }
+      return true;
+    }
+
+    const allowed = getUserAllowedPages(user);
+    if (allowed && !allowed.includes("*")) {
+      if (!allowed.includes(currentPage)) {
+        const target = allowed[0] || "index.html";
+        window.location.replace(target);
+        return false;
+      }
+      return true;
+    }
+
+    const requiredPermission = pagePermissions[currentPage];
+    if (requiredPermission && !allow(user, requiredPermission)) {
+      window.location.replace("index.html");
+      return false;
+    }
+    return true;
+  }
+
   // Fast synchronous check from cached session to avoid UI flash
   try {
     const cachedRaw = localStorage.getItem(sessionKey);
     if (cachedRaw) {
       const cached = JSON.parse(cachedRaw);
-      if (cached?.role === "employee") {
-        if (currentPage === "index.html") {
-          window.location.replace(employeePage);
-          return;
-        }
-        if (!EMPLOYEE_ALLOWED_PAGES.includes(currentPage)) {
-          window.location.replace(employeePage);
-          return;
-        }
-      } else if (cached?.role === "restricted-admin") {
-        if (!RESTRICTED_ADMIN_ALLOWED_PAGES.includes(currentPage)) {
-          window.location.replace("index.html");
-          return;
-        }
+      if (cached) {
+        if (!checkPageAccess(cached)) return;
+        applyRoleNavigation(cached);
       }
-      applyRoleNavigation(cached);
     }
   } catch {}
 
@@ -111,31 +144,6 @@
     return;
   }
 
-  if (user.role === "employee") {
-    if (currentPage === "index.html") {
-      window.location.replace(employeePage);
-      return;
-    }
-    if (!EMPLOYEE_ALLOWED_PAGES.includes(currentPage)) {
-      window.location.replace(employeePage);
-      return;
-    }
-    applyRoleNavigation(user);
-    return;
-  }
-
-  if (user.role === "restricted-admin") {
-    if (!RESTRICTED_ADMIN_ALLOWED_PAGES.includes(currentPage)) {
-      window.location.replace("index.html");
-      return;
-    }
-    applyRoleNavigation(user);
-    return;
-  }
-
+  if (!checkPageAccess(user)) return;
   applyRoleNavigation(user);
-  const requiredPermission = pagePermissions[currentPage];
-  if (requiredPermission && !allow(user, requiredPermission)) {
-    window.location.replace("index.html");
-  }
 })();

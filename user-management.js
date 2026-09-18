@@ -46,6 +46,21 @@
   const modalResetDefaultBtn = document.getElementById("modalResetDefaultBtn");
   const umToast = document.getElementById("umToast");
 
+  // Create User modal elements
+  const btnOpenCreateUserModal = document.getElementById("btnOpenCreateUserModal");
+  const createUserModal = document.getElementById("createUserModal");
+  const closeCreateUserModalBtn = document.getElementById("closeCreateUserModalBtn");
+  const btnCancelCreateUser = document.getElementById("btnCancelCreateUser");
+  const createUserForm = document.getElementById("createUserForm");
+  const newUserId = document.getElementById("newUserId");
+  const newUserPassword = document.getElementById("newUserPassword");
+  const toggleNewUserPwdBtn = document.getElementById("toggleNewUserPwdBtn");
+  const btnGenNewUserPwd = document.getElementById("btnGenNewUserPwd");
+  const newUserRole = document.getElementById("newUserRole");
+  const btnSelectAllPages = document.getElementById("btnSelectAllPages");
+  const btnDeselectAllPages = document.getElementById("btnDeselectAllPages");
+  const pageAccessGrid = document.getElementById("pageAccessGrid");
+
   // Toast notification
   let toastTimer = null;
   function showToast(message, type = "success") {
@@ -95,6 +110,33 @@
     statDefaultCount.textContent = allEmployees.length - customCount;
   }
 
+  const PAGE_LABELS = {
+    "index.html": "Home",
+    "video.html": "Video",
+    "employee-master.html": "Emp Master",
+    "group-master.html": "Group Master",
+    "holidays.html": "Holidays",
+    "op-72.html": "OP-72",
+    "op72-raw-data.html": "OP72 Raw Data",
+    "genl-164.html": "GENL-164",
+    "loco-18.html": "Loco-18",
+    "amount-summary.html": "Amount Summary",
+    "raw-data.html": "RawData",
+    "raw-data-search.html": "RawData Search",
+    "employee-home.html": "Emp Portal",
+    "user-management.html": "User Mgmt",
+  };
+
+  function formatAccessSummary(admin) {
+    if (admin.role === "admin" || (Array.isArray(admin.allowedPages) && admin.allowedPages.includes("*"))) {
+      return "Full Access (All Modules)";
+    }
+    if (!Array.isArray(admin.allowedPages) || !admin.allowedPages.length) {
+      return "No Access";
+    }
+    return admin.allowedPages.map((p) => PAGE_LABELS[p] || p.replace(/\.html$/i, "")).join(", ");
+  }
+
   // Render Admins
   function renderAdmins() {
     if (!allAdmins.length) {
@@ -105,23 +147,58 @@
     adminsContainer.innerHTML = allAdmins
       .map((admin) => {
         const isMain = admin.role === "admin";
-        const roleLabel = isMain ? "Main Admin (Full Access)" : "Restricted Admin";
-        const roleBadgeClass = isMain ? "badge-role-main" : "badge-role-restricted";
+        const isRestricted = admin.role === "restricted-admin";
+        const isSubAdmin = admin.role === "sub-admin";
+
+        let roleLabel = "Admin";
+        let roleBadgeClass = "badge-role-main";
+        let cardClass = "is-main-admin";
+
+        if (isMain) {
+          roleLabel = "Main Admin (Full Access)";
+          roleBadgeClass = "badge-role-main";
+          cardClass = "is-main-admin";
+        } else if (isRestricted) {
+          roleLabel = "Restricted Admin";
+          roleBadgeClass = "badge-role-restricted";
+          cardClass = "is-restricted";
+        } else if (isSubAdmin) {
+          roleLabel = "Sub Admin / Clerk";
+          roleBadgeClass = "badge-role-subadmin";
+          cardClass = "is-sub-admin";
+        } else {
+          roleLabel = admin.role || "User";
+          roleBadgeClass = "badge-role-restricted";
+          cardClass = "is-restricted";
+        }
+
+        const accessSummary = formatAccessSummary(admin);
+        const isCoreAdmin = ["vicky ch", "vicky raja"].includes(String(admin.userId || "").toLowerCase());
         const adminKey = `admin_${admin.userId}`;
         const isRevealed = revealedPasswords.has(adminKey);
         const displayPassword = isRevealed ? escapeHtml(admin.password) : "••••••••";
         const maskClass = isRevealed ? "" : "is-masked";
 
         return `
-        <div class="um-admin-card ${isMain ? "is-main-admin" : "is-restricted"}">
+        <div class="um-admin-card ${cardClass}">
           <div class="um-admin-top">
             <div>
               <h3 class="um-admin-name">${escapeHtml(admin.userId)}</h3>
-              <span class="${roleBadgeClass}">${roleLabel}</span>
+              <span class="${roleBadgeClass}">${escapeHtml(roleLabel)}</span>
+              <div class="um-access-tag" title="${escapeHtml(accessSummary)}">
+                <strong>Access:</strong> ${escapeHtml(accessSummary)}
+              </div>
             </div>
-            <button class="btn-sm-edit edit-admin-btn" data-user-id="${escapeHtml(admin.userId)}" data-role="${escapeHtml(roleLabel)}" type="button">
-              &#x270E; Edit Password
-            </button>
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;">
+              <button class="btn-sm-edit edit-admin-btn" data-user-id="${escapeHtml(admin.userId)}" data-role="${escapeHtml(roleLabel)}" type="button">
+                &#x270E; Edit Password
+              </button>
+              ${
+                !isCoreAdmin
+                  ? `<button class="btn-sm-reset delete-admin-btn" data-user-id="${escapeHtml(admin.userId)}" type="button" title="Delete this administrative user">&#x1F5D1;&#xFE0F; Delete</button>`
+                  : ""
+              }
+            </div>
           </div>
           <div class="um-password-box">
             <span class="um-pwd-text ${maskClass}" id="pwd_${adminKey}">${displayPassword}</span>
@@ -434,6 +511,33 @@
       resetEmployeeToDefault(sapId, name);
       return;
     }
+    // Delete Admin button
+    const deleteAdminBtn = event.target.closest(".delete-admin-btn");
+    if (deleteAdminBtn) {
+      const userId = deleteAdminBtn.getAttribute("data-user-id");
+      if (!confirm(`Are you sure you want to delete user "${userId}"? This action cannot be undone.`)) {
+        return;
+      }
+
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+            method: "DELETE",
+            headers: { Accept: "application/json" },
+            credentials: "include",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data?.message || `HTTP ${res.status}`);
+          }
+          showToast(data?.message || `User "${userId}" deleted successfully.`);
+          await loadUsers();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      })();
+      return;
+    }
   });
 
   // Modal actions
@@ -487,6 +591,150 @@
 
     await submitPasswordUpdate(newPwd);
   });
+
+  // ── Create User Modal Actions ────────────────────────────────────────────────
+  function applyPresetPagesForRole(role) {
+    const checkboxes = document.querySelectorAll('#pageAccessGrid input[name="allowedPage"]');
+    checkboxes.forEach((cb) => {
+      if (role === "admin") {
+        cb.checked = true;
+      } else if (role === "restricted-admin") {
+        cb.checked = ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"].includes(cb.value);
+      } else {
+        // sub-admin / clerk
+        cb.checked = ["index.html", "video.html"].includes(cb.value);
+      }
+    });
+  }
+
+  function openCreateUserModal() {
+    if (!createUserModal) return;
+    if (createUserForm) createUserForm.reset();
+    if (newUserId) newUserId.value = "";
+    if (newUserPassword) {
+      newUserPassword.value = "";
+      newUserPassword.type = "password";
+    }
+    if (toggleNewUserPwdBtn) toggleNewUserPwdBtn.innerHTML = "&#x1F441;&#xFE0F;";
+    if (newUserRole) newUserRole.value = "sub-admin";
+    applyPresetPagesForRole("sub-admin");
+
+    if (!createUserModal.open) {
+      createUserModal.showModal();
+      if (newUserId) newUserId.focus();
+    }
+  }
+
+  function closeCreateUserModal() {
+    if (createUserModal && createUserModal.open) {
+      createUserModal.close();
+    }
+  }
+
+  if (btnOpenCreateUserModal) {
+    btnOpenCreateUserModal.addEventListener("click", openCreateUserModal);
+  }
+
+  if (closeCreateUserModalBtn) {
+    closeCreateUserModalBtn.addEventListener("click", closeCreateUserModal);
+  }
+
+  if (btnCancelCreateUser) {
+    btnCancelCreateUser.addEventListener("click", closeCreateUserModal);
+  }
+
+  if (toggleNewUserPwdBtn && newUserPassword) {
+    toggleNewUserPwdBtn.addEventListener("click", () => {
+      const isPwd = newUserPassword.type === "password";
+      newUserPassword.type = isPwd ? "text" : "password";
+      toggleNewUserPwdBtn.innerHTML = isPwd ? "&#x1F648;" : "&#x1F441;&#xFE0F;";
+    });
+  }
+
+  if (btnGenNewUserPwd && newUserPassword) {
+    btnGenNewUserPwd.addEventListener("click", () => {
+      const gen = generateRandomPassword();
+      newUserPassword.value = gen;
+      newUserPassword.type = "text";
+      if (toggleNewUserPwdBtn) toggleNewUserPwdBtn.innerHTML = "&#x1F648;";
+    });
+  }
+
+  if (newUserRole) {
+    newUserRole.addEventListener("change", () => {
+      applyPresetPagesForRole(newUserRole.value);
+    });
+  }
+
+  if (btnSelectAllPages) {
+    btnSelectAllPages.addEventListener("click", () => {
+      document.querySelectorAll('#pageAccessGrid input[name="allowedPage"]').forEach((cb) => {
+        cb.checked = true;
+      });
+    });
+  }
+
+  if (btnDeselectAllPages) {
+    btnDeselectAllPages.addEventListener("click", () => {
+      document.querySelectorAll('#pageAccessGrid input[name="allowedPage"]').forEach((cb) => {
+        cb.checked = false;
+      });
+    });
+  }
+
+  if (createUserForm) {
+    createUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userId = newUserId ? newUserId.value.trim() : "";
+      const password = newUserPassword ? newUserPassword.value.trim() : "";
+      const role = newUserRole ? newUserRole.value : "sub-admin";
+
+      if (!userId) {
+        showToast("Please enter a User ID / Name.", "error");
+        if (newUserId) newUserId.focus();
+        return;
+      }
+      if (!password || password.length < 4) {
+        showToast("Password must be at least 4 characters.", "error");
+        if (newUserPassword) newUserPassword.focus();
+        return;
+      }
+
+      const checkedPages = Array.from(
+        document.querySelectorAll('#pageAccessGrid input[name="allowedPage"]:checked')
+      ).map((cb) => cb.value);
+
+      if (role !== "admin" && checkedPages.length === 0) {
+        showToast("Please select at least one permitted page for this user.", "error");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            userId,
+            password,
+            role,
+            allowedPages: checkedPages,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.message || `HTTP ${res.status}`);
+        }
+
+        showToast(data?.message || `User "${userId}" created successfully!`);
+        closeCreateUserModal();
+        await loadUsers();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
+  }
 
   // Initialize
   loadUsers();

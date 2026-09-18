@@ -146,6 +146,36 @@
       font-weight: 700;
     }
 
+    .badge-role-subadmin {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .um-admin-card.is-sub-admin {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .um-access-tag {
+      display: inline-block;
+      font-size: 0.74rem;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .um-password-box {
       display: flex;
       align-items: center;
@@ -651,8 +681,13 @@
     <!-- Section 1: Administrator Accounts -->
     <section class="um-section">
       <div class="um-section-header">
-        <h2 class="um-section-title">&#x1F6E1;&#xFE0F; Administrator Accounts (Admins)</h2>
-        <span class="helper-text" style="margin:0;">Full system access credentials</span>
+        <div>
+          <h2 class="um-section-title">&#x1F6E1;&#xFE0F; Administrator &amp; Sub-Admin Accounts</h2>
+          <span class="helper-text" style="margin:0;">Full admins, sub-admins, and data entry clerk accounts</span>
+        </div>
+        <button type="button" id="btnOpenCreateUserModal" class="btn-primary" style="font-size: 0.85rem; padding: 6px 14px; background: #2563eb; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+          <span>➕</span> Create New User
+        </button>
       </div>
       <div class="um-admins-grid" id="adminsContainer">
         <!-- Dynamically rendered admin cards -->
@@ -730,6 +765,107 @@
     </section>
   </main>
 
+  <!-- Create New User Modal Dialog -->
+  <dialog id="createUserModal" class="um-dialog" style="max-width: 580px; width: 92vw;">
+    <div class="um-dialog-header">
+      <h3 id="createUserModalTitle">➕ Create New Administrative / Clerk User</h3>
+      <button id="closeCreateUserModalBtn" type="button" class="btn-outline" style="padding: 2px 8px;">&times;</button>
+    </div>
+    <form id="createUserForm">
+      <div class="um-dialog-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="um-input-group">
+          <label for="newUserId">User ID / Username <span style="color: #cf222e;">*</span></label>
+          <div class="um-input-wrap">
+            <input type="text" id="newUserId" class="um-form-input" placeholder="e.g. EHTISHAM or AHMAD" required autocomplete="off">
+          </div>
+        </div>
+
+        <div class="um-input-group">
+          <label for="newUserPassword">Password <span style="color: #cf222e;">*</span></label>
+          <div class="um-input-wrap">
+            <input type="password" id="newUserPassword" class="um-form-input" placeholder="Enter password (min 4 chars)" required autocomplete="new-password">
+            <button type="button" id="toggleNewUserPwdBtn" class="um-toggle-btn" title="Show/Hide Password">&#x1F441;&#xFE0F;</button>
+          </div>
+          <div style="margin-top: 6px;">
+            <button type="button" id="btnGenNewUserPwd" class="btn-outline" style="font-size: 0.78rem; padding: 3px 8px;">&#x1F504; Generate Random</button>
+          </div>
+        </div>
+
+        <div class="um-input-group">
+          <label for="newUserRole">User Role / Classification <span style="color: #cf222e;">*</span></label>
+          <select id="newUserRole" class="um-form-input" style="padding: 8px 12px; cursor: pointer;">
+            <option value="sub-admin" selected>Sub Admin / Clerk (Data Entry Staff)</option>
+            <option value="restricted-admin">Restricted Admin (Vicky Raja Level)</option>
+            <option value="admin">Full Administrator (All Modules)</option>
+          </select>
+        </div>
+
+        <div class="um-input-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin: 0; font-weight: 700;">Selectable Page Access Settings <span style="color: #cf222e;">*</span></label>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" id="btnSelectAllPages" class="btn-outline" style="font-size: 0.74rem; padding: 2px 6px;">Select All</button>
+              <button type="button" id="btnDeselectAllPages" class="btn-outline" style="font-size: 0.74rem; padding: 2px 6px;">Deselect All</button>
+            </div>
+          </div>
+          <p style="font-size: 0.78rem; color: #64748b; margin: 0 0 8px 0;">
+            Check the modules this user has access to. Non-permitted links will be hidden and locked.
+          </p>
+
+          <div id="pageAccessGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="index.html" checked> 🏠 Home / Data Entry
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="video.html" checked> 🎥 Video Tutorial
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="employee-master.html"> 📋 Employee Master
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="group-master.html"> 👥 Group Master
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="holidays.html"> 📅 Holidays
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="op-72.html"> 📝 OP-72
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="op72-raw-data.html"> 📊 OP72 Raw Data
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="genl-164.html"> 🚂 GENL-164
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="loco-18.html"> 🔧 Loco-18
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="amount-summary.html"> 💰 Amount Summary
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="raw-data.html"> 🗃️ RawData
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="raw-data-search.html"> 🔍 RawData Search
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="employee-home.html"> 👤 Employee Portal
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; cursor: pointer; font-weight: normal;">
+              <input type="checkbox" name="allowedPage" value="user-management.html"> ⚙️ User Management
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="um-dialog-footer">
+        <button type="button" id="btnCancelCreateUser" class="btn-outline">Cancel</button>
+        <button type="submit" id="btnSubmitCreateUser" class="btn-primary">Create User</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Edit / Reset Password Modal Dialog -->
   <dialog id="editPasswordModal" class="um-dialog">
     <div class="um-dialog-header">
@@ -775,6 +911,6 @@
   <div id="umToast" class="um-toast">Message</div>
 
   <script src="auth-guard.js"></script>
-  <script src="user-management.js"></script>
+  <script src="user-management.js?v=2.0"></script>
 </body>
 </html>

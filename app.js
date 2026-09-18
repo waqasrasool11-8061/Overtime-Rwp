@@ -67,6 +67,20 @@ function getAuthApiUrl(pathname) {
 }
 
 function applyNavigationPermissions(user) {
+  if (user?.role === "admin") {
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      link.hidden = false;
+    });
+    return;
+  }
+  if (Array.isArray(user?.allowedPages) && user.allowedPages.length > 0 && !user.allowedPages.includes("*")) {
+    const allowed = user.allowedPages.map((p) => String(p).toLowerCase());
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
+      link.hidden = !allowed.includes(page);
+    });
+    return;
+  }
   if (user?.role === "restricted-admin") {
     const restrictedAllowed = [
       "index.html",
@@ -140,7 +154,9 @@ function renderAuthState() {
     ? "Admin (Full Access)"
     : activeUser.role === "restricted-admin"
       ? "Restricted Admin"
-      : "Employee";
+      : activeUser.role === "sub-admin"
+        ? "Sub Admin (Clerk)"
+        : "Employee";
   loginStateText.textContent = `Signed in: ${activeUser.userId} | ${roleText}`;
   loginToggleBtn.textContent = activeUser.userId;
   if (logoutBtn) logoutBtn.hidden = false;
