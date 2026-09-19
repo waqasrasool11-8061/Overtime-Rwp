@@ -1664,8 +1664,7 @@ if (btnRegBio) btnRegBio.addEventListener("click", handleRegisterBiometric);
 const btnRemBio = document.getElementById("btnRemoveBiometric");
 if (btnRemBio) btnRemBio.addEventListener("click", handleRemoveBiometric);
 
-// Check biometric status when Tab 4 is opened
-const tabBtnChangePassword = document.getElementById("tabBtnChangePassword");
+// Check biometric status when Tab 4 is opened (tabBtnChangePassword is already declared at line 68)
 if (tabBtnChangePassword) {
   tabBtnChangePassword.addEventListener("click", () => {
     setTimeout(checkBiometricStatus, 150);
@@ -1673,5 +1672,10 @@ if (tabBtnChangePassword) {
 }
 
 // Auto-run on page load
-initPortal();
-checkBiometricStatus();
+initPortal().catch((err) => console.error("initPortal error:", err));
+
+try {
+  checkBiometricStatus();
+} catch (err) {
+  console.warn("checkBiometricStatus warning:", err);
+}
