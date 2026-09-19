@@ -1504,5 +1504,174 @@ if (empChangePasswordForm) {
   });
 }
 
+// ── Biometric (WebAuthn / Fingerprint) Registration ────────────────────────
+function base64urlToBufferEmp(base64url) {
+  const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray.buffer;
+}
+
+function bufferToBase64urlEmp(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function showBiometricAlert(msg, isSuccess) {
+  const alertEl = document.getElementById("biometricRegStatusAlert");
+  if (!alertEl) return;
+  alertEl.textContent = msg;
+  alertEl.style.display = "block";
+  if (isSuccess) {
+    alertEl.style.background = "#dcfce7";
+    alertEl.style.color = "#166534";
+    alertEl.style.border = "1px solid #86efac";
+  } else {
+    alertEl.style.background = "#fee2e2";
+    alertEl.style.color = "#991b1b";
+    alertEl.style.border = "1px solid #fca5a5";
+  }
+}
+
+async function checkBiometricStatus() {
+  const regBtn = document.getElementById("btnRegisterBiometric");
+  const removeBtn = document.getElementById("btnRemoveBiometric");
+  const card = document.getElementById("biometricRegistrationCard");
+
+  if (!window.PublicKeyCredential || !regBtn) {
+    if (card) card.style.display = "none";
+    return;
+  }
+
+  try {
+    const isAvail = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if (!isAvail && card) {
+      // Still show card so user knows, but disable with hint
+      regBtn.title = "Aapke device me biometric sensor detect nahi hua.";
+    }
+
+    const res = await fetch("/api/auth/biometric/status", { credentials: "include" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.enabled) {
+        regBtn.innerHTML = "<span>✓</span> Update Fingerprint";
+        if (removeBtn) removeBtn.style.display = "inline-block";
+        showBiometricAlert(`Is account par ${data.count} biometric device(s) registered hain.`, true);
+      } else {
+        regBtn.innerHTML = "<span>👆</span> Register Fingerprint";
+        if (removeBtn) removeBtn.style.display = "none";
+      }
+    }
+  } catch {}
+}
+
+async function handleRegisterBiometric() {
+  const regBtn = document.getElementById("btnRegisterBiometric");
+  if (regBtn) regBtn.disabled = true;
+  showBiometricAlert("Fingerprint sensor verify karein... (Apna fingerprint scan karein)", true);
+
+  try {
+    const optRes = await fetch("/api/auth/biometric/register-options", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!optRes.ok) throw new Error("Registration options load nahi ho sake.");
+    const options = await optRes.json();
+
+    const pubKeyOptions = {
+      challenge: base64urlToBufferEmp(options.challenge),
+      rp: options.rp,
+      user: {
+        id: base64urlToBufferEmp(options.user.id),
+        name: options.user.name,
+        displayName: options.user.displayName,
+      },
+      pubKeyCredParams: options.pubKeyCredParams,
+      authenticatorSelection: options.authenticatorSelection,
+      timeout: options.timeout || 60000,
+      attestation: options.attestation || "none",
+    };
+
+    const credential = await navigator.credentials.create({ publicKey: pubKeyOptions });
+    if (!credential) throw new Error("Biometric sensor verification cancel ho gai.");
+
+    const credentialId = credential.id;
+    const clientDataJSON = bufferToBase64urlEmp(credential.response.clientDataJSON);
+    const attestationObject = bufferToBase64urlEmp(credential.response.attestationObject);
+
+    const deviceName = navigator.userAgent.includes("Android")
+      ? "Android Device"
+      : navigator.userAgent.includes("iPhone")
+      ? "iPhone / iPad"
+      : navigator.userAgent.includes("Mac")
+      ? "Mac Touch ID"
+      : "Windows Hello / PC";
+
+    const verifyRes = await fetch("/api/auth/biometric/register-verify", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        credentialId,
+        response: {
+          clientDataJSON,
+          attestationObject,
+        },
+        deviceName,
+      }),
+    });
+
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok) throw new Error(verifyData.message || "Registration failed.");
+
+    showBiometricAlert("✓ Mubarak! Aapka fingerprint kamyabi se register ho geya hai. Ab aap login page se fingerprint se direct login kar sakty hain.", true);
+    await checkBiometricStatus();
+  } catch (err) {
+    showBiometricAlert(err.message || "Fingerprint register nahi ho saka.", false);
+  } finally {
+    if (regBtn) regBtn.disabled = false;
+  }
+}
+
+async function handleRemoveBiometric() {
+  if (!confirm("Kiya aap biometric login remove karna chahty hain?")) return;
+  try {
+    const res = await fetch("/api/auth/biometric", {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (res.ok) {
+      showBiometricAlert("Biometric login remove kar diya geya.", true);
+      await checkBiometricStatus();
+    }
+  } catch (err) {
+    showBiometricAlert("Remove nahi ho saka: " + err.message, false);
+  }
+}
+
+const btnRegBio = document.getElementById("btnRegisterBiometric");
+if (btnRegBio) btnRegBio.addEventListener("click", handleRegisterBiometric);
+
+const btnRemBio = document.getElementById("btnRemoveBiometric");
+if (btnRemBio) btnRemBio.addEventListener("click", handleRemoveBiometric);
+
+// Check biometric status when Tab 4 is opened
+const tabBtnChangePassword = document.getElementById("tabBtnChangePassword");
+if (tabBtnChangePassword) {
+  tabBtnChangePassword.addEventListener("click", () => {
+    setTimeout(checkBiometricStatus, 150);
+  });
+}
+
 // Auto-run on page load
 initPortal();
+checkBiometricStatus();

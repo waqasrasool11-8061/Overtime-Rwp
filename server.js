@@ -46,6 +46,15 @@ const {
   saveCredentials,
 } = require("./backend/authStore");
 
+const {
+  initBiometricStore,
+  saveBiometricCredential,
+  getBiometricCredential,
+  getUserBiometrics,
+  deleteBiometricCredential,
+  deleteUserBiometrics,
+} = require("./backend/biometricStore");
+
 const { getDb } = require("./backend/db");
 const { migrateRawDataIfNeeded } = require("./backend/rawDataMigration");
 const { createOp72Database, getOp72Db, OP72_WORKBOOK_CODE } = require("./backend/op72Db");
@@ -622,27 +631,266 @@ app.use((req, res, next) => {
 
   return next();
 });
+function createSessionForUser(user, res) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const sessionData = {
+    userId: user.userId,
+    sapId: user.sapId || "",
+    role: user.role,
+    permissions: [...(user.permissions || [])],
+    allowedPages: Array.isArray(user.allowedPages) ? [...user.allowedPages] : [],
+    expiresAt: Date.now() + SESSION_TTL_MS,
+  };
+  sessions.set(token, sessionData);
+  const isProd = process.env.NODE_ENV === "production";
+  res.setHeader(
+    "Set-Cookie",
+    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${isProd ? "; Secure" : ""}`
+  );
+  return sessionData;
+}
+
+function findUserForBiometric(userId, sapId) {
+  const normUser = normalizeText(userId).toLowerCase();
+  const admins = getAdminAccounts();
+  const admin = admins.find((a) => a.userId.toLowerCase() === normUser);
+  if (admin) return admin;
+
+  try {
+    const sourceText = fs.readFileSync(EMPLOYEE_MASTER_JSON_PATH, "utf8");
+    const parsed = JSON.parse(sourceText);
+    const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+    const headerRows = Number(parsed?.headerRows || 4);
+    const normSap = normalizeText(sapId).toLowerCase();
+
+    for (const row of rows.slice(headerRows)) {
+      if (!Array.isArray(row)) continue;
+      const rSap = normalizeText(row[0]);
+      const rName = normalizeText(row[1]);
+      if (!rSap || !rName) continue;
+      if (rSap.toLowerCase() === normSap || rName.toLowerCase() === normUser || (normSap && rSap.toLowerCase() === normSap)) {
+        return { userId: rName, sapId: rSap, role: "employee", permissions: [] };
+      }
+    }
+  } catch (err) {
+    console.error("findUserForBiometric error:", err);
+  }
+
+  if (sapId) {
+    return { userId: userId || sapId, sapId, role: "employee", permissions: [] };
+  }
+  return null;
+}
+
+const biometricChallenges = new Map();
+
+function cleanExpiredBiometricChallenges() {
+  const now = Date.now();
+  for (const [k, v] of biometricChallenges.entries()) {
+    if (v.expiresAt <= now) biometricChallenges.delete(k);
+  }
+}
+
 app.post("/api/auth/login", (req, res) => {
   const user = authenticateAccount(req.body?.userId, req.body?.password);
   if (!user) {
     return res.status(401).json({ message: "Invalid user or password." });
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, {
-    userId: user.userId,
-    sapId: user.sapId || "",
-    role: user.role,
-    permissions: [...user.permissions],
-    allowedPages: Array.isArray(user.allowedPages) ? [...user.allowedPages] : [],
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-  const isProd = process.env.NODE_ENV === "production";
-  res.setHeader(
-    "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${isProd ? "; Secure" : ""}`
-  );
+  createSessionForUser(user, res);
   return res.json({ user: publicUser(user) });
+});
+
+// ── Biometric (WebAuthn / Fingerprint) Endpoints ────────────────────────────
+
+app.post("/api/auth/biometric/register-options", (req, res) => {
+  cleanExpiredBiometricChallenges();
+  const session = currentSession(req);
+  if (!session) {
+    return res.status(401).json({ message: "Authentication required to register biometric login." });
+  }
+
+  const challenge = crypto.randomBytes(32).toString("base64url");
+  const challengeKey = `reg:${session.userId}`;
+  biometricChallenges.set(challengeKey, {
+    challenge,
+    userId: session.userId,
+    sapId: session.sapId || "",
+    expiresAt: Date.now() + 120000,
+  });
+
+  const rpId = req.hostname === "localhost" ? "localhost" : req.hostname;
+  return res.json({
+    challenge,
+    rp: {
+      name: "Pakistan Railways Overtime Portal",
+      id: rpId,
+    },
+    user: {
+      id: Buffer.from(session.sapId || session.userId).toString("base64url"),
+      name: session.userId,
+      displayName: session.userId,
+    },
+    pubKeyCredParams: [
+      { alg: -7, type: "public-key" },
+      { alg: -257, type: "public-key" },
+    ],
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      userVerification: "preferred",
+      residentKey: "preferred",
+    },
+    timeout: 60000,
+    attestation: "none",
+  });
+});
+
+app.post("/api/auth/biometric/register-verify", async (req, res) => {
+  cleanExpiredBiometricChallenges();
+  const session = currentSession(req);
+  if (!session) {
+    return res.status(401).json({ message: "Authentication required." });
+  }
+
+  const challengeKey = `reg:${session.userId}`;
+  const stored = biometricChallenges.get(challengeKey);
+  biometricChallenges.delete(challengeKey);
+
+  if (!stored) {
+    return res.status(400).json({ message: "Biometric registration challenge expired. Please try again." });
+  }
+
+  const { credentialId, response, deviceName } = req.body || {};
+  if (!credentialId || !response?.clientDataJSON) {
+    return res.status(400).json({ message: "Invalid biometric credential data." });
+  }
+
+  try {
+    const clientData = JSON.parse(Buffer.from(response.clientDataJSON, "base64").toString("utf8"));
+    if (clientData.type !== "webauthn.create") {
+      return res.status(400).json({ message: "Invalid WebAuthn operation type." });
+    }
+    if (clientData.challenge !== stored.challenge) {
+      return res.status(400).json({ message: "Biometric challenge mismatch." });
+    }
+
+    await saveBiometricCredential({
+      credentialId,
+      userId: session.userId,
+      sapId: session.sapId,
+      publicKey: response.attestationObject || "",
+      deviceName: deviceName || "Biometric Device",
+    });
+
+    return res.json({ success: true, message: "Biometric (Fingerprint) successfully registered!" });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to verify biometric registration: " + err.message });
+  }
+});
+
+app.post("/api/auth/biometric/login-options", (req, res) => {
+  cleanExpiredBiometricChallenges();
+  const challenge = crypto.randomBytes(32).toString("base64url");
+  const challengeId = crypto.randomUUID();
+
+  biometricChallenges.set(`login:${challengeId}`, {
+    challenge,
+    expiresAt: Date.now() + 120000,
+  });
+
+  const rpId = req.hostname === "localhost" ? "localhost" : req.hostname;
+  return res.json({
+    challenge,
+    challengeId,
+    rpId,
+    timeout: 60000,
+    userVerification: "preferred",
+  });
+});
+
+app.post("/api/auth/biometric/login-verify", async (req, res) => {
+  cleanExpiredBiometricChallenges();
+  const { challengeId, credentialId, clientDataJSON } = req.body || {};
+
+  if (!challengeId || !credentialId || !clientDataJSON) {
+    return res.status(400).json({ message: "Missing biometric authentication data." });
+  }
+
+  const challengeKey = `login:${challengeId}`;
+  const stored = biometricChallenges.get(challengeKey);
+  biometricChallenges.delete(challengeKey);
+
+  if (!stored) {
+    return res.status(400).json({ message: "Login challenge expired. Please click Sign In again." });
+  }
+
+  try {
+    const clientData = JSON.parse(Buffer.from(clientDataJSON, "base64").toString("utf8"));
+    if (clientData.type !== "webauthn.get") {
+      return res.status(400).json({ message: "Invalid WebAuthn operation type." });
+    }
+    if (clientData.challenge !== stored.challenge) {
+      return res.status(400).json({ message: "Biometric challenge mismatch." });
+    }
+
+    const cred = await getBiometricCredential(credentialId);
+    if (!cred) {
+      return res.status(404).json({
+        message: "Biometric credential not recognized. Pehle password se login kar ke 'Register Fingerprint' karein.",
+      });
+    }
+
+    const user = findUserForBiometric(cred.user_id, cred.sap_id);
+    if (!user) {
+      return res.status(404).json({ message: `User account '${cred.user_id}' not found.` });
+    }
+
+    createSessionForUser(user, res);
+    return res.json({
+      success: true,
+      message: `Welcome ${user.userId}! Biometric authentication successful.`,
+      user: publicUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Biometric verification failed: " + err.message });
+  }
+});
+
+app.get("/api/auth/biometric/status", async (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Not authenticated." });
+
+  try {
+    const list = await getUserBiometrics(session.userId, session.sapId);
+    return res.json({
+      enabled: Array.isArray(list) && list.length > 0,
+      count: list.length,
+      devices: (list || []).map((d) => ({
+        id: d.credential_id,
+        name: d.device_name,
+        created: d.created_at,
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete("/api/auth/biometric", async (req, res) => {
+  const session = currentSession(req);
+  if (!session) return res.status(401).json({ message: "Not authenticated." });
+
+  try {
+    const { credentialId } = req.body || {};
+    if (credentialId) {
+      await deleteBiometricCredential(credentialId, session.userId);
+    } else {
+      await deleteUserBiometrics(session.userId, session.sapId);
+    }
+    return res.json({ success: true, message: "Biometric login removed." });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
 
 app.get("/api/auth/session", (req, res) => {
@@ -1859,6 +2107,7 @@ app.use((req, res) => {
     const empMigrationResult = await migrateEmployeeMasterIfNeeded();
     await getCloudStoreDb();
     await initAuthStore();
+    await initBiometricStore();
     console.log(
       `[raw-data] migration status: ${migrationResult.imported ? "imported" : "already-initialized"}, source rows=${migrationResult.rowCountInSource}`
     );

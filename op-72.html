@@ -74,6 +74,8 @@
           <button id="op72ZoomIn" class="btn-outline" type="button">Zoom In</button>
           <button id="op72ZoomReset" class="btn-outline" type="button">Reset Zoom</button>
           <span id="op72ZoomValue" class="helper-text" style="align-self: center;">100%</span>
+          <button id="op72CheckEmptyDatesBtn" class="btn-primary op72-empty-dates-btn" type="button"
+            title="Current group ke 10 employees ki empty dates check karein">&#x1F4C5; Check Empty Dates</button>
         </div>
         <p id="op72SaveState" class="change-tag" aria-live="polite">No unsaved changes.</p>
       </div>
@@ -191,6 +193,33 @@
         <button type="button" id="op72MultiApplyBtn" class="btn-primary">
           Apply &amp; Continue &rarr;
         </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Check Empty Dates Right-Side Dialog (User Requested) -->
+  <dialog id="op72EmptyDatesDialog" class="op72-empty-dates-dialog">
+    <div class="op72-empty-dates-content">
+      <div class="op72-empty-header">
+        <div class="op72-empty-title-block">
+          <div class="op72-empty-title">&#x1F4C5; Empty Dates Checker</div>
+          <div class="op72-empty-meta" id="op72EmptyMeta">Group: — | Month: —</div>
+        </div>
+        <button type="button" id="closeEmptyDatesBtn" class="op72-empty-close-btn" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="op72-empty-summary-bar" id="op72EmptySummaryBar">
+        <span id="op72EmptySummaryText">Loaded Group (10 Employees)</span>
+        <button type="button" id="refreshEmptyDatesBtn" class="op72-empty-refresh-btn" title="Sheet cells dobara scan karein">&#x21BB; Re-Scan</button>
+      </div>
+
+      <div class="op72-empty-list" id="op72EmptyList">
+        <!-- Populated dynamically with 10 employee cards -->
+      </div>
+
+      <div class="op72-empty-footer">
+        <span class="helper-text" style="font-size: 0.82rem;">Click any date chip to locate cell on sheet.</span>
+        <button type="button" id="closeEmptyDatesFooterBtn" class="btn-outline">Close</button>
       </div>
     </div>
   </dialog>

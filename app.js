@@ -1415,6 +1415,113 @@ try {
   }
 } catch {}
 
+// ── Biometric (WebAuthn / Fingerprint) Login ────────────────────────────────
+function base64urlToBuffer(base64url) {
+  const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray.buffer;
+}
+
+function bufferToBase64url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function handleBiometricLogin() {
+  const btn = document.getElementById("biometricLoginBtn");
+  if (btn) btn.disabled = true;
+  loginStateText.textContent = "Biometric sensor verify ho raha hai... (Touch sensor)";
+  loginStateText.style.color = "#38bdf8";
+
+  try {
+    const optRes = await fetch(getAuthApiUrl("/api/auth/biometric/login-options"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!optRes.ok) throw new Error("Biometric challenge load nahi ho saka.");
+    const options = await optRes.json();
+
+    const credential = await navigator.credentials.get({
+      publicKey: {
+        challenge: base64urlToBuffer(options.challenge),
+        rpId: options.rpId,
+        timeout: options.timeout || 60000,
+        userVerification: options.userVerification || "preferred",
+      },
+    });
+
+    if (!credential) {
+      throw new Error("Biometric sensor verification cancel ho gai.");
+    }
+
+    const credentialId = credential.id;
+    const clientDataJSON = bufferToBase64url(credential.response.clientDataJSON);
+    const authenticatorData = bufferToBase64url(credential.response.authenticatorData);
+    const signature = bufferToBase64url(credential.response.signature);
+
+    const verifyRes = await fetch(getAuthApiUrl("/api/auth/biometric/login-verify"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        challengeId: options.challengeId,
+        credentialId,
+        clientDataJSON,
+        authenticatorData,
+        signature,
+      }),
+    });
+
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok) {
+      throw new Error(verifyData.message || "Biometric login failed.");
+    }
+
+    activeUser = verifyData.user;
+    persistAuthSession();
+    renderAuthState();
+    closeLoginDialog();
+
+    if (activeUser.role === "employee") {
+      window.location.href = "employee-home.html";
+    }
+  } catch (err) {
+    loginStateText.textContent = err.message || "Biometric verification failed.";
+    loginStateText.style.color = "#ef4444";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function initBiometricLoginUI() {
+  const wrapper = document.getElementById("biometricLoginWrapper");
+  const btn = document.getElementById("biometricLoginBtn");
+  if (!wrapper || !btn) return;
+
+  if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
+    try {
+      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      if (available) {
+        wrapper.style.display = "block";
+      }
+    } catch {}
+  }
+
+  btn.addEventListener("click", handleBiometricLogin);
+}
+
+initBiometricLoginUI();
+
 restoreAuthSession().then(() => {
   if (!activeUser) {
     setLandingMode(true);

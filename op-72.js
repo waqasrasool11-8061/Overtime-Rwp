@@ -2399,3 +2399,229 @@ if (op72PageSizeSelect) {
   });
   applyPrintSize(op72PageSizeSelect.value);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OP-72 "Check Empty Dates" Dialog Logic (Main Admin Feature)
+// ─────────────────────────────────────────────────────────────────────────────
+const op72CheckEmptyDatesBtn = document.getElementById("op72CheckEmptyDatesBtn");
+const op72EmptyDatesDialog = document.getElementById("op72EmptyDatesDialog");
+const closeEmptyDatesBtn = document.getElementById("closeEmptyDatesBtn");
+const closeEmptyDatesFooterBtn = document.getElementById("closeEmptyDatesFooterBtn");
+const refreshEmptyDatesBtn = document.getElementById("refreshEmptyDatesBtn");
+const op72EmptyMeta = document.getElementById("op72EmptyMeta");
+const op72EmptySummaryText = document.getElementById("op72EmptySummaryText");
+const op72EmptyList = document.getElementById("op72EmptyList");
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function scanGroupEmptyDates() {
+  const selectedGroup = String(op72GroupSelect?.value || "").trim();
+  const monthStr = op72MonthPicker ? op72MonthPicker.value : formatMonthInputValue(seedDate);
+  const dayCount = daysInMonth(seedDate);
+
+  if (!op72EmptyList) return;
+  op72EmptyList.innerHTML = "";
+
+  if (op72EmptyMeta) {
+    op72EmptyMeta.textContent = `Group: ${selectedGroup || "None"} | Month: ${monthStr || "Current"}`;
+  }
+
+  if (!selectedGroup) {
+    if (op72EmptySummaryText) op72EmptySummaryText.textContent = "No group loaded";
+    op72EmptyList.innerHTML = `
+      <div style="text-align: center; padding: 36px 16px; color: #64748b;">
+        <div style="font-size: 2.2rem; margin-bottom: 8px;">⚠️</div>
+        <strong style="color: #0f172a; font-size: 1rem;">Koi Group Load Nahi Hai</strong>
+        <p style="font-size: 0.85rem; margin-top: 6px; line-height: 1.4;">
+          Empty dates check karne ke liye pehle toolbar se <b>'Load Group'</b> me koi group select karein.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  const empList = groupLookup.has(selectedGroup) ? groupLookup.get(selectedGroup) : [];
+  const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
+
+  let totalEmptyAcrossGroup = 0;
+  let activeEmployeesCount = 0;
+
+  for (let empIndex = 1; empIndex <= employeeCount; empIndex++) {
+    const rawName = (empList && empList[empIndex - 1]) ? String(empList[empIndex - 1]).trim() : "";
+    const mainHeader = op72Head.querySelector(`th[data-role="employee-main-header"][data-employee-index="${empIndex}"]`);
+    const empName = rawName || (mainHeader ? mainHeader.textContent.trim() : "");
+
+    const isVacant = !empName;
+    const emptyDays = [];
+
+    if (!isVacant) {
+      activeEmployeesCount++;
+      for (let dayNum = 1; dayNum <= dayCount; dayNum++) {
+        const row = dailyRows[dayNum - 1];
+        if (!row || row.dataset.monthActive === "false") continue;
+
+        const cells = row.querySelectorAll("td");
+        const dutyCell = cells[1 + (empIndex - 1) * 3];
+        const otCell = cells[1 + (empIndex - 1) * 3 + 1];
+        const mileageCell = cells[1 + (empIndex - 1) * 3 + 2];
+
+        const dutyVal = dutyCell ? dutyCell.textContent.trim() : "";
+        const otVal = otCell ? otCell.textContent.trim() : "";
+        const mileageVal = mileageCell ? mileageCell.textContent.trim() : "";
+
+        // Completely empty date: no Duty, no OT, no Mileage entered
+        const isDutyEmpty = !dutyVal || dutyVal === "-" || dutyVal === "0";
+        const isOtEmpty = !otVal || otVal === "-" || otVal === "0" || otVal === "00:00" || otVal === "0:00";
+        const isMileageEmpty = !mileageVal || mileageVal === "-" || mileageVal === "0" || mileageVal === "0.00";
+
+        if (isDutyEmpty && isOtEmpty && isMileageEmpty) {
+          emptyDays.push({
+            dayNumber: dayNum,
+            dutyCell,
+            row,
+          });
+        }
+      }
+      totalEmptyAcrossGroup += emptyDays.length;
+    }
+
+    const card = document.createElement("div");
+    card.className = "emp-empty-card";
+
+    if (isVacant) {
+      card.classList.add("is-vacant");
+      card.innerHTML = `
+        <div class="emp-empty-header">
+          <span class="emp-empty-name" style="color: #94a3b8; font-style: italic;">Slot #${empIndex}: (Vacant Slot)</span>
+          <span class="emp-empty-badge badge-vacant">Vacant</span>
+        </div>
+      `;
+    } else if (emptyDays.length === 0) {
+      card.classList.add("is-complete");
+      card.innerHTML = `
+        <div class="emp-empty-header">
+          <span class="emp-empty-name">#${empIndex}. ${escapeHtml(empName)}</span>
+          <span class="emp-empty-badge badge-complete">🟢 All ${dayCount} Days Filled</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #166534; font-weight: 600; margin-top: 4px;">
+          ✓ Is employee ki is month ki koi empty date nahi hai.
+        </div>
+      `;
+    } else if (emptyDays.length === dayCount) {
+      card.classList.add("is-all-empty");
+      card.innerHTML = `
+        <div class="emp-empty-header">
+          <span class="emp-empty-name">#${empIndex}. ${escapeHtml(empName)}</span>
+          <span class="emp-empty-badge badge-all-empty">🔴 All ${dayCount} Days Empty</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #991b1b; font-weight: 600; margin-top: 4px;">
+          ⚠️ Is employee ka is month me koi data darj nahi hai.
+        </div>
+      `;
+    } else {
+      card.classList.add("is-partial");
+      const chipsHtml = emptyDays
+        .map((d) => `<button type="button" class="date-chip" data-day="${d.dayNumber}" data-emp="${empIndex}" title="Click to scroll to Day ${d.dayNumber}">${String(d.dayNumber).padStart(2, "0")}</button>`)
+        .join("");
+
+      card.innerHTML = `
+        <div class="emp-empty-header">
+          <span class="emp-empty-name">#${empIndex}. ${escapeHtml(empName)}</span>
+          <span class="emp-empty-badge badge-partial">🟠 ${emptyDays.length} Empty Dates (${dayCount - emptyDays.length}/${dayCount} Filled)</span>
+        </div>
+        <div class="emp-empty-chips-wrap">
+          ${chipsHtml}
+        </div>
+      `;
+    }
+
+    op72EmptyList.appendChild(card);
+  }
+
+  if (op72EmptySummaryText) {
+    op72EmptySummaryText.textContent = `${activeEmployeesCount} Employees | Total Empty Dates: ${totalEmptyAcrossGroup}`;
+  }
+}
+
+function openEmptyDatesDialog() {
+  scanGroupEmptyDates();
+  if (op72EmptyDatesDialog) {
+    if (typeof op72EmptyDatesDialog.show === "function") {
+      op72EmptyDatesDialog.show();
+    } else {
+      op72EmptyDatesDialog.setAttribute("open", "");
+    }
+  }
+}
+
+function closeEmptyDatesDialog() {
+  if (op72EmptyDatesDialog) {
+    if (typeof op72EmptyDatesDialog.close === "function") {
+      op72EmptyDatesDialog.close();
+    } else {
+      op72EmptyDatesDialog.removeAttribute("open");
+    }
+  }
+}
+
+if (op72CheckEmptyDatesBtn) {
+  op72CheckEmptyDatesBtn.addEventListener("click", openEmptyDatesDialog);
+}
+
+if (closeEmptyDatesBtn) {
+  closeEmptyDatesBtn.addEventListener("click", closeEmptyDatesDialog);
+}
+
+if (closeEmptyDatesFooterBtn) {
+  closeEmptyDatesFooterBtn.addEventListener("click", closeEmptyDatesDialog);
+}
+
+if (refreshEmptyDatesBtn) {
+  refreshEmptyDatesBtn.addEventListener("click", scanGroupEmptyDates);
+}
+
+if (op72EmptyList) {
+  op72EmptyList.addEventListener("click", (e) => {
+    const chip = e.target.closest(".date-chip");
+    if (!chip) return;
+    const dayNum = Number(chip.dataset.day);
+    const empIndex = Number(chip.dataset.emp);
+    if (!dayNum || !empIndex) return;
+
+    const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
+    const row = dailyRows[dayNum - 1];
+    if (!row) return;
+
+    const cells = row.querySelectorAll("td");
+    const dutyCell = cells[1 + (empIndex - 1) * 3];
+
+    if (dutyCell) {
+      dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      dutyCell.classList.add("op72-cell-highlight");
+      setTimeout(() => {
+        dutyCell.classList.remove("op72-cell-highlight");
+      }, 1800);
+    }
+  });
+}
+
+// Check role permission for Check Empty Dates button
+try {
+  const sessionRaw = sessionStorage.getItem("HomeAuthSession") || localStorage.getItem("HomeAuthSession");
+  if (sessionRaw) {
+    const session = JSON.parse(sessionRaw);
+    if (session && (session.role === "employee" || session.role === "guest")) {
+      if (op72CheckEmptyDatesBtn) {
+        op72CheckEmptyDatesBtn.style.display = "none";
+      }
+    }
+  }
+} catch {}
+
