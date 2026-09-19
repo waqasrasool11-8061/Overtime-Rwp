@@ -1344,14 +1344,22 @@ homeLoginForm.addEventListener("submit", async (event) => {
     const user = await authenticateUser(loginUserIdInput.value, loginPasswordInput.value);
     if (!user) {
       loginStateText.textContent = "Invalid user or password.";
+      loginStateText.style.color = "#ef4444";
       return;
     }
 
     activeUser = user;
     persistAuthSession();
     renderAuthState();
-    loginPasswordInput.value = "";
 
+    const enableBioCheckbox = document.getElementById("enableBiometricCheckbox");
+    if (enableBioCheckbox && enableBioCheckbox.checked) {
+      loginStateText.textContent = "👆 Fingerprint register kar rahe hain... (Touch sensor)";
+      loginStateText.style.color = "#38bdf8";
+      await registerBiometricDirect(user);
+    }
+
+    loginPasswordInput.value = "";
     closeLoginDialog();
 
     if (activeUser.role === "employee") {
@@ -1436,9 +1444,80 @@ function bufferToBase64url(buffer) {
   return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+async function registerBiometricDirect(user) {
+  if (!window.PublicKeyCredential) return false;
+  try {
+    const optRes = await fetch(getAuthApiUrl("/api/auth/biometric/register-options"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!optRes.ok) return false;
+    const options = await optRes.json();
+
+    const pubKeyOptions = {
+      challenge: base64urlToBuffer(options.challenge),
+      rp: options.rp,
+      user: {
+        id: base64urlToBuffer(options.user.id),
+        name: options.user.name,
+        displayName: options.user.displayName,
+      },
+      pubKeyCredParams: options.pubKeyCredParams,
+      authenticatorSelection: options.authenticatorSelection,
+      timeout: options.timeout || 60000,
+      attestation: options.attestation || "none",
+    };
+
+    const credential = await navigator.credentials.create({ publicKey: pubKeyOptions });
+    if (!credential) return false;
+
+    const credentialId = credential.id;
+    const clientDataJSON = bufferToBase64url(credential.response.clientDataJSON);
+    const attestationObject = bufferToBase64url(credential.response.attestationObject);
+
+    const deviceName = navigator.userAgent.includes("Android")
+      ? "Android Phone"
+      : navigator.userAgent.includes("iPhone")
+      ? "iPhone / iPad"
+      : navigator.userAgent.includes("Mac")
+      ? "Mac Touch ID"
+      : "Windows Hello / PC";
+
+    const verifyRes = await fetch(getAuthApiUrl("/api/auth/biometric/register-verify"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        credentialId,
+        response: { clientDataJSON, attestationObject },
+        deviceName,
+      }),
+    });
+
+    if (verifyRes.ok) {
+      localStorage.setItem("hasRegisteredBiometric", "true");
+      localStorage.setItem("biometricUser", user.userId);
+      return true;
+    }
+  } catch (err) {
+    console.warn("Biometric register skipped/cancelled:", err.message);
+  }
+  return false;
+}
+
 async function handleBiometricLogin() {
   const btn = document.getElementById("biometricLoginBtn");
   if (btn) btn.disabled = true;
+
+  // Friendly check: If not registered on this device yet, guide user clearly
+  if (!localStorage.getItem("hasRegisteredBiometric")) {
+    loginStateText.innerHTML = "💡 <b>Pehle Fingerprint Register Karein:</b><br>Upar User ID aur Password likhein aur <b>'Register Fingerprint'</b> dabayein ya <b>[✓] Enable Fingerprint</b> tick kar ke Sign In karein.";
+    loginStateText.style.color = "#f59e0b";
+    if (btn) btn.disabled = false;
+    return;
+  }
+
   loginStateText.textContent = "Biometric sensor verify ho raha hai... (Touch sensor)";
   loginStateText.style.color = "#38bdf8";
 
@@ -1496,8 +1575,13 @@ async function handleBiometricLogin() {
       window.location.href = "employee-home.html";
     }
   } catch (err) {
-    loginStateText.textContent = err.message || "Biometric verification failed.";
-    loginStateText.style.color = "#ef4444";
+    if (err.name === "NotAllowedError" || err.message?.includes("passkey") || err.message?.includes("credentials")) {
+      loginStateText.innerHTML = "💡 <b>Is device par abhi fingerprint save nahi hai:</b><br>Upar User ID aur Password likhein aur <b>'Register Fingerprint'</b> dabayein.";
+      loginStateText.style.color = "#f59e0b";
+    } else {
+      loginStateText.textContent = err.message || "Biometric verification failed.";
+      loginStateText.style.color = "#ef4444";
+    }
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -1506,6 +1590,9 @@ async function handleBiometricLogin() {
 async function initBiometricLoginUI() {
   const wrapper = document.getElementById("biometricLoginWrapper");
   const btn = document.getElementById("biometricLoginBtn");
+  const checkboxLabel = document.getElementById("enableBiometricCheckboxLabel");
+  const directRegBtn = document.getElementById("btnDirectRegisterBio");
+  const checkbox = document.getElementById("enableBiometricCheckbox");
   if (!wrapper || !btn) return;
 
   if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
@@ -1513,11 +1600,69 @@ async function initBiometricLoginUI() {
       const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
       if (available) {
         wrapper.style.display = "block";
+        if (checkboxLabel) checkboxLabel.style.display = "flex";
+        if (directRegBtn) directRegBtn.style.display = "inline-block";
+
+        if (checkbox && !localStorage.getItem("hasRegisteredBiometric")) {
+          checkbox.checked = true; // Auto-tick for seamless 1st-time registration
+        }
       }
     } catch {}
   }
 
   btn.addEventListener("click", handleBiometricLogin);
+
+  if (directRegBtn) {
+    directRegBtn.addEventListener("click", async () => {
+      const uId = loginUserIdInput.value.trim();
+      const pwd = loginPasswordInput.value.trim();
+      if (!uId || !pwd) {
+        loginStateText.textContent = "Pehle apna User ID aur Password likhein.";
+        loginStateText.style.color = "#f59e0b";
+        return;
+      }
+
+      loginStateText.textContent = "Checking credentials...";
+      loginStateText.style.color = "#38bdf8";
+
+      const user = await authenticateUser(uId, pwd);
+      if (!user) {
+        loginStateText.textContent = "Invalid user or password.";
+        loginStateText.style.color = "#ef4444";
+        return;
+      }
+
+      activeUser = user;
+      persistAuthSession();
+      renderAuthState();
+
+      loginStateText.textContent = "👆 Apna fingerprint sensor touch karein...";
+      loginStateText.style.color = "#38bdf8";
+
+      const ok = await registerBiometricDirect(user);
+      if (ok) {
+        loginStateText.textContent = "✓ Fingerprint save ho geya! Logging in...";
+        loginStateText.style.color = "#10b981";
+        setTimeout(() => {
+          loginPasswordInput.value = "";
+          closeLoginDialog();
+          if (activeUser.role === "employee") {
+            window.location.href = "employee-home.html";
+          }
+        }, 700);
+      } else {
+        loginStateText.textContent = "Fingerprint registration cancel ya skip ho gai.";
+        loginStateText.style.color = "#f59e0b";
+        setTimeout(() => {
+          loginPasswordInput.value = "";
+          closeLoginDialog();
+          if (activeUser.role === "employee") {
+            window.location.href = "employee-home.html";
+          }
+        }, 800);
+      }
+    });
+  }
 }
 
 initBiometricLoginUI();

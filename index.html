@@ -37,12 +37,19 @@
 				Password
 				<input type="password" id="loginPassword" name="loginPassword" placeholder="Enter password" required>
 			</label>
+			<label id="enableBiometricCheckboxLabel" style="display: none; margin: 6px 0 10px 0; cursor: pointer; user-select: none; font-size: 0.86rem; color: #1e3e62; font-weight: 600; align-items: center; gap: 8px;">
+				<input type="checkbox" id="enableBiometricCheckbox" style="width: 17px; height: 17px; cursor: pointer; accent-color: #2563eb;">
+				<span>👆 Enable Fingerprint Login for this device</span>
+			</label>
 			<div class="login-actions">
-				<button type="submit" class="btn-primary">Sign In</button>
+				<button type="submit" class="btn-primary" id="homeLoginSubmitBtn">Sign In</button>
+				<button type="button" id="btnDirectRegisterBio" class="btn-outline" style="display: none;" title="User ID aur password likh kar fingerprint bind karein">
+					👆 Register Fingerprint
+				</button>
 				<button type="button" id="forgotPasswordBtn" class="btn-outline">Forget Password</button>
 			</div>
-			<div id="biometricLoginWrapper" style="display: none; margin-top: 10px;">
-				<div class="biometric-login-divider"><span>OR</span></div>
+			<div id="biometricLoginWrapper" style="display: none; margin-top: 12px;">
+				<div class="biometric-login-divider"><span>OR QUICK LOGIN</span></div>
 				<button type="button" id="biometricLoginBtn" class="btn-biometric">
 					<span class="biometric-icon">👆</span> Sign In with Fingerprint / Biometrics
 				</button>
