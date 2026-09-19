@@ -40,6 +40,12 @@ const {
   deleteHolidays,
 } = require("./backend/cloudStore");
 
+const {
+  initAuthStore,
+  getCredentialsSync,
+  saveCredentials,
+} = require("./backend/authStore");
+
 const { getDb } = require("./backend/db");
 const { migrateRawDataIfNeeded } = require("./backend/rawDataMigration");
 const { createOp72Database, getOp72Db, OP72_WORKBOOK_CODE } = require("./backend/op72Db");
@@ -162,131 +168,11 @@ const ALL_APP_PAGES = Object.freeze([
 ]);
 
 function readUserCredentials() {
-  try {
-    if (!fs.existsSync(USER_CREDENTIALS_JSON_PATH)) {
-      const initial = {
-        admins: {
-          "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] },
-          "vicky raja": {
-            userId: "Vicky Raja",
-            password: "Waqas@1002",
-            role: "restricted-admin",
-            allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
-          },
-          "ehtisham": {
-            userId: "EHTISHAM",
-            password: hashPassword("MKWSHED"),
-            role: "sub-admin",
-            allowedPages: ["index.html", "video.html"],
-            permissions: ["dataEntry"],
-          },
-          "arsalan shah": {
-            userId: "ARSALAN SHAH",
-            password: hashPassword("LLMSHED"),
-            role: "sub-admin",
-            allowedPages: ["index.html", "video.html"],
-            permissions: ["dataEntry"],
-          },
-          "guest": {
-            userId: "GUEST",
-            password: hashPassword("1234"),
-            role: "guest",
-            allowedPages: ["*"],
-            permissions: ["guestView"],
-          },
-        },
-        employees: {},
-      };
-      fs.writeFileSync(USER_CREDENTIALS_JSON_PATH, JSON.stringify(initial, null, 2), "utf8");
-      return initial;
-    }
-    const raw = fs.readFileSync(USER_CREDENTIALS_JSON_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    if (!parsed.admins) parsed.admins = {};
-    if (!parsed.employees) parsed.employees = {};
-    if (!parsed.admins["vicky ch"]) {
-      parsed.admins["vicky ch"] = { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] };
-    }
-    if (!parsed.admins["vicky raja"]) {
-      parsed.admins["vicky raja"] = {
-        userId: "Vicky Raja",
-        password: "Waqas@1002",
-        role: "restricted-admin",
-        allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
-      };
-    }
-    if (!parsed.admins["ehtisham"]) {
-      parsed.admins["ehtisham"] = {
-        userId: "EHTISHAM",
-        password: hashPassword("MKWSHED"),
-        role: "sub-admin",
-        allowedPages: ["index.html", "video.html"],
-        permissions: ["dataEntry"],
-      };
-    }
-    if (!parsed.admins["arsalan shah"]) {
-      parsed.admins["arsalan shah"] = {
-        userId: "ARSALAN SHAH",
-        password: hashPassword("LLMSHED"),
-        role: "sub-admin",
-        allowedPages: ["index.html", "video.html"],
-        permissions: ["dataEntry"],
-      };
-    }
-    if (!parsed.admins["guest"]) {
-      parsed.admins["guest"] = {
-        userId: "GUEST",
-        password: hashPassword("1234"),
-        role: "guest",
-        allowedPages: ["*"],
-        permissions: ["guestView"],
-      };
-    }
-    return parsed;
-  } catch (err) {
-    console.error("Failed to read user credentials:", err);
-    return {
-      admins: {
-        "vicky ch": { userId: "Vicky Ch", password: "Suit@1002", role: "admin", allowedPages: ["*"] },
-        "vicky raja": {
-          userId: "Vicky Raja",
-          password: "Waqas@1002",
-          role: "restricted-admin",
-          allowedPages: ["index.html", "genl-164.html", "loco-18.html", "raw-data.html", "raw-data-search.html", "video.html"],
-        },
-        "ehtisham": {
-          userId: "EHTISHAM",
-          password: hashPassword("MKWSHED"),
-          role: "sub-admin",
-          allowedPages: ["index.html", "video.html"],
-          permissions: ["dataEntry"],
-        },
-        "arsalan shah": {
-          userId: "ARSALAN SHAH",
-          password: hashPassword("LLMSHED"),
-          role: "sub-admin",
-          allowedPages: ["index.html", "video.html"],
-          permissions: ["dataEntry"],
-        },
-        "guest": {
-          userId: "GUEST",
-          password: hashPassword("1234"),
-          role: "guest",
-          allowedPages: ["*"],
-          permissions: ["guestView"],
-        },
-      },
-      employees: {},
-    };
-  }
+  return getCredentialsSync();
 }
 
-function saveUserCredentials(data) {
-  try {
-    fs.writeFileSync(USER_CREDENTIALS_JSON_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (err) {
-    console.error("Failed to save user credentials:", err);
-  }
+async function saveUserCredentials(data) {
+  return await saveCredentials(data);
 }
 
 function getAdminAccounts() {
@@ -772,7 +658,7 @@ app.post("/api/auth/logout", (req, res) => {
   return res.status(204).end();
 });
 
-app.post("/api/auth/change-password", (req, res) => {
+app.post("/api/auth/change-password", async (req, res) => {
   const session = currentSession(req);
   if (!session) {
     return res.status(401).json({ message: "Authentication required." });
@@ -797,7 +683,7 @@ app.post("/api/auth/change-password", (req, res) => {
       return res.status(400).json({ message: "Current password is incorrect." });
     }
     admin.password = hashPassword(newPassword);
-    saveUserCredentials(creds);
+    await saveUserCredentials(creds);
     return res.json({ message: "Password changed successfully." });
   }
 
@@ -829,7 +715,7 @@ app.post("/api/auth/change-password", (req, res) => {
     password: hashPassword(newPassword),
     updatedAt: new Date().toISOString(),
   };
-  saveUserCredentials(creds);
+  await saveUserCredentials(creds);
   return res.json({ message: "Your password has been changed successfully." });
 });
 
@@ -993,7 +879,7 @@ app.get("/api/admin/users", (req, res) => {
   }
 });
 
-app.post("/api/admin/users", (req, res) => {
+app.post("/api/admin/users", async (req, res) => {
   try {
     const { userId, password, role, allowedPages } = req.body || {};
     const cleanUserId = normalizeText(userId);
@@ -1036,7 +922,7 @@ app.post("/api/admin/users", (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    saveUserCredentials(creds);
+    await saveUserCredentials(creds);
     return res.status(201).json({
       message: `User '${cleanUserId}' created successfully.`,
       user: {
@@ -1050,7 +936,7 @@ app.post("/api/admin/users", (req, res) => {
   }
 });
 
-app.put("/api/admin/users/access", (req, res) => {
+app.put("/api/admin/users/access", async (req, res) => {
   try {
     const { userId, role, allowedPages } = req.body || {};
     const cleanUserId = normalizeText(userId);
@@ -1087,14 +973,14 @@ app.put("/api/admin/users/access", (req, res) => {
     creds.admins[key].permissions = Array.from(perms);
     creds.admins[key].updatedAt = new Date().toISOString();
 
-    saveUserCredentials(creds);
+    await saveUserCredentials(creds);
     return res.json({ message: `Access permissions for '${cleanUserId}' updated successfully.` });
   } catch (error) {
     return res.status(500).json({ message: "Failed to update user access.", detail: error.message });
   }
 });
 
-app.delete("/api/admin/users/:userId", (req, res) => {
+app.delete("/api/admin/users/:userId", async (req, res) => {
   try {
     const userId = normalizeText(req.params.userId);
     const key = userId.toLowerCase();
@@ -1108,14 +994,14 @@ app.delete("/api/admin/users/:userId", (req, res) => {
     }
 
     delete creds.admins[key];
-    saveUserCredentials(creds);
+    await saveUserCredentials(creds);
     return res.json({ message: `User '${userId}' deleted successfully.` });
   } catch (error) {
     return res.status(500).json({ message: "Failed to delete user.", detail: error.message });
   }
 });
 
-app.put("/api/admin/users/password", (req, res) => {
+app.put("/api/admin/users/password", async (req, res) => {
   try {
     const { type, id, newPassword } = req.body || {};
     const cleanedPassword = String(newPassword || "").trim();
@@ -1131,7 +1017,7 @@ app.put("/api/admin/users/password", (req, res) => {
         return res.status(404).json({ message: `Admin user '${id}' not found.` });
       }
       creds.admins[key].password = hashPassword(cleanedPassword);
-      saveUserCredentials(creds);
+      await saveUserCredentials(creds);
       return res.json({ message: `Password for admin '${creds.admins[key].userId}' updated successfully.` });
     }
 
@@ -1153,7 +1039,7 @@ app.put("/api/admin/users/password", (req, res) => {
         password: hashPassword(cleanedPassword),
         updatedAt: new Date().toISOString(),
       };
-      saveUserCredentials(creds);
+      await saveUserCredentials(creds);
       return res.json({ message: `Password for employee '${employeeName || sapId}' updated successfully.` });
     }
 
@@ -1163,7 +1049,7 @@ app.put("/api/admin/users/password", (req, res) => {
   }
 });
 
-app.post("/api/admin/users/reset-default", (req, res) => {
+app.post("/api/admin/users/reset-default", async (req, res) => {
   try {
     const sapId = normalizeText(req.body?.sapId);
     if (!sapId) {
@@ -1172,7 +1058,7 @@ app.post("/api/admin/users/reset-default", (req, res) => {
 
     const creds = readUserCredentials();
     delete creds.employees[sapId];
-    saveUserCredentials(creds);
+    await saveUserCredentials(creds);
 
     return res.json({ message: `Password for employee SAP ID ${sapId} reset to default (SAP ID).` });
   } catch (error) {
@@ -1972,6 +1858,7 @@ app.use((req, res) => {
     await createOp72Database();
     const empMigrationResult = await migrateEmployeeMasterIfNeeded();
     await getCloudStoreDb();
+    await initAuthStore();
     console.log(
       `[raw-data] migration status: ${migrationResult.imported ? "imported" : "already-initialized"}, source rows=${migrationResult.rowCountInSource}`
     );
