@@ -1,4 +1,4 @@
-﻿// PWA Registration & Install Prompt Handler
+// PWA Registration & Install Prompt Handler
 (function () {
   // Register Service Worker
   if ("serviceWorker" in navigator) {
@@ -111,4 +111,76 @@
     const el = document.getElementById("pwaInstallContainer");
     if (el) el.remove();
   });
+
+  // iOS Safari Install Detection & Guide
+  const isIos = () => {
+    const ua = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(ua);
+  };
+
+  const isInStandaloneMode = () =>
+    ("standalone" in window.navigator && window.navigator.standalone) ||
+    window.matchMedia("(display-mode: standalone)").matches;
+
+  function showIosInstallPromotion() {
+    if (document.getElementById("pwaIosContainer") || sessionStorage.getItem("pwa_ios_dismissed")) {
+      return;
+    }
+
+    const container = document.createElement("div");
+    container.id = "pwaIosContainer";
+    container.style.cssText = `
+      position: fixed;
+      bottom: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(390px, 92vw);
+      z-index: 99999;
+      background: linear-gradient(135deg, #1e3e62 0%, #0b192c 100%);
+      color: #ffffff;
+      padding: 12px 16px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1.5px solid rgba(243, 156, 18, 0.6);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-sizing: border-box;
+      animation: pwaSlideUp 0.4s ease-out;
+    `;
+
+    container.innerHTML = `
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="/icons/icon-192.png" alt="App Icon" style="width:38px; height:38px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); flex-shrink:0;">
+          <div>
+            <strong style="display:block; font-size:13px; color:#f39c12;">Install on iPhone / iPad</strong>
+            <span style="font-size:11px; opacity:0.9; line-height:1.35; display:block; margin-top:2px;">
+              Safari ke neeche <strong>Share icon [⤉]</strong> dabayein, phr <strong>"Add to Home Screen"</strong> tap karein.
+            </span>
+          </div>
+        </div>
+        <button id="pwaIosCloseBtn" style="background:transparent; border:none; color:#ffffff; opacity:0.7; font-size:16px; cursor:pointer; padding:0 4px; line-height:1;">✕</button>
+      </div>
+    `;
+
+    document.body.appendChild(container);
+
+    const closeBtn = document.getElementById("pwaIosCloseBtn");
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        sessionStorage.setItem("pwa_ios_dismissed", "1");
+        container.remove();
+      };
+    }
+  }
+
+  // Trigger iOS banner after page load if on iOS and not yet installed
+  if (isIos() && !isInStandaloneMode()) {
+    if (document.readyState === "complete") {
+      setTimeout(showIosInstallPromotion, 2000);
+    } else {
+      window.addEventListener("load", () => {
+        setTimeout(showIosInstallPromotion, 2000);
+      });
+    }
+  }
 })();
