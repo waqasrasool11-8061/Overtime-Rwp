@@ -102,16 +102,59 @@
 
 	<main class="simple-page home-form-page">
 		<section class="panel">
-			<h2>Data Entry Form</h2>
+			<div class="data-entry-header-row">
+				<h2>Data Entry Form</h2>
+				<div class="entry-mode-tabs" role="tablist">
+					<button type="button" id="tabManualMode" class="btn-tab is-active" role="tab" aria-selected="true">
+						⌨️ Form Mode
+					</button>
+					<button type="button" id="tabVoiceMode" class="btn-tab btn-voice-tab" role="tab" aria-selected="false">
+						🎙️ Voice Tab (بول کر لکھیں)
+					</button>
+				</div>
+			</div>
+
+			<!-- Voice Entry Assistant Panel -->
+			<div id="voiceAssistantPanel" class="voice-assistant-panel" style="display: none;">
+				<div class="voice-panel-top">
+					<div class="voice-controls-left">
+						<button type="button" id="voiceAssistantMicBtn" class="btn-voice-mic">
+							<span id="voiceMicIcon" class="mic-icon">🎙️</span>
+							<span id="voiceMicLabel">Start Speaking (مائیک آن کریں)</span>
+						</button>
+						<span id="voiceStatusBadge" class="voice-status-badge">Ready</span>
+					</div>
+					<div class="voice-controls-right">
+						<label class="voice-lang-label">
+							Language:
+							<select id="voiceLanguageSelect">
+								<option value="en-PK" selected>English / Roman</option>
+								<option value="ur-PK">اردو (Urdu)</option>
+							</select>
+						</label>
+						<button type="button" id="voiceClearBtn" class="btn-outline btn-sm">Clear</button>
+					</div>
+				</div>
+
+				<div id="voiceTranscriptDisplay" class="voice-transcript-box">
+					<i>مائیک کا بٹن دبا کر بولیں، مثلاً: "10 اگست ارشد محمود PASS مائلیج 250 اوورٹائم 4 آؤٹ ورڈ 101UP بیس بجے سے چار بجے اِن ورڈ 102DN بائیس بجے سے چھ بجے"</i>
+				</div>
+
+				<div class="voice-panel-footer">
+					<span>⚡ آواز سن کر خانے خودکار بھر جائیں گے۔ تصدیق کے بعد نیچے دستی <b>Submit</b> بٹن دبائیں۔</span>
+					<span id="voiceParsedFieldsTag" class="voice-parsed-tag"></span>
+				</div>
+			</div>
+
 			<form id="mileageForm" class="entry-form">
 				<div class="field-grid">
 					<label>
 						Start Date <span class="required-star">*</span>
-						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
+						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
 					</label>
 					<label>
 						End Date <span class="required-star">*</span>
-						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" required>
+						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
 					</label>
 					<label>
 						Employee 1 Name <span class="required-star">*</span>
@@ -129,7 +172,7 @@
 					</label>
 					<label>
 						OverTime (OT)
-						<input type="text" name="overTimeOt" placeholder="h:mm" autocomplete="off">
+						<input type="text" name="overTimeOt" placeholder="h:mm" autocomplete="off" inputmode="numeric">
 					</label>
 					<label>
 						Mileage
@@ -182,7 +225,7 @@
 							</label>
 							<label>
 								Duty Commenced
-								<input type="text" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off">
+								<input type="text" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
 							</label>
 							<label>
 								Duration
@@ -190,7 +233,7 @@
 							</label>
 							<label>
 								Duty Terminated
-								<input type="text" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off">
+								<input type="text" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
 							</label>
 						</div>
 					</div>
@@ -204,7 +247,7 @@
 							</label>
 							<label>
 								Duty Commenced
-								<input type="text" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off">
+								<input type="text" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
 							</label>
 							<label>
 								Duration
@@ -212,7 +255,7 @@
 							</label>
 							<label>
 								Duty Terminated
-								<input type="text" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off">
+								<input type="text" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
 							</label>
 						</div>
 					</div>

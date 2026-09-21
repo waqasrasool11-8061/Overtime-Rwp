@@ -1753,7 +1753,348 @@ async function initBiometricLoginUI() {
   }
 }
 
+// ── Voice Data Entry Module ──────────────────────────────────────────────────
+function initVoiceDataEntry() {
+  const tabManual = document.getElementById("tabManualMode");
+  const tabVoice = document.getElementById("tabVoiceMode");
+  const voicePanel = document.getElementById("voiceAssistantPanel");
+  const micBtn = document.getElementById("voiceAssistantMicBtn");
+  const micIcon = document.getElementById("voiceMicIcon");
+  const micLabel = document.getElementById("voiceMicLabel");
+  const statusBadge = document.getElementById("voiceStatusBadge");
+  const langSelect = document.getElementById("voiceLanguageSelect");
+  const clearBtn = document.getElementById("voiceClearBtn");
+  const transcriptDisplay = document.getElementById("voiceTranscriptDisplay");
+  const parsedTag = document.getElementById("voiceParsedFieldsTag");
+
+  if (!tabManual || !tabVoice || !voicePanel) return;
+
+  tabManual.addEventListener("click", () => {
+    tabManual.classList.add("is-active");
+    tabManual.setAttribute("aria-selected", "true");
+    tabVoice.classList.remove("is-active");
+    tabVoice.setAttribute("aria-selected", "false");
+    voicePanel.style.display = "none";
+    if (recognition && isListening) {
+      recognition.stop();
+    }
+  });
+
+  tabVoice.addEventListener("click", () => {
+    tabVoice.classList.add("is-active");
+    tabVoice.setAttribute("aria-selected", "true");
+    tabManual.classList.remove("is-active");
+    tabManual.setAttribute("aria-selected", "false");
+    voicePanel.style.display = "block";
+    voicePanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (transcriptDisplay) {
+        transcriptDisplay.innerHTML = `<i>مائیک کا بٹن دبا کر تفصیل بولیں...</i>`;
+      }
+      if (parsedTag) parsedTag.textContent = "";
+    });
+  }
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    if (micBtn) {
+      micBtn.addEventListener("click", () => {
+        alert("Speech Recognition is not supported in this browser. Please use Google Chrome or Safari on your mobile device.");
+      });
+    }
+    if (statusBadge) statusBadge.textContent = "Not supported in this browser";
+    return;
+  }
+
+  const recognition = new SpeechRec();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  let isListening = false;
+
+  function updateRecLanguage() {
+    recognition.lang = langSelect ? langSelect.value : "en-PK";
+  }
+  updateRecLanguage();
+
+  if (langSelect) {
+    langSelect.addEventListener("change", () => {
+      updateRecLanguage();
+      if (isListening) {
+        recognition.stop();
+      }
+    });
+  }
+
+  function setListeningState(listening) {
+    isListening = listening;
+    if (listening) {
+      micBtn.classList.add("is-listening");
+      micIcon.textContent = "🛑";
+      micLabel.textContent = "Listening... (بولیں)";
+      statusBadge.textContent = "🔴 Recording";
+      statusBadge.classList.add("listening");
+    } else {
+      micBtn.classList.remove("is-listening");
+      micIcon.textContent = "🎙️";
+      micLabel.textContent = "Start Speaking (مائیک آن کریں)";
+      statusBadge.textContent = "Ready";
+      statusBadge.classList.remove("listening");
+    }
+  }
+
+  micBtn.addEventListener("click", () => {
+    if (isListening) {
+      recognition.stop();
+    } else {
+      updateRecLanguage();
+      try {
+        recognition.start();
+        setListeningState(true);
+      } catch (err) {
+        console.warn("Speech recognition start error:", err);
+      }
+    }
+  });
+
+  recognition.onstart = () => {
+    setListeningState(true);
+  };
+
+  recognition.onend = () => {
+    setListeningState(false);
+  };
+
+  recognition.onerror = (event) => {
+    console.warn("Speech recognition error:", event.error);
+    setListeningState(false);
+    if (event.error === "not-allowed") {
+      alert("Microphone permission denied. Please allow microphone access in your mobile browser settings.");
+    }
+  };
+
+  recognition.onresult = (event) => {
+    let finalTranscript = "";
+    let interimTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      const trans = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += trans + " ";
+      } else {
+        interimTranscript += trans;
+      }
+    }
+
+    const currentText = (finalTranscript || interimTranscript).trim();
+    if (currentText && transcriptDisplay) {
+      transcriptDisplay.textContent = currentText;
+    }
+
+    if (finalTranscript.trim()) {
+      parseAndApplyVoiceText(finalTranscript.trim());
+    }
+  };
+
+  function highlightField(el) {
+    if (!el) return;
+    el.classList.remove("field-highlight-voice");
+    void el.offsetWidth;
+    el.classList.add("field-highlight-voice");
+  }
+
+  function parseAndApplyVoiceText(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return;
+
+    const filledFields = [];
+    const lower = raw.toLowerCase();
+
+    // 1. Parse Date (Start Date)
+    const monthMap = {
+      jan: 0, january: 0, جنوری: 0,
+      feb: 1, february: 1, فروری: 1,
+      mar: 2, march: 2, مارچ: 2,
+      apr: 3, april: 3, اپریل: 3,
+      may: 4, مئی: 4,
+      jun: 5, june: 5, جون: 5,
+      jul: 6, july: 6, جولائی: 6,
+      aug: 7, august: 7, اگست: 7,
+      sep: 8, sept: 8, september: 8, ستمبر: 8,
+      oct: 9, october: 9, اکتوبر: 9,
+      nov: 10, november: 10, نومبر: 10,
+      dec: 11, december: 11, دسمبر: 11,
+    };
+
+    let normalizedSpeech = raw
+      .replace(/ایک/g, "1").replace(/دو/g, "2").replace(/تین/g, "3").replace(/چار/g, "4")
+      .replace(/پانچ/g, "5").replace(/چھ/g, "6").replace(/سات/g, "7").replace(/آٹھ/g, "8")
+      .replace(/نو/g, "9").replace(/دس/g, "10").replace(/گیارہ/g, "11").replace(/بارہ/g, "12")
+      .replace(/بیس/g, "20").replace(/پچیس/g, "25").replace(/تیس/g, "30");
+
+    const dateRegex = /\b(\d{1,2})[-/ ]?([a-zA-Z\u0600-\u06FF]{3,10})[-/ ]?(\d{2,4})?\b/i;
+    const dateMatch = normalizedSpeech.match(dateRegex);
+    if (dateMatch) {
+      const dayNum = Number(dateMatch[1]);
+      const monthWord = dateMatch[2].toLowerCase();
+      const yearNum = dateMatch[3] ? (dateMatch[3].length === 2 ? 2000 + Number(dateMatch[3]) : Number(dateMatch[3])) : 2026;
+      if (dayNum >= 1 && dayNum <= 31 && monthMap[monthWord] !== undefined) {
+        const dObj = new Date(yearNum, monthMap[monthWord], dayNum);
+        startDateInput.value = formatDateDdMmmYyyy(dObj);
+        highlightField(startDateInput);
+        filledFields.push("Start Date");
+      }
+    }
+
+    // 2. Parse Employee 1 & 2 Name
+    const employeeNames = [];
+    const options = document.querySelectorAll("#employeeNameOptions option");
+    options.forEach((opt) => {
+      const val = opt.value.trim().toUpperCase();
+      if (val && !employeeNames.includes(val)) employeeNames.push(val);
+    });
+
+    let matchedEmp1 = "";
+    let matchedEmp2 = "";
+
+    for (const name of employeeNames) {
+      if (lower.includes(name.toLowerCase())) {
+        if (!matchedEmp1) {
+          matchedEmp1 = name;
+        } else if (!matchedEmp2 && name !== matchedEmp1) {
+          matchedEmp2 = name;
+        }
+      }
+    }
+
+    if (matchedEmp1) {
+      employee1NameInput.value = matchedEmp1;
+      highlightField(employee1NameInput);
+      filledFields.push("Employee 1");
+    }
+    if (matchedEmp2) {
+      employee2NameInput.value = matchedEmp2;
+      highlightField(employee2NameInput);
+      filledFields.push("Employee 2");
+    }
+
+    // 3. Parse Duty Type
+    const dutyTypes = Array.from(dutyTypeSelect.options).map((o) => o.value).filter(Boolean);
+    let matchedDuty = "";
+    if (/\b(pass|passenger|پاس)\b/i.test(raw)) matchedDuty = "PASS";
+    else if (/\b(di|ڈی آئی|دی آئی)\b/i.test(raw)) matchedDuty = "DI";
+    else if (/\b(mail|m|میل)\b/i.test(raw)) matchedDuty = "M";
+    else if (/\b(goods|g|گڈز)\b/i.test(raw)) matchedDuty = "G";
+    else if (/\b(shedman|شیڈمین)\b/i.test(raw)) matchedDuty = "SHEDMAN";
+    else if (/\b(leave|چھٹی)\b/i.test(raw)) matchedDuty = "LEAVE";
+    else if (/\b(sick|بیمار)\b/i.test(raw)) matchedDuty = "SICK";
+    else if (/\b(walton|والٹن)\b/i.test(raw)) matchedDuty = "WALTON";
+    else if (/\b(school|اسکول)\b/i.test(raw)) matchedDuty = "SCHOOL";
+    else if (/\b(on hand|آن ہینڈ)\b/i.test(raw)) matchedDuty = "ON HAND";
+    else {
+      for (const dt of dutyTypes) {
+        if (lower.includes(dt.toLowerCase())) {
+          matchedDuty = dt;
+          break;
+        }
+      }
+    }
+
+    if (matchedDuty) {
+      dutyTypeSelect.value = matchedDuty;
+      highlightField(dutyTypeSelect);
+      filledFields.push("DutyType (" + matchedDuty + ")");
+    }
+
+    // 4. Parse Mileage
+    const mileageMatch = normalizedSpeech.match(/(?:mileage|km|kilometers?|مائلیج)\s*[:=]?\s*(\d+)/i) ||
+                         normalizedSpeech.match(/\b(\d{2,4})\s*(?:mileage|km|مائلیج)\b/i);
+    if (mileageMatch) {
+      mileageInput.value = mileageMatch[1];
+      highlightField(mileageInput);
+      filledFields.push("Mileage (" + mileageMatch[1] + ")");
+    }
+
+    // 5. Parse OverTime (OT)
+    const otMatch = normalizedSpeech.match(/(?:overtime|over time|ot|اوور\s*ٹائم)\s*[:=]?\s*(\d+)(?::(\d{1,2}))?/i);
+    if (otMatch) {
+      const h = String(otMatch[1]).padStart(2, "0");
+      const m = String(otMatch[2] || "00").padStart(2, "0");
+      overTimeOtInput.value = `${h}:${m}`;
+      highlightField(overTimeOtInput);
+      filledFields.push("OT (" + `${h}:${m}` + ")");
+    }
+
+    // 6. Parse Outward Duty & Times
+    const outwardTrainMatch = normalizedSpeech.match(/outward\s+(?:duty\s+)?([0-9a-zA-Z]+(?:\s*[uUdD][pPnN])?)/i) ||
+                              normalizedSpeech.match(/آؤٹ\s*ورڈ\s+([0-9a-zA-Z]+)/i);
+    if (outwardTrainMatch) {
+      const train = outwardTrainMatch[1].toUpperCase().replace(/\s+/g, "");
+      const outwardDutyInput = form.querySelector("input[name='outwardDuty']");
+      if (outwardDutyInput) {
+        outwardDutyInput.value = train;
+        highlightField(outwardDutyInput);
+        filledFields.push("Outward Duty");
+      }
+    }
+
+    const outwardTimesMatch = normalizedSpeech.match(/outward.*?(\d{1,2}:\d{2})\s*(?:to|-|se|سے)\s*(\d{1,2}:\d{2})/i) ||
+                              normalizedSpeech.match(/آؤٹ\s*ورڈ.*?(\d{1,2}:\d{2})\s*(?:to|-|se|سے)\s*(\d{1,2}:\d{2})/i);
+    if (outwardTimesMatch) {
+      outwardDutyCommencedInput.value = outwardTimesMatch[1];
+      outwardDutyTerminatedInput.value = outwardTimesMatch[2];
+      highlightField(outwardDutyCommencedInput);
+      highlightField(outwardDutyTerminatedInput);
+      filledFields.push("Outward Times");
+    }
+
+    // 7. Parse Inward Duty & Times
+    const inwardTrainMatch = normalizedSpeech.match(/inward\s+(?:duty\s+)?([0-9a-zA-Z]+(?:\s*[uUdD][pPnN])?)/i) ||
+                             normalizedSpeech.match(/اِن\s*ورڈ\s+([0-9a-zA-Z]+)/i);
+    if (inwardTrainMatch) {
+      const train = inwardTrainMatch[1].toUpperCase().replace(/\s+/g, "");
+      const inwardDutyInput = form.querySelector("input[name='inwardDuty']");
+      if (inwardDutyInput) {
+        inwardDutyInput.value = train;
+        highlightField(inwardDutyInput);
+        filledFields.push("Inward Duty");
+      }
+    }
+
+    const inwardTimesMatch = normalizedSpeech.match(/inward.*?(\d{1,2}:\d{2})\s*(?:to|-|se|سے)\s*(\d{1,2}:\d{2})/i) ||
+                             normalizedSpeech.match(/اِن\s*ورڈ.*?(\d{1,2}:\d{2})\s*(?:to|-|se|سے)\s*(\d{1,2}:\d{2})/i);
+    if (inwardTimesMatch) {
+      inwardDutyCommencedInput.value = inwardTimesMatch[1];
+      inwardDutyTerminatedInput.value = inwardTimesMatch[2];
+      highlightField(inwardDutyCommencedInput);
+      highlightField(inwardDutyTerminatedInput);
+      filledFields.push("Inward Times");
+    }
+
+    // 8. Parse Remarks
+    const remarksMatch = normalizedSpeech.match(/(?:remarks?|note|نوٹ|ریمارکس)\s*[:=]?\s*(.+)$/i);
+    if (remarksMatch) {
+      const remarksInput = form.querySelector("textarea[name='remarks']");
+      if (remarksInput) {
+        remarksInput.value = remarksMatch[1].trim().toUpperCase();
+        highlightField(remarksInput);
+        filledFields.push("Remarks");
+      }
+    }
+
+    // Auto calculate End Date if journey spans multiple days
+    syncCalculatedEndDate();
+
+    if (parsedTag && filledFields.length > 0) {
+      parsedTag.textContent = `✓ Auto-filled: ${filledFields.join(", ")}`;
+    }
+  }
+}
+
 initBiometricLoginUI();
+initVoiceDataEntry();
 
 restoreAuthSession().then(() => {
   if (!activeUser) {
