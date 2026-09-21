@@ -867,14 +867,18 @@ function buildRawDataRowsFromEntry(entry) {
     const row = new Array(13).fill("");
     row[0] = formatDateDdMmmYyyy(rowDate);
 
-    if (index < baseRowCount) {
-      row[1] = entry.employee1Name;
-      row[2] = entry.employee2Name;
-      row[3] = entry.dutyType;
-    }
+    // Automatically set employee 1, employee 2, and duty type on all generated journey dates
+    row[1] = entry.employee1Name || "";
+    row[2] = entry.employee2Name || "";
+    row[3] = entry.dutyType || "";
 
     return row;
   });
+
+  if (totalRowCount > baseRowCount) {
+    const finalDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + totalRowCount - 1);
+    entry.endDate = formatDateDdMmmYyyy(finalDate);
+  }
 
   // OT and mileage are saved only on the first base row.
   rows[0][4] = entry.overTimeOt ? toHhMm(entry.overTimeOt) : "";
@@ -1091,7 +1095,7 @@ form.addEventListener("submit", async (event) => {
 
     let locoNote = "";
     if (localStorage.getItem("Loco18LinkActive") === "true") {
-      const locoResult = syncEntryToLoco18(entry, parsedStartDate, parsedEndDate);
+      const locoResult = syncEntryToLoco18(entry, parsedStartDate, parsedEndDate, rows.length);
       if (locoResult && locoResult.placedRows > 0) {
         locoNote = ` & placed in Loco-18 (${locoResult.placedRows} row${locoResult.placedRows === 1 ? "" : "s"})`;
       }
@@ -1110,7 +1114,7 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-function syncEntryToLoco18(entry, parsedStartDate, parsedEndDate) {
+function syncEntryToLoco18(entry, parsedStartDate, parsedEndDate, totalRowCount) {
   try {
     const isPendingFirstDate = localStorage.getItem("Loco18LinkPendingFirstDate") === "true";
     if (isPendingFirstDate && parsedStartDate) {
@@ -1125,6 +1129,7 @@ function syncEntryToLoco18(entry, parsedStartDate, parsedEndDate) {
     const startOnly = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), parsedStartDate.getDate());
     const endOnly = new Date(parsedEndDate.getFullYear(), parsedEndDate.getMonth(), parsedEndDate.getDate());
     const baseRowCount = Math.floor((endOnly.getTime() - startOnly.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    const finalRowCount = Math.max(baseRowCount, Number(totalRowCount) || 0);
 
     let locoGrid = [];
     try {
@@ -1137,7 +1142,7 @@ function syncEntryToLoco18(entry, parsedStartDate, parsedEndDate) {
     }
 
     const rowsToPlace = [];
-    for (let i = 0; i < baseRowCount; i++) {
+    for (let i = 0; i < finalRowCount; i++) {
       const curDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + i);
       const rowDateStr = formatDateDdMmmYyyy(curDate);
       const otVal = i === 0 ? (entry.overTimeOt ? toHhMm(entry.overTimeOt) : "") : "";
@@ -1236,6 +1241,7 @@ startDateInput.addEventListener("blur", () => {
   if (startDateInput.value.trim() && !endDateInput.value.trim()) {
     endDateInput.value = startDateInput.value;
   }
+  syncCalculatedEndDate();
 });
 endDateInput.addEventListener("blur", () => {
   normalizeDateInput(endDateInput);
@@ -1292,12 +1298,87 @@ inwardDutyTerminatedInput.addEventListener("input", () => autoFormatJourneyTimeT
 outwardDurationInput.addEventListener("input", () => autoFormatDurationTyping(outwardDurationInput));
 inwardDurationInput.addEventListener("input", () => autoFormatDurationTyping(inwardDurationInput));
 
-outwardDutyCommencedInput.addEventListener("blur", () => normalizeJourneyTimeInput(outwardDutyCommencedInput));
-outwardDutyTerminatedInput.addEventListener("blur", () => normalizeJourneyTimeInput(outwardDutyTerminatedInput));
-inwardDutyCommencedInput.addEventListener("blur", () => normalizeJourneyTimeInput(inwardDutyCommencedInput));
-inwardDutyTerminatedInput.addEventListener("blur", () => normalizeJourneyTimeInput(inwardDutyTerminatedInput));
-outwardDurationInput.addEventListener("blur", () => normalizeDurationInput(outwardDurationInput));
-inwardDurationInput.addEventListener("blur", () => normalizeDurationInput(inwardDurationInput));
+function calculateJourneyDayOffset() {
+  const outStartMinutes = parseClockToMinutes(outwardDutyCommencedInput.value);
+  const outEndMinutes = parseClockToMinutes(outwardDutyTerminatedInput.value);
+  const inStartMinutes = parseClockToMinutes(inwardDutyCommencedInput.value);
+  const inEndMinutes = parseClockToMinutes(inwardDutyTerminatedInput.value);
+
+  const outDurationDays = Number(outwardDurationInput.value || 0);
+  const inDurationDays = Number(inwardDurationInput.value || 0);
+
+  const outTermOffset = getJourneyTerminationOffset(outStartMinutes, outEndMinutes, outDurationDays);
+  const outAnchorOffset = outTermOffset === null ? outDurationDays : outTermOffset;
+
+  let inCommOffset = null;
+  const inDuty = (form.querySelector("input[name='inwardDuty']")?.value || "").trim() || inwardDutyCommencedInput.value.trim() || inwardDutyTerminatedInput.value.trim();
+  if (inDuty || inStartMinutes !== null || inEndMinutes !== null) {
+    if (inStartMinutes === null) {
+      inCommOffset = outAnchorOffset;
+    } else if (outEndMinutes === null || inStartMinutes >= outEndMinutes) {
+      inCommOffset = outAnchorOffset;
+    } else {
+      inCommOffset = outAnchorOffset + 1;
+    }
+  }
+
+  let inTermOffset = null;
+  if (inEndMinutes !== null) {
+    const inTermRelativeOffset = getJourneyTerminationOffset(inStartMinutes, inEndMinutes, inDurationDays);
+    inTermOffset = (inCommOffset === null ? 0 : inCommOffset) + (inTermRelativeOffset || 0);
+  }
+
+  const offsets = [0];
+  if (outTermOffset !== null) offsets.push(outTermOffset);
+  if (inCommOffset !== null) offsets.push(inCommOffset);
+  if (inTermOffset !== null) offsets.push(inTermOffset);
+
+  return Math.max(...offsets);
+}
+
+function syncCalculatedEndDate() {
+  const startRaw = startDateInput.value.trim();
+  if (!startRaw) return;
+  const parsedStart = parseDateInput(startRaw);
+  if (!parsedStart) return;
+
+  const maxOffset = calculateJourneyDayOffset();
+  const targetDate = new Date(parsedStart.getFullYear(), parsedStart.getMonth(), parsedStart.getDate() + maxOffset);
+  const targetDateFormatted = formatDateDdMmmYyyy(targetDate);
+
+  const currentEndRaw = endDateInput.value.trim();
+  const currentEndParsed = currentEndRaw ? parseDateInput(currentEndRaw) : null;
+
+  if (!currentEndParsed || currentEndParsed < targetDate || maxOffset > 0) {
+    endDateInput.value = targetDateFormatted;
+    endDateInput.setCustomValidity("");
+  }
+}
+
+outwardDutyCommencedInput.addEventListener("blur", () => {
+  normalizeJourneyTimeInput(outwardDutyCommencedInput);
+  syncCalculatedEndDate();
+});
+outwardDutyTerminatedInput.addEventListener("blur", () => {
+  normalizeJourneyTimeInput(outwardDutyTerminatedInput);
+  syncCalculatedEndDate();
+});
+inwardDutyCommencedInput.addEventListener("blur", () => {
+  normalizeJourneyTimeInput(inwardDutyCommencedInput);
+  syncCalculatedEndDate();
+});
+inwardDutyTerminatedInput.addEventListener("blur", () => {
+  normalizeJourneyTimeInput(inwardDutyTerminatedInput);
+  syncCalculatedEndDate();
+});
+outwardDurationInput.addEventListener("blur", () => {
+  normalizeDurationInput(outwardDurationInput);
+  syncCalculatedEndDate();
+});
+inwardDurationInput.addEventListener("blur", () => {
+  normalizeDurationInput(inwardDurationInput);
+  syncCalculatedEndDate();
+});
 
 mileageInput.addEventListener("input", () => {
   const value = String(mileageInput.value || "");
