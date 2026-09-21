@@ -1074,6 +1074,19 @@ app.post("/api/chat/mark-read", async (req, res) => {
 });
 
 app.use("/api", requireApiPermission);
+
+// Early redirect for authenticated roles navigating to root or index.html to eliminate landing flash
+app.get(["/", "/index.html"], (req, res, next) => {
+  const session = currentSession(req);
+  if (session && session.role === "employee") {
+    return res.redirect("/employee-home.html");
+  }
+  if (session && session.role === "restricted-admin") {
+    return res.redirect("/raw-data.html");
+  }
+  return next();
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // Serve Trainz HTML page folder from sibling directory "TRS DEP PAK"
@@ -2090,6 +2103,13 @@ app.post("/api/admin/reset-posting-station-lock", async (req, res) => {
 
 // Root route serves index.html
 app.get("/", (req, res) => {
+  const session = currentSession(req);
+  if (session && session.role === "employee") {
+    return res.redirect("/employee-home.html");
+  }
+  if (session && session.role === "restricted-admin") {
+    return res.redirect("/raw-data.html");
+  }
   res.sendFile(path.join(__dirname, "index.html"));
 });
 

@@ -4,6 +4,24 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>OverTime</title>
+	<!-- Instant redirect check to prevent UI flash for logged-in employee / restricted admin -->
+	<script>
+		(function () {
+			try {
+				var raw = localStorage.getItem("HomeAuthSession");
+				if (raw) {
+					var session = JSON.parse(raw);
+					if (session && session.role === "employee") {
+						document.documentElement.style.display = "none";
+						window.location.replace("employee-home.html");
+					} else if (session && session.role === "restricted-admin") {
+						document.documentElement.style.display = "none";
+						window.location.replace("raw-data.html");
+					}
+				}
+			} catch (_) {}
+		})();
+	</script>
 	<link rel="stylesheet" href="app.css">
 	<!-- PWA & Mobile App Support -->
 	<link rel="manifest" href="/manifest.json">

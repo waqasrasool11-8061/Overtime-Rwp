@@ -187,6 +187,8 @@ function getTotalDaysInSelectedMonth() {
 function getDIDaysCount(cells, empIdx0, totalDaysInMonth) {
   let count = 0;
   let hasAnyDailyEntry = false;
+  let leaveDays = 0;
+  const leaveKeywords = ["LEAVE", "SICK", "U.DMO", "55%", "C/L", "S/L", "L/A", "A/L", "L/P", "L/E"];
 
   if (Array.isArray(cells)) {
     for (let day = 0; day < totalDaysInMonth; day++) {
@@ -197,6 +199,8 @@ function getDIDaysCount(cells, empIdx0, totalDaysInMonth) {
           hasAnyDailyEntry = true;
           if (isDIDuty(duty)) {
             count += 1;
+          } else if (leaveKeywords.some(k => duty === k || duty.includes(k))) {
+            leaveDays += 1;
           }
         }
       }
@@ -222,12 +226,18 @@ function getDIDaysCount(cells, empIdx0, totalDaysInMonth) {
     }
   }
 
-  // If sheet is completely unpopulated/empty, default to full month
-  if (!hasAnyDailyEntry && count === 0) {
-    return totalDaysInMonth;
+  // If explicit DI entries were found, return count
+  if (count > 0) {
+    return count;
   }
 
-  return count;
+  // If daily entries had leave days but no explicit "DI" text, default remaining days to DI
+  if (leaveDays > 0) {
+    return Math.max(0, totalDaysInMonth - leaveDays);
+  }
+
+  // If sheet is completely unpopulated/empty, default to full month
+  return totalDaysInMonth;
 }
 
 // Extract duties from OP-72 daily rows or tail rows if stored
@@ -465,18 +475,26 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
 
     if (isArshad) {
       // Arshad Mehmood (60400): Fixed OT = 30, Fixed Mileage (G) = 28
-      const diFixedOt = diRatio * 30;
-      const diFixedMileOPG = diRatio * 28;
+      const diFixedOt = Number((diRatio * 30).toFixed(2));
+      const diFixedMileOPG = Number((diRatio * 28).toFixed(2));
 
-      totalOt = Number((diFixedOt + totalOt).toFixed(2));
-      mileOPG = Number((diFixedMileOPG + mileOPG).toFixed(2));
+      if (totalOt < diFixedOt) {
+        totalOt = Number((diFixedOt + totalOt).toFixed(2));
+      }
+      if (mileOPG < diFixedMileOPG) {
+        mileOPG = Number((diFixedMileOPG + mileOPG).toFixed(2));
+      }
     } else if (isAmjad) {
       // Amjad Pervaiz (60356): Fixed OT = 10, Fixed Mileage (M) = 42
-      const diFixedOt = diRatio * 10;
-      const diFixedMileM = diRatio * 42;
+      const diFixedOt = Number((diRatio * 10).toFixed(2));
+      const diFixedMileM = Number((diRatio * 42).toFixed(2));
 
-      totalOt = Number((diFixedOt + totalOt).toFixed(2));
-      mileM = Number((diFixedMileM + mileM).toFixed(2));
+      if (totalOt < diFixedOt) {
+        totalOt = Number((diFixedOt + totalOt).toFixed(2));
+      }
+      if (mileM < diFixedMileM) {
+        mileM = Number((diFixedMileM + mileM).toFixed(2));
+      }
     }
   } else if (!matrix && isPresent) {
     // If no OP-72 live cells were provided, provide exact demo defaults for the 4 employees in PDF

@@ -232,7 +232,14 @@ function isDIDuty(dutyStr) {
   const parts = s.split("/").map(p => p.trim());
   return parts.some(p => {
     const clean = p.replace(/[\.\-\_\s]+/g, "");
-    return clean === "DI" || clean === "DRIVERINSTRUCTOR";
+    return (
+      clean === "DI" ||
+      clean === "DRIVERINSTRUCTOR" ||
+      clean.startsWith("DI") ||
+      clean.includes("DRIVERINSTRUCT") ||
+      clean.includes("DRIVERINSP") ||
+      /\bDI\b/i.test(p)
+    );
   });
 }
 
@@ -320,8 +327,14 @@ async function fetchOp72Records(employeeName, monthStr) {
   const mIdx = Number(mStr) - 1;
   const monthLabel = MONTH_LABELS[mIdx] || "JUN";
 
+  let searchName = employeeName;
+  const empRec = findEmpRecord(cachedMasterRows, employeeName);
+  if (empRec && empRec[C_NAME]) {
+    searchName = String(empRec[C_NAME]).trim();
+  }
+
   try {
-    const url = `${authBaseUrl}/api/op72/search?employee=${encodeURIComponent(employeeName)}&month=${monthLabel}&year=${year}`;
+    const url = `${authBaseUrl}/api/op72/search?employee=${encodeURIComponent(searchName)}&month=${monthLabel}&year=${year}`;
     const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "include" });
     if (res.ok) {
       const data = await res.json();
@@ -353,7 +366,7 @@ function hasValidDuty(dutyText) {
 function getLiveOp72SummaryForEmployee(targetEmpName, monthStr) {
   try {
     const savedMonth = (localStorage.getItem("OP72SelectedMonth") || "").trim();
-    if (savedMonth && monthStr && savedMonth !== monthStr) return null;
+    if (!savedMonth || (monthStr && savedMonth !== monthStr)) return null;
 
     const rawCells = localStorage.getItem("OP72EditableCells");
     if (!rawCells) return null;
@@ -467,10 +480,10 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
   let customDutyCnt = 0;
   const customDutyNames = [];
 
-  const sapIdClean = String(sap || "").trim();
-  const normEmpName = normStr(empName);
-  const isArshad = sapIdClean === "60400" || normEmpName.includes("ARSHAD MEHMOOD");
-  const isAmjad  = sapIdClean === "60356" || normEmpName.includes("AMJAD PERVAIZ");
+  const sapCandidate = String(sap || empRecord?.[C_SAP] || activeSession?.sapId || empName || "").trim();
+  const normCandidate = normStr(empName) + " " + normStr(empRecord ? empRecord[C_NAME] : "") + " " + normStr(activeSession?.userId || "");
+  const isArshad = sapCandidate === "60400" || sapCandidate.includes("60400") || normCandidate.includes("ARSHAD MEHMOOD") || normCandidate.includes("ARSHAD MAHMOOD");
+  const isAmjad  = sapCandidate === "60356" || sapCandidate.includes("60356") || normCandidate.includes("AMJAD PERVAIZ") || normCandidate.includes("AMJAD PARVAIZ");
   const isSpecialDI = isArshad || isAmjad;
 
   let diDaysCount = 0;
@@ -601,6 +614,10 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
           if (isGazetted) gazettedDutyCnt += 1;
         }
       }
+    } else if (isSpecialDI) {
+      // For Driver Instructors, any day without an explicit leave or alternate record is an active DI duty day
+      dutyText = "DI";
+      diDaysCount += 1;
     }
 
     const tr = document.createElement("tr");
@@ -655,20 +672,20 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
 
   // Special Driver Instructor (DI) package for Arshad Mehmood & Amjad Pervaiz
   if (isSpecialDI) {
-    if (!hasAnyDailyEntry && diDaysCount === 0) {
-      diDaysCount = daysCount;
+    if (diDaysCount === 0) {
+      diDaysCount = Math.max(0, daysCount - leave55Cnt);
     }
-    const diRatio = Math.min(1, Math.max(0, diDaysCount / daysCount));
+    const diRatio = daysCount > 0 ? Math.min(1, Math.max(0, diDaysCount / daysCount)) : 1;
     if (isArshad) {
       // Arshad Mehmood (60400): Fixed OT = 30, Fixed Mileage (G) = 28
-      const diFixedOt = diRatio * 30;
-      const diFixedMileOPG = diRatio * 28;
+      const diFixedOt = Number((diRatio * 30).toFixed(2));
+      const diFixedMileOPG = Number((diRatio * 28).toFixed(2));
       totalOtDays = Number((diFixedOt + totalOtDays).toFixed(2));
       mileOPG_calc = Number((diFixedMileOPG + mileOPG_calc).toFixed(2));
     } else if (isAmjad) {
       // Amjad Pervaiz (60356): Fixed OT = 10, Fixed Mileage (M) = 42
-      const diFixedOt = diRatio * 10;
-      const diFixedMileM = diRatio * 42;
+      const diFixedOt = Number((diRatio * 10).toFixed(2));
+      const diFixedMileM = Number((diRatio * 42).toFixed(2));
       totalOtDays = Number((diFixedOt + totalOtDays).toFixed(2));
       mileM_calc = Number((diFixedMileM + mileM_calc).toFixed(2));
     }
@@ -681,17 +698,37 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
   // If live OP-72 sheet was calculated in this session, match it exactly
   const liveOp72 = getLiveOp72SummaryForEmployee(empName, monthStr);
   if (liveOp72) {
-    totalOtDays = liveOp72.totalOt;
-    otHhmm = liveOp72.otHhmm;
-    mileM_calc = liveOp72.mileM;
-    mileP_calc = liveOp72.mileP;
-    mileOPG_calc = liveOp72.mileOPG;
-    sundayDutyCnt = liveOp72.sunday;
-    gazettedDutyCnt = liveOp72.gazetted;
-    opMailCnt = liveOp72.opMail;
-    opShntCnt = liveOp72.shntCnt;
-    opPassCnt = liveOp72.passCnt;
-    opGdsCnt = liveOp72.gdsCnt;
+    if (isSpecialDI) {
+      // For Driver Instructors, ensure liveOp72 NEVER wipes out the fixed DI package with zeros
+      if (liveOp72.totalOt > totalOtDays) totalOtDays = liveOp72.totalOt;
+      if (isArshad) {
+        if (liveOp72.mileOPG > mileOPG_calc) mileOPG_calc = liveOp72.mileOPG;
+      } else if (isAmjad) {
+        if (liveOp72.mileM > mileM_calc) mileM_calc = liveOp72.mileM;
+      }
+      if (liveOp72.sunday > 0) sundayDutyCnt = liveOp72.sunday;
+      if (liveOp72.gazetted > 0) gazettedDutyCnt = liveOp72.gazetted;
+      if (liveOp72.opMail > 0) opMailCnt = liveOp72.opMail;
+      if (liveOp72.shntCnt > 0) opShntCnt = liveOp72.shntCnt;
+      if (liveOp72.passCnt > 0) opPassCnt = liveOp72.passCnt;
+      if (liveOp72.gdsCnt > 0) opGdsCnt = liveOp72.gdsCnt;
+      totalOtHours = totalOtDays * 8;
+      const calcH = Math.floor(totalOtHours);
+      const calcM = Math.round((totalOtHours % 1) * 60);
+      otHhmm = `${calcH}:${String(calcM).padStart(2, "0")}`;
+    } else {
+      totalOtDays = liveOp72.totalOt;
+      otHhmm = liveOp72.otHhmm;
+      mileM_calc = liveOp72.mileM;
+      mileP_calc = liveOp72.mileP;
+      mileOPG_calc = liveOp72.mileOPG;
+      sundayDutyCnt = liveOp72.sunday;
+      gazettedDutyCnt = liveOp72.gazetted;
+      opMailCnt = liveOp72.opMail;
+      opShntCnt = liveOp72.shntCnt;
+      opPassCnt = liveOp72.passCnt;
+      opGdsCnt = liveOp72.gdsCnt;
+    }
   }
 
   // Store calculated summary for Tab 2
@@ -763,16 +800,48 @@ function renderAmountSummarySingleSheet(empName, monthStr, empRecord) {
   const [yStr, mStr] = monthStr.split("-");
   const year = Number(yStr) || 2026;
   const mIdx = Number(mStr) - 1;
+  const daysCount = new Date(year, mIdx + 1, 0).getDate();
   const monthFull = MONTH_NAMES[mIdx];
+
+  const sapCandidate = String((empRecord ? empRecord[C_SAP] : "") || activeSession?.sapId || empName || "").trim();
+  const normCandidate = normStr(empName) + " " + normStr(empRecord ? empRecord[C_NAME] : "") + " " + normStr(activeSession?.userId || "");
+  const isArshad = sapCandidate === "60400" || sapCandidate.includes("60400") || normCandidate.includes("ARSHAD MEHMOOD") || normCandidate.includes("ARSHAD MAHMOOD");
+  const isAmjad  = sapCandidate === "60356" || sapCandidate.includes("60356") || normCandidate.includes("AMJAD PERVAIZ") || normCandidate.includes("AMJAD PARVAIZ");
+  const isSpecialDI = isArshad || isAmjad;
+
+  // Fallback empRecord for DI instructors if missing or incomplete
+  if (!empRecord || !empRecord[C_BASIC]) {
+    if (isArshad) {
+      empRecord = [60400, "ARSHAD MEHMOOD", "Driver", 69460, "RWP", 2315.3333333333335, 694.6, 578.8333333333334, 463.0666666666667, 463.0666666666667, 2315.3333333333335, 200, 0, 150, 120, 1273.4333333333334, 1273.4333333333334];
+    } else if (isAmjad) {
+      empRecord = [60356, "AMJAD PERVAIZ", "Driver", 53620, "Driver", 1787.3333333333333, 536.2, 446.83333333333326, 357.46666666666664, 357.46666666666664, 1787.3333333333333, 200, 0, 150, 120, 983.0333333333333, 983.0333333333333];
+    }
+  }
 
   const desg = empRecord ? (empRecord[C_DESG] || empRecord[C_CAT] || "RUNNING STAFF") : "RUNNING STAFF";
   amtsSingleBanner.textContent = `MILEAGE SUMMARY OF RWP SHED ${String(desg).toUpperCase()} ${monthFull} - ${year}`;
 
-  const s = op72CalculatedSummary || {
+  const s = Object.assign({
     totalOt: 0, mileM: 0, mileP: 0, mileOPG: 0,
     sunday: 0, gazetted: 0, opMail: 0, shntCnt: 0, passCnt: 0, gdsCnt: 0,
     leave55Cnt: 0, customDutyCnt: 0, customDutyLabel: ""
-  };
+  }, op72CalculatedSummary || {});
+
+  // Ensure Driver Instructors have their minimum guaranteed DI package
+  if (isSpecialDI) {
+    const diRatio = daysCount > 0 ? Math.min(1, Math.max(0, (daysCount - (s.leave55Cnt || 0)) / daysCount)) : 1;
+    if (isArshad) {
+      const minOt = Number((diRatio * 30).toFixed(2));
+      const minMileOPG = Number((diRatio * 28).toFixed(2));
+      if (s.totalOt < minOt) s.totalOt = minOt;
+      if (s.mileOPG < minMileOPG) s.mileOPG = minMileOPG;
+    } else if (isAmjad) {
+      const minOt = Number((diRatio * 10).toFixed(2));
+      const minMileM = Number((diRatio * 42).toFixed(2));
+      if (s.totalOt < minOt) s.totalOt = minOt;
+      if (s.mileM < minMileM) s.mileM = minMileM;
+    }
+  }
 
   const sap = empRecord ? String(empRecord[C_SAP] || "") : "";
   const basicPay = empRecord ? cleanNum(empRecord[C_BASIC]) : 0;
@@ -839,9 +908,11 @@ function renderAmountSummarySingleSheet(empName, monthStr, empRecord) {
 
   amtsSingleBody.innerHTML = "";
 
+  const displayName = (empRecord && empRecord[C_NAME]) ? String(empRecord[C_NAME]).trim() : empName;
+
   // Row 1: Header (Name, SAP ID, Basic Pay)
   addTr([
-    mkTd(empName, "amt-empname b-left-thick", 2),
+    mkTd(displayName, "amt-empname b-left-thick", 2),
     mkTd("SAP ID", "amt-meta-lbl", 1),
     mkTd(sap, "amt-meta-val", 1),
     mkTd("BASIC\nPAY", "amt-meta-lbl", 1),
@@ -1311,7 +1382,26 @@ async function initPostingStationFeature(empIdentifier, currentStationFromSheet)
 async function loadSingleEmployeePortalData() {
   if (!currentEmployeeName) return;
 
-  const baseEmp = findEmpRecord(cachedMasterRows, currentEmployeeName);
+  let baseEmp = findEmpRecord(cachedMasterRows, currentEmployeeName);
+  if (!baseEmp && activeSession) {
+    baseEmp = findEmpRecord(cachedMasterRows, activeSession.userId || activeSession.sapId);
+  }
+  if (baseEmp && baseEmp[C_NAME]) {
+    currentEmployeeName = String(baseEmp[C_NAME]).trim();
+  }
+
+  // Fallback for Driver Instructors if baseEmp is not in cached master rows
+  const normTarget = normStr(currentEmployeeName) + " " + normStr(activeSession?.userId) + " " + normStr(activeSession?.sapId);
+  if (!baseEmp) {
+    if (normTarget.includes("ARSHAD") || normTarget.includes("60400")) {
+      baseEmp = [60400, "ARSHAD MEHMOOD", "Driver", 69460, "RWP", 2315.3333333333335, 694.6, 578.8333333333334, 463.0666666666667, 463.0666666666667, 2315.3333333333335, 200, 0, 150, 120, 1273.4333333333334, 1273.4333333333334];
+      currentEmployeeName = "ARSHAD MEHMOOD";
+    } else if (normTarget.includes("AMJAD") || normTarget.includes("60356")) {
+      baseEmp = [60356, "AMJAD PERVAIZ", "Driver", 53620, "Driver", 1787.3333333333333, 536.2, 446.83333333333326, 357.46666666666664, 357.46666666666664, 1787.3333333333333, 200, 0, 150, 120, 983.0333333333333, 983.0333333333333];
+      currentEmployeeName = "AMJAD PERVAIZ";
+    }
+  }
+
   const empRecord = (typeof getEffectivePayRecord === "function")
     ? getEffectivePayRecord(baseEmp, currentMonthStr)
     : baseEmp;
@@ -1383,7 +1473,13 @@ async function initPortal() {
   } else {
     // Single Employee Mode
     adminPortalBar.style.display = "none";
-    currentEmployeeName = String(activeSession.userId).trim();
+    const rawId = String(activeSession.userId || activeSession.sapId || "").trim();
+    const foundEmp = findEmpRecord(cachedMasterRows, rawId);
+    if (foundEmp && foundEmp[C_NAME]) {
+      currentEmployeeName = String(foundEmp[C_NAME]).trim();
+    } else {
+      currentEmployeeName = rawId;
+    }
     employeePageTitle.textContent = currentEmployeeName;
     employeeNameHeading.textContent = `${currentEmployeeName} (Employee Portal)`;
     chatHeaderTitle.textContent = "Main Admin: Vicky Ch";

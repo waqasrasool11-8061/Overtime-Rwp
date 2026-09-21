@@ -1302,13 +1302,56 @@ function calculateAndFillSummary(holidaySet, employees = []) {
     writeSummaryValue(empIdx, "Operating (Gds)",   String(operatingG));
 
     // ── Re-write totals now that late entries are added ──
-    writeSummaryValue(empIdx, "OT (hh:mm)",    minutesToOtString(totalOtMins));
-    writeSummaryValue(empIdx, "Total OT",      totalOtMins > 0 ? (totalOtMins / 60 / 8).toFixed(2) : "0");
-    writeSummaryValue(empIdx, "Mileage (M)",   mileageM   > 0 ? (mileageM   / 100).toFixed(2) : "0");
-    writeSummaryValue(empIdx, "Mileage (P)",   mileageP   > 0 ? (mileageP   / 100).toFixed(2) : "0");
-    writeSummaryValue(empIdx, "Mileage (OP/G)",mileageOpG > 0 ? (mileageOpG / 100).toFixed(2) : "0");
-    writeSummaryValue(empIdx, "Sunday",   String(sundayCount));
-    writeSummaryValue(empIdx, "Gazetted", String(gazettedCount));
+    const empNameNorm = (employees[empIdx - 1] || "").replace(/[\s\.\-_]+/g, " ").trim().toUpperCase();
+    const isArshadEmp = empNameNorm.includes("ARSHAD MEHMOOD");
+    const isAmjadEmp  = empNameNorm.includes("AMJAD PERVAIZ");
+    const isSpecialDIEmp = isArshadEmp || isAmjadEmp;
+
+    if (isSpecialDIEmp) {
+      let diDays = 0;
+      if (otherDutyMap.has("DI")) {
+        diDays = otherDutyMap.get("DI") || 0;
+        otherDutyMap.delete("DI");
+      }
+      const activeDays = dailyRows.filter((r) => r.dataset.monthActive === "true").length || 30;
+      if (diDays === 0) diDays = activeDays;
+      const diRatio = activeDays > 0 ? Math.min(1, Math.max(0, diDays / activeDays)) : 1;
+
+      let finalOt = totalOtMins / 60 / 8;
+      let finalMileOpG = mileageOpG / 100;
+      let finalMileM = mileageM / 100;
+
+      if (isArshadEmp) {
+        const diFixedOt = diRatio * 30;
+        const diFixedMileOPG = diRatio * 28;
+        finalOt = Number((diFixedOt + finalOt).toFixed(2));
+        finalMileOpG = Number((diFixedMileOPG + finalMileOpG).toFixed(2));
+        writeSummaryValue(empIdx, "Mileage (OP/G)", finalMileOpG.toFixed(2));
+        writeSummaryValue(empIdx, "Mileage (M)", mileageM > 0 ? (mileageM / 100).toFixed(2) : "0");
+      } else if (isAmjadEmp) {
+        const diFixedOt = diRatio * 10;
+        const diFixedMileM = diRatio * 42;
+        finalOt = Number((diFixedOt + finalOt).toFixed(2));
+        finalMileM = Number((diFixedMileM + finalMileM).toFixed(2));
+        writeSummaryValue(empIdx, "Mileage (M)", finalMileM.toFixed(2));
+        writeSummaryValue(empIdx, "Mileage (OP/G)", mileageOpG > 0 ? (mileageOpG / 100).toFixed(2) : "0");
+      }
+
+      const totalOtHours = finalOt * 8;
+      writeSummaryValue(empIdx, "OT (hh:mm)", minutesToOtString(Math.round(totalOtHours * 60)));
+      writeSummaryValue(empIdx, "Total OT", finalOt.toFixed(2));
+      writeSummaryValue(empIdx, "Mileage (P)", mileageP > 0 ? (mileageP / 100).toFixed(2) : "0");
+      writeSummaryValue(empIdx, "Sunday", String(sundayCount));
+      writeSummaryValue(empIdx, "Gazetted", String(gazettedCount));
+    } else {
+      writeSummaryValue(empIdx, "OT (hh:mm)",    minutesToOtString(totalOtMins));
+      writeSummaryValue(empIdx, "Total OT",      totalOtMins > 0 ? (totalOtMins / 60 / 8).toFixed(2) : "0");
+      writeSummaryValue(empIdx, "Mileage (M)",   mileageM   > 0 ? (mileageM   / 100).toFixed(2) : "0");
+      writeSummaryValue(empIdx, "Mileage (P)",   mileageP   > 0 ? (mileageP   / 100).toFixed(2) : "0");
+      writeSummaryValue(empIdx, "Mileage (OP/G)",mileageOpG > 0 ? (mileageOpG / 100).toFixed(2) : "0");
+      writeSummaryValue(empIdx, "Sunday",   String(sundayCount));
+      writeSummaryValue(empIdx, "Gazetted", String(gazettedCount));
+    }
 
     // Save map for tail row rendering after all employees processed
     allOtherDutyMaps.push(otherDutyMap);
@@ -1640,6 +1683,23 @@ async function loadAllEmployees() {
         }
 
         writeEmployeeDayData(row, empIdx + 1, duty, ot, mileage, isMulti);
+      }
+
+      // If Driver Instructor (Arshad Mehmood or Amjad Pervaiz), default days without explicit records to DI
+      const normEmp = String(empName || "").replace(/[\s\.\-_]+/g, " ").trim().toUpperCase();
+      if (normEmp.includes("ARSHAD MEHMOOD") || normEmp.includes("AMJAD PERVAIZ")) {
+        const daysInMonth = new Date(year, month0 + 1, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+          if (!byDay.has(day)) {
+            const rowIndex = day - 1;
+            if (rowIndex >= 0 && rowIndex < dailyRows.length) {
+              const row = dailyRows[rowIndex];
+              if (row && row.dataset.monthActive === "true") {
+                writeEmployeeDayData(row, empIdx + 1, "DI", "", "", false);
+              }
+            }
+          }
+        }
       }
 
       loadedCount += 1;

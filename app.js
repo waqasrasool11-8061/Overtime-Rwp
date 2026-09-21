@@ -175,6 +175,7 @@ function persistAuthSession() {
     homeAuthSessionKey,
     JSON.stringify({
       userId: activeUser.userId,
+      sapId: activeUser.sapId || "",
       role: activeUser.role,
       permissions: activeUser.permissions || [],
     })
@@ -1363,7 +1364,9 @@ homeLoginForm.addEventListener("submit", async (event) => {
     closeLoginDialog();
 
     if (activeUser.role === "employee") {
-      window.location.href = "employee-home.html";
+      document.documentElement.style.display = "none";
+      window.location.replace("employee-home.html");
+      return;
     }
   } finally {
     authRequestInProgress = false;
@@ -1572,7 +1575,9 @@ async function handleBiometricLogin() {
     closeLoginDialog();
 
     if (activeUser.role === "employee") {
-      window.location.href = "employee-home.html";
+      document.documentElement.style.display = "none";
+      window.location.replace("employee-home.html");
+      return;
     }
   } catch (err) {
     if (err.name === "NotAllowedError" || err.message?.includes("passkey") || err.message?.includes("credentials")) {
@@ -1647,7 +1652,8 @@ async function initBiometricLoginUI() {
           loginPasswordInput.value = "";
           closeLoginDialog();
           if (activeUser.role === "employee") {
-            window.location.href = "employee-home.html";
+            document.documentElement.style.display = "none";
+            window.location.replace("employee-home.html");
           }
         }, 700);
       } else {
@@ -1657,7 +1663,8 @@ async function initBiometricLoginUI() {
           loginPasswordInput.value = "";
           closeLoginDialog();
           if (activeUser.role === "employee") {
-            window.location.href = "employee-home.html";
+            document.documentElement.style.display = "none";
+            window.location.replace("employee-home.html");
           }
         }, 800);
       }
