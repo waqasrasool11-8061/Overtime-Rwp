@@ -2093,7 +2093,13 @@ td[contenteditable="true"]:focus {
     display: none !important;
   }
 
-  #genlPrintArea,
+  #genlPrintArea {
+    display: block;
+    width: calc(100% - 14mm);
+    max-width: calc(100% - 14mm);
+    margin: 0 0 0 14mm;
+  }
+
   #op72PrintArea {
     display: block;
     width: 100%;

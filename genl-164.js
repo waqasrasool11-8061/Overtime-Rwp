@@ -1139,11 +1139,33 @@
       });
     });
 
-    // Collapse grid to 1fr so table and header take full width without missing-panel empty column on right
+    const pageSizes = {
+      A4:    { w: 297,   h: 210   },
+      A3:    { w: 420,   h: 297   },
+      Legal: { w: 355.6, h: 215.9 },
+    };
+    const pageSize = pageSizes[pageSizeSelect.value] || pageSizes.Legal;
+
+    // Margins (mm) - Left 20mm for file punch hole clearance, Right 7mm to eliminate extra right space
+    const marginLeft   = 20; // mm (punch-hole filing clearance)
+    const marginRight  = 7;  // mm (compact right margin, eliminates dead space)
+    const marginTop    = 6;  // mm
+    const marginBottom = 6;  // mm
+    const availW       = pageSize.w - marginLeft - marginRight;
+
+    const pxPerMm  = 3.7795275591;
+    const canvasW  = Math.round(availW * pxPerMm);
+
+    // Collapse grid to 1fr and set width to canvasW so table spans full available printable width
     const origGridCols = printArea.style.gridTemplateColumns;
-    const origWidth = printArea.style.width;
+    const origWidth    = printArea.style.width;
+    const origMinWidth = printArea.style.minWidth;
+    const origMaxWidth = printArea.style.maxWidth;
+
     printArea.style.gridTemplateColumns = "1fr";
-    printArea.style.width = "100%";
+    printArea.style.width    = canvasW + "px";
+    printArea.style.minWidth = canvasW + "px";
+    printArea.style.maxWidth = canvasW + "px";
 
     // Remove overflow so html2canvas captures full scrollable content
     const overflowEls = [];
@@ -1159,19 +1181,13 @@
       }
     });
 
-    const pageSizes = {
-      A4:    { w: 297,   h: 210   },
-      A3:    { w: 420,   h: 297   },
-      Legal: { w: 355.6, h: 215.9 },
-    };
-    const pageSize = pageSizes[pageSizeSelect.value] || pageSizes.Legal;
-    const pxPerMm  = 3.7795275591;
-    const canvasW  = Math.round(pageSize.w * pxPerMm);
     const canvasH  = printArea.scrollHeight;
 
     const restoreAll = () => {
       printArea.style.gridTemplateColumns = origGridCols;
-      printArea.style.width = origWidth;
+      printArea.style.width    = origWidth;
+      printArea.style.minWidth = origMinWidth;
+      printArea.style.maxWidth = origMaxWidth;
       hiddenEls.forEach((el) => { el.style.display = ""; });
       overflowEls.forEach(({ el, ox, oy }) => {
         el.style.overflowX = ox;
@@ -1195,17 +1211,15 @@
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const { jsPDF } = window.jspdf;
-      const marginX = 8; // mm left & right margin
-      const marginY = 6; // mm top & bottom margin
-      const availW  = pageSize.w - (marginX * 2);
+
       const canvasRatio = canvas.width / canvas.height;
       const imgW  = availW;
       const imgH  = imgW / canvasRatio;
-      const pdfH  = Math.max(imgH + (marginY * 2), pageSize.h);
+      const pdfH  = Math.max(imgH + marginTop + marginBottom, pageSize.h);
       const pdf   = new jsPDF({ orientation: "landscape", unit: "mm", format: [pageSize.w, pdfH] });
 
-      // Perfectly center horizontally (equal left & right margins) and vertically
-      const offsetX = (pageSize.w - imgW) / 2;
+      // Left margin 20mm for punching holes; right margin is exactly 7mm
+      const offsetX = marginLeft;
       const offsetY = (pdfH - imgH) / 2;
       pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
 
