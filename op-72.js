@@ -858,14 +858,32 @@ function extractRecordValues(r) {
   const ot      = String(r[4] || "").trim();
   const mileage = String(r[5] || "").trim();
 
-  // Outward / Inward / Remarks summary
+  let outwardText = "";
+  if (r[6] || r[7] || r[8]) {
+    const train = r[6] ? String(r[6]).trim() : "";
+    const comm = r[7] ? String(r[7]).trim() : "";
+    const term = r[8] ? String(r[8]).trim() : "";
+    const times = (comm || term) ? ` (${comm} - ${term})` : "";
+    outwardText = `${train}${times}`.trim();
+  }
+
+  let inwardText = "";
+  if (r[9] || r[10] || r[11]) {
+    const train = r[9] ? String(r[9]).trim() : "";
+    const comm = r[10] ? String(r[10]).trim() : "";
+    const term = r[11] ? String(r[11]).trim() : "";
+    const times = (comm || term) ? ` (${comm} - ${term})` : "";
+    inwardText = `${train}${times}`.trim();
+  }
+
+  const remarks = r[12] ? String(r[12]).trim() : "";
   const details = [];
-  if (r[6]) details.push(`Out: ${r[6]} (${r[7] || ""} - ${r[8] || ""})`);
-  if (r[9]) details.push(`In: ${r[9]} (${r[10] || ""} - ${r[11] || ""})`);
-  if (r[12]) details.push(`Remarks: ${r[12]}`);
+  if (outwardText) details.push(`Out: ${outwardText}`);
+  if (inwardText) details.push(`In: ${inwardText}`);
+  if (remarks) details.push(`Remarks: ${remarks}`);
   const detailsText = details.join(" | ") || "—";
 
-  return { duty, ot, mileage, detailsText };
+  return { duty, ot, mileage, outwardText, inwardText, remarks, detailsText };
 }
 
 // Ek date par multiple records ko combine karo (VBA Option C logic)
@@ -930,36 +948,70 @@ function promptMultiEntryResolution(empName, dateLabel, records) {
       previewText.textContent = `Duty: ${combined.duty || "None"}, OT: ${combined.ot || "00:00"}, Mileage: ${combined.mileage || "0.00"}`;
     }
 
-    // Populate Table
+    // Populate Responsive Liquid Cards (No horizontal scrolling!)
     if (tableBody) {
       tableBody.innerHTML = "";
       parsedRecords.forEach((rec, idx) => {
-        const tr = document.createElement("tr");
-        if (idx === 0) tr.classList.add("is-selected");
+        const card = document.createElement("div");
+        card.className = `op72-multi-record-card ${idx === 0 ? "is-selected" : ""}`;
+        card.dataset.index = idx;
 
-        tr.innerHTML = `
-          <td style="text-align: center;">
-            <input type="radio" name="multiRecordRowPick" value="${idx}" ${idx === 0 ? "checked" : ""}>
-          </td>
-          <td><strong>#${idx + 1}</strong></td>
-          <td><span style="font-weight: 700; color: #93c5fd;">${rec.duty || "—"}</span></td>
-          <td>${rec.ot || "—"}</td>
-          <td>${rec.mileage || "—"}</td>
-          <td style="font-size: 0.78rem; color: rgba(255,255,255,0.7);">${rec.detailsText}</td>
+        card.innerHTML = `
+          <div class="multi-card-top">
+            <label class="multi-card-radio-label">
+              <input type="radio" name="multiRecordRowPick" value="${idx}" ${idx === 0 ? "checked" : ""}>
+              <span class="multi-card-badge">Entry #${idx + 1}</span>
+            </label>
+            <div class="multi-card-metrics">
+              <div class="multi-pill pill-duty" title="Duty Type">
+                <span class="p-lbl">Duty</span>
+                <span class="p-val">${rec.duty || "—"}</span>
+              </div>
+              <div class="multi-pill pill-ot" title="OverTime">
+                <span class="p-lbl">OT</span>
+                <span class="p-val">${rec.ot || "—"}</span>
+              </div>
+              <div class="multi-pill pill-mileage" title="Mileage">
+                <span class="p-lbl">Mileage</span>
+                <span class="p-val">${rec.mileage ? rec.mileage + " km" : "—"}</span>
+              </div>
+            </div>
+          </div>
+          <div class="multi-card-details">
+            ${rec.outwardText ? `
+              <div class="journey-chip chip-outward">
+                <span class="chip-tag">OUTWARD</span>
+                <span class="chip-info">${rec.outwardText}</span>
+              </div>
+            ` : ""}
+            ${rec.inwardText ? `
+              <div class="journey-chip chip-inward">
+                <span class="chip-tag">INWARD</span>
+                <span class="chip-info">${rec.inwardText}</span>
+              </div>
+            ` : ""}
+            ${rec.remarks ? `
+              <div class="journey-chip chip-remarks">
+                <span class="chip-tag">REMARKS</span>
+                <span class="chip-info">${rec.remarks}</span>
+              </div>
+            ` : ""}
+            ${(!rec.outwardText && !rec.inwardText && !rec.remarks) ? `
+              <span class="no-journey-info">No outward/inward timings or remarks recorded.</span>
+            ` : ""}
+          </div>
         `;
 
-        tr.addEventListener("click", (e) => {
-          if (e.target.tagName !== "INPUT") {
-            const r = tr.querySelector('input[type="radio"]');
-            if (r) r.checked = true;
-          }
-          tableBody.querySelectorAll("tr").forEach((row) => row.classList.remove("is-selected"));
-          tr.classList.add("is-selected");
+        card.addEventListener("click", () => {
+          const radio = card.querySelector('input[type="radio"]');
+          if (radio) radio.checked = true;
+          tableBody.querySelectorAll(".op72-multi-record-card").forEach((c) => c.classList.remove("is-selected"));
+          card.classList.add("is-selected");
           if (optSingle) optSingle.checked = true;
           syncChoiceUI();
         });
 
-        tableBody.appendChild(tr);
+        tableBody.appendChild(card);
       });
     }
 

@@ -127,30 +127,18 @@
         Is employee ki is date par 2 ya zyada entries paaye gaye hain. Niche me se entry select karein ya combine / manual option chunein:
       </p>
 
-      <div class="op72-multi-table-wrap">
-        <table class="op72-multi-table">
-          <thead>
-            <tr>
-              <th style="width: 44px; text-align: center;">Pick</th>
-              <th>#</th>
-              <th>Duty</th>
-              <th>OT</th>
-              <th>Mileage</th>
-              <th>Outward / Inward / Remarks</th>
-            </tr>
-          </thead>
-          <tbody id="op72MultiTableBody">
-            <!-- Populated dynamically -->
-          </tbody>
-        </table>
+      <div class="op72-multi-cards-wrap" id="op72MultiCardsWrap">
+        <div id="op72MultiTableBody" class="op72-multi-cards-list">
+          <!-- Populated dynamically with responsive liquid cards -->
+        </div>
       </div>
 
       <div class="op72-multi-choices">
         <label class="op72-choice-card">
           <input type="radio" name="multiChoice" value="single" id="multiChoiceSingle" checked>
           <div class="choice-text">
-            <strong>1. Single Entry (Select one from table above)</strong>
-            <span class="choice-sub">Sirf table me chuni hui entry ko sheet par load karein.</span>
+            <strong>1. Single Entry (Select one entry from cards above)</strong>
+            <span class="choice-sub">Chuni hui entry card ka data sheet par load hoga.</span>
           </div>
         </label>
 
