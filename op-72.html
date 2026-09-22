@@ -224,6 +224,137 @@
     </div>
   </dialog>
 
+  <!-- Quick Data Entry Dialog for Empty Dates (User Requested) -->
+  <dialog id="op72QuickEntryDialog" class="op72-quick-entry-dialog">
+    <div class="op72-quick-entry-content">
+      <div class="op72-quick-entry-head">
+        <div class="op72-quick-title-wrap">
+          <strong class="op72-quick-title">&#x1F4DD; Quick Data Entry &mdash; Empty Date</strong>
+          <span id="op72QuickMeta" class="op72-quick-meta">Employee &amp; Date info</span>
+        </div>
+        <button type="button" id="closeQuickEntryBtn" class="op72-quick-close" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <form id="op72QuickEntryForm" class="op72-quick-form" autocomplete="off">
+        <div class="op72-quick-grid">
+          <label>
+            Start Date <span class="required-star">*</span>
+            <input type="text" id="quickStartDate" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+          </label>
+          <label>
+            End Date <span class="required-star">*</span>
+            <input type="text" id="quickEndDate" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+          </label>
+          <label>
+            Employee 1 Name <span class="required-star">*</span>
+            <input type="text" id="quickEmployee1" name="employee1Name" placeholder="Employee 1" autocomplete="off" required>
+          </label>
+          <label>
+            Employee 2 Name (Optional)
+            <input type="text" id="quickEmployee2" name="employee2Name" placeholder="Optional Employee 2" autocomplete="off">
+          </label>
+          <label>
+            DutyType <span class="required-star">*</span>
+            <select id="quickDutyType" name="dutyType" required>
+              <option value="">Select DutyType</option>
+              <option value="M">M</option>
+              <option value="P">P</option>
+              <option value="OP">OP</option>
+              <option value="G">G</option>
+              <option value="LEAVE">LEAVE</option>
+              <option value="SCHOOL">SCHOOL</option>
+              <option value="WALTON">WALTON</option>
+              <option value="SICK">SICK</option>
+              <option value="LHP">LHP</option>
+              <option value="SUSPEND">SUSPEND</option>
+              <option value="ENQ">ENQ</option>
+              <option value="PVT">PVT</option>
+              <option value="ON HAND">ON HAND</option>
+              <option value="AT RWP">AT RWP</option>
+              <option value="AT LLM">AT LLM</option>
+              <option value="AT MKW">AT MKW</option>
+              <option value="AT SRQ">AT SRQ</option>
+              <option value="BC">BC</option>
+              <option value="IN OFFICE">IN OFFICE</option>
+              <option value="F. OFFICE">F. OFFICE</option>
+              <option value="PRC">PRC</option>
+              <option value="C.OFFICE">C.OFFICE</option>
+              <option value="SHEDMAN">SHEDMAN</option>
+              <option value="FORSHIFT">FORSHIFT</option>
+              <option value="DI">DI</option>
+              <option value="BOOK OFF">BOOK OFF</option>
+              <option value="HQ ENQ &amp; SEE TO DME">HQ ENQ &amp; SEE TO DME</option>
+            </select>
+          </label>
+          <label>
+            OverTime (OT)
+            <input type="text" id="quickOt" name="overTimeOt" placeholder="h:mm" autocomplete="off" inputmode="numeric">
+          </label>
+          <label>
+            Mileage
+            <input type="number" id="quickMileage" name="mileageKm" min="0" step="1" inputmode="numeric">
+          </label>
+        </div>
+
+        <div class="op72-quick-journeys">
+          <!-- Outward -->
+          <div class="op72-quick-journey-card outward-card">
+            <span class="journey-badge">OUTWARD Journey</span>
+            <div class="journey-subgrid">
+              <label>Duty
+                <input type="text" id="quickOutwardDuty" name="outwardDuty" placeholder="e.g. 101UP">
+              </label>
+              <label>Commenced
+                <input type="text" id="quickOutwardCommenced" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+              </label>
+              <label>Duration
+                <input type="number" id="quickOutwardDuration" name="outwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+              </label>
+              <label>Terminated
+                <input type="text" id="quickOutwardTerminated" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+              </label>
+            </div>
+          </div>
+
+          <!-- Inward -->
+          <div class="op72-quick-journey-card inward-card">
+            <span class="journey-badge">INWARD Journey</span>
+            <div class="journey-subgrid">
+              <label>Duty
+                <input type="text" id="quickInwardDuty" name="inwardDuty" placeholder="e.g. 102DN">
+              </label>
+              <label>Commenced
+                <input type="text" id="quickInwardCommenced" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+              </label>
+              <label>Duration
+                <input type="number" id="quickInwardDuration" name="inwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+              </label>
+              <label>Terminated
+                <input type="text" id="quickInwardTerminated" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <label class="quick-remarks-label">
+          Remarks
+          <textarea id="quickRemarks" name="remarks" rows="2" placeholder="Optional remarks"></textarea>
+        </label>
+
+        <p id="op72QuickNotice" class="op72-quick-notice" style="display: none;"></p>
+
+        <div class="op72-quick-actions">
+          <button type="submit" id="op72QuickSubmitBtn" class="btn-primary">
+            &#x1F4BE; Save &amp; Fill in OP-72
+          </button>
+          <button type="button" id="closeQuickEntryFooterBtn" class="btn-outline">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="auth-guard.js?v=2.1"></script>

@@ -2576,19 +2576,22 @@ function scanGroupEmptyDates() {
       `;
     } else if (emptyDays.length === dayCount) {
       card.classList.add("is-all-empty");
+      const chipsHtml = emptyDays
+        .map((d) => `<button type="button" class="date-chip" data-day="${d.dayNumber}" data-emp="${empIndex}" data-emp-name="${escapeHtml(empName)}" title="Click to fill data for Day ${d.dayNumber}">${String(d.dayNumber).padStart(2, "0")} <span style="font-size:0.75rem; opacity:0.8;">✏️</span></button>`)
+        .join("");
       card.innerHTML = `
         <div class="emp-empty-header">
           <span class="emp-empty-name">#${empIndex}. ${escapeHtml(empName)}</span>
           <span class="emp-empty-badge badge-all-empty">🔴 All ${dayCount} Days Empty</span>
         </div>
-        <div style="font-size: 0.78rem; color: #991b1b; font-weight: 600; margin-top: 4px;">
-          ⚠️ Is employee ka is month me koi data darj nahi hai.
+        <div class="emp-empty-chips-wrap">
+          ${chipsHtml}
         </div>
       `;
     } else {
       card.classList.add("is-partial");
       const chipsHtml = emptyDays
-        .map((d) => `<button type="button" class="date-chip" data-day="${d.dayNumber}" data-emp="${empIndex}" title="Click to scroll to Day ${d.dayNumber}">${String(d.dayNumber).padStart(2, "0")}</button>`)
+        .map((d) => `<button type="button" class="date-chip" data-day="${d.dayNumber}" data-emp="${empIndex}" data-emp-name="${escapeHtml(empName)}" title="Click to fill data for Day ${d.dayNumber}">${String(d.dayNumber).padStart(2, "0")} <span style="font-size:0.75rem; opacity:0.8;">✏️</span></button>`)
         .join("");
 
       card.innerHTML = `
@@ -2647,28 +2650,435 @@ if (refreshEmptyDatesBtn) {
   refreshEmptyDatesBtn.addEventListener("click", scanGroupEmptyDates);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OP-72 Quick Data Entry for Empty Dates
+// ─────────────────────────────────────────────────────────────────────────────
+const op72QuickEntryDialog = document.getElementById("op72QuickEntryDialog");
+const closeQuickEntryBtn = document.getElementById("closeQuickEntryBtn");
+const closeQuickEntryFooterBtn = document.getElementById("closeQuickEntryFooterBtn");
+const op72QuickEntryForm = document.getElementById("op72QuickEntryForm");
+const op72QuickMeta = document.getElementById("op72QuickMeta");
+const op72QuickNotice = document.getElementById("op72QuickNotice");
+
+const quickStartDate = document.getElementById("quickStartDate");
+const quickEndDate = document.getElementById("quickEndDate");
+const quickEmployee1 = document.getElementById("quickEmployee1");
+const quickEmployee2 = document.getElementById("quickEmployee2");
+const quickDutyType = document.getElementById("quickDutyType");
+const quickOt = document.getElementById("quickOt");
+const quickMileage = document.getElementById("quickMileage");
+const quickOutwardDuty = document.getElementById("quickOutwardDuty");
+const quickOutwardCommenced = document.getElementById("quickOutwardCommenced");
+const quickOutwardDuration = document.getElementById("quickOutwardDuration");
+const quickOutwardTerminated = document.getElementById("quickOutwardTerminated");
+const quickInwardDuty = document.getElementById("quickInwardDuty");
+const quickInwardCommenced = document.getElementById("quickInwardCommenced");
+const quickInwardDuration = document.getElementById("quickInwardDuration");
+const quickInwardTerminated = document.getElementById("quickInwardTerminated");
+const quickRemarks = document.getElementById("quickRemarks");
+const op72QuickSubmitBtn = document.getElementById("op72QuickSubmitBtn");
+
+let quickTargetDay = null;
+let quickTargetEmpIndex = null;
+
+function formatEntryDate(dateValue) {
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dd = String(dateValue.getDate()).padStart(2, "0");
+  const mmm = monthNames[dateValue.getMonth()];
+  const yyyy = dateValue.getFullYear();
+  return `${dd}-${mmm}-${yyyy}`;
+}
+
+function parseDateInput(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const dmyMatch = raw.match(/^(\d{1,2})[-/]([A-Za-z]{3})[-/](\d{2,4})$/);
+  if (dmyMatch) {
+    const day = Number(dmyMatch[1]);
+    const mNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    const mIdx = mNames.indexOf(dmyMatch[2].toUpperCase());
+    const yr = dmyMatch[3].length === 2 ? 2000 + Number(dmyMatch[3]) : Number(dmyMatch[3]);
+    if (day >= 1 && day <= 31 && mIdx >= 0) {
+      const d = new Date(yr, mIdx, day);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
+  const std = new Date(raw);
+  return Number.isNaN(std.getTime()) ? null : std;
+}
+
+function parseClockToMinutes(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return (hours * 60) + minutes;
+}
+
+function toHhMm(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
+  return raw;
+}
+
+function getJourneyTerminationOffset(startMinutes, endMinutes, durationDays) {
+  if (endMinutes === null) return null;
+  if (durationDays > 0) return durationDays;
+  if (startMinutes !== null && endMinutes < startMinutes) return 1;
+  return 0;
+}
+
+function parseRemarksParts(rawRemarks) {
+  const raw = String(rawRemarks || "").trim();
+  if (!raw) return [];
+  const parts = raw.split(",").map((item) => item.trim());
+  if (parts.some((item) => item === "")) {
+    throw new Error("Remarks contains empty parts. Please remove extra commas.");
+  }
+  return parts;
+}
+
+function buildRawDataRowsFromEntry(entry) {
+  const startDate = parseDateInput(entry.startDate);
+  const endDate = parseDateInput(entry.endDate);
+
+  if (!startDate || !endDate) {
+    throw new Error("Invalid Start Date or End Date.");
+  }
+
+  const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  if (endOnly < startOnly) {
+    throw new Error("End Date must be after Start Date.");
+  }
+
+  const baseRowCount = Math.round((endOnly.getTime() - startOnly.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+  const outStartMinutes = parseClockToMinutes(entry.outwardDutyCommenced);
+  const outEndMinutes = parseClockToMinutes(entry.outwardDutyTerminated);
+  const inStartMinutes = parseClockToMinutes(entry.inwardDutyCommenced);
+  const inEndMinutes = parseClockToMinutes(entry.inwardDutyTerminated);
+
+  const outDurationDays = Number(entry.outwardDuration || 0);
+  const inDurationDays = Number(entry.inwardDuration || 0);
+
+  const outTermOffset = getJourneyTerminationOffset(outStartMinutes, outEndMinutes, outDurationDays);
+  const outAnchorOffset = outTermOffset === null ? outDurationDays : outTermOffset;
+
+  let inCommOffset = null;
+  if (entry.inwardDuty || entry.inwardDutyCommenced || entry.inwardDutyTerminated) {
+    if (inStartMinutes === null) {
+      inCommOffset = outAnchorOffset;
+    } else if (outEndMinutes === null || inStartMinutes >= outEndMinutes) {
+      inCommOffset = outAnchorOffset;
+    } else {
+      inCommOffset = outAnchorOffset + 1;
+    }
+  }
+
+  let inTermOffset = null;
+  if (inEndMinutes !== null) {
+    const inTermRelativeOffset = getJourneyTerminationOffset(inStartMinutes, inEndMinutes, inDurationDays);
+    inTermOffset = (inCommOffset === null ? 0 : inCommOffset) + (inTermRelativeOffset || 0);
+  }
+
+  const candidateRowCounts = [baseRowCount];
+  if (outTermOffset !== null) candidateRowCounts.push(outTermOffset + 1);
+  if (inCommOffset !== null) candidateRowCounts.push(inCommOffset + 1);
+  if (inTermOffset !== null) candidateRowCounts.push(inTermOffset + 1);
+  const totalRowCount = Math.max(...candidateRowCounts);
+
+  const remarksParts = parseRemarksParts(entry.remarks);
+
+  const rows = Array.from({ length: totalRowCount }, (_, index) => {
+    const rowDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + index);
+    const row = new Array(13).fill("");
+    row[0] = formatEntryDate(rowDate);
+
+    row[1] = entry.employee1Name || "";
+    row[2] = entry.employee2Name || "";
+    row[3] = entry.dutyType || "";
+
+    return row;
+  });
+
+  if (totalRowCount > baseRowCount) {
+    const finalDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + totalRowCount - 1);
+    entry.endDate = formatEntryDate(finalDate);
+  }
+
+  rows[0][4] = entry.overTimeOt ? toHhMm(entry.overTimeOt) : "";
+  rows[0][5] = entry.mileageKm === 0 ? 0 : (entry.mileageKm || "");
+
+  if (entry.outwardDuty) rows[0][6] = entry.outwardDuty;
+  if (entry.outwardDutyCommenced) rows[0][7] = toHhMm(entry.outwardDutyCommenced);
+  if (entry.outwardDutyTerminated && outTermOffset !== null) {
+    rows[outTermOffset][8] = toHhMm(entry.outwardDutyTerminated);
+  }
+
+  if (entry.inwardDuty && inCommOffset !== null) rows[inCommOffset][9] = entry.inwardDuty;
+  if (entry.inwardDutyCommenced && inCommOffset !== null) {
+    rows[inCommOffset][10] = toHhMm(entry.inwardDutyCommenced);
+  }
+  if (entry.inwardDutyTerminated && inTermOffset !== null) {
+    rows[inTermOffset][11] = toHhMm(entry.inwardDutyTerminated);
+  }
+
+  if (remarksParts.length === 1) {
+    rows.forEach((row) => { row[12] = remarksParts[0]; });
+  } else if (remarksParts.length > 1) {
+    remarksParts.forEach((part, index) => {
+      if (index < rows.length) rows[index][12] = part;
+    });
+  }
+
+  return rows;
+}
+
+function syncQuickEndDate() {
+  const startRaw = quickStartDate.value.trim();
+  if (!startRaw) return;
+  const parsedStart = parseDateInput(startRaw);
+  if (!parsedStart) return;
+
+  const outStart = parseClockToMinutes(quickOutwardCommenced.value);
+  const outEnd = parseClockToMinutes(quickOutwardTerminated.value);
+  const inStart = parseClockToMinutes(quickInwardCommenced.value);
+  const inEnd = parseClockToMinutes(quickInwardTerminated.value);
+  const outDur = Number(quickOutwardDuration.value || 0);
+  const inDur = Number(quickInwardDuration.value || 0);
+
+  const outTermOffset = getJourneyTerminationOffset(outStart, outEnd, outDur);
+  const outAnchor = outTermOffset === null ? outDur : outTermOffset;
+
+  let inCommOffset = null;
+  const inDuty = (quickInwardDuty.value || "").trim() || quickInwardCommenced.value.trim() || quickInwardTerminated.value.trim();
+  if (inDuty || inStart !== null || inEnd !== null) {
+    if (inStart === null) inCommOffset = outAnchor;
+    else if (outEnd === null || inStart >= outEnd) inCommOffset = outAnchor;
+    else inCommOffset = outAnchor + 1;
+  }
+
+  let inTermOffset = null;
+  if (inEnd !== null) {
+    const inTermRelative = getJourneyTerminationOffset(inStart, inEnd, inDur);
+    inTermOffset = (inCommOffset === null ? 0 : inCommOffset) + (inTermRelative || 0);
+  }
+
+  const offsets = [0];
+  if (outTermOffset !== null) offsets.push(outTermOffset);
+  if (inCommOffset !== null) offsets.push(inCommOffset);
+  if (inTermOffset !== null) offsets.push(inTermOffset);
+
+  const maxOffset = Math.max(...offsets);
+  const targetDate = new Date(parsedStart.getFullYear(), parsedStart.getMonth(), parsedStart.getDate() + maxOffset);
+  const targetFormatted = formatEntryDate(targetDate);
+
+  const currentEnd = parseDateInput(quickEndDate.value.trim());
+  if (!currentEnd || currentEnd < targetDate || maxOffset > 0) {
+    quickEndDate.value = targetFormatted;
+  }
+}
+
+function openQuickEntryDialog(dayNum, empIndex, empName) {
+  quickTargetDay = dayNum;
+  quickTargetEmpIndex = empIndex;
+
+  const year = seedDate.getFullYear();
+  const month0 = seedDate.getMonth();
+  const dObj = new Date(year, month0, dayNum);
+  const dateStr = formatEntryDate(dObj);
+
+  quickStartDate.value = dateStr;
+  quickEndDate.value = dateStr;
+  quickEmployee1.value = empName || "";
+  quickEmployee2.value = "";
+  quickDutyType.value = "";
+  quickOt.value = "";
+  quickMileage.value = "";
+  quickOutwardDuty.value = "";
+  quickOutwardCommenced.value = "";
+  quickOutwardDuration.value = "0";
+  quickOutwardTerminated.value = "";
+  quickInwardDuty.value = "";
+  quickInwardCommenced.value = "";
+  quickInwardDuration.value = "0";
+  quickInwardTerminated.value = "";
+  quickRemarks.value = "";
+
+  if (op72QuickNotice) {
+    op72QuickNotice.style.display = "none";
+    op72QuickNotice.textContent = "";
+  }
+
+  if (op72QuickMeta) {
+    op72QuickMeta.textContent = `Slot #${empIndex}: ${empName} | Date: ${dateStr}`;
+  }
+
+  if (op72QuickEntryDialog) {
+    if (typeof op72QuickEntryDialog.showModal === "function") {
+      op72QuickEntryDialog.showModal();
+    } else {
+      op72QuickEntryDialog.setAttribute("open", "");
+    }
+  }
+
+  setTimeout(() => {
+    if (quickDutyType) quickDutyType.focus();
+  }, 100);
+}
+
+function closeQuickEntryDialog() {
+  if (op72QuickEntryDialog) {
+    if (typeof op72QuickEntryDialog.close === "function") {
+      op72QuickEntryDialog.close();
+    } else {
+      op72QuickEntryDialog.removeAttribute("open");
+    }
+  }
+}
+
+if (closeQuickEntryBtn) {
+  closeQuickEntryBtn.addEventListener("click", closeQuickEntryDialog);
+}
+if (closeQuickEntryFooterBtn) {
+  closeQuickEntryFooterBtn.addEventListener("click", closeQuickEntryDialog);
+}
+
+[quickOutwardCommenced, quickOutwardTerminated, quickInwardCommenced, quickInwardTerminated, quickOutwardDuration, quickInwardDuration].forEach((el) => {
+  if (el) el.addEventListener("blur", syncQuickEndDate);
+});
+
+if (op72QuickEntryForm) {
+  op72QuickEntryForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const emp1 = quickEmployee1.value.trim().toUpperCase();
+    const duty = quickDutyType.value.trim().toUpperCase();
+    const sDate = quickStartDate.value.trim();
+    const eDate = quickEndDate.value.trim();
+
+    if (!emp1) {
+      alert("Employee 1 Name is required.");
+      return;
+    }
+    if (!duty) {
+      alert("Please select Duty Type.");
+      return;
+    }
+
+    const entry = {
+      startDate: sDate,
+      endDate: eDate,
+      employee1Name: emp1,
+      employee2Name: quickEmployee2.value.trim().toUpperCase(),
+      dutyType: duty,
+      mileageKm: Number(quickMileage.value || 0),
+      overTimeOt: quickOt.value.trim(),
+      outwardDuty: quickOutwardDuty.value.trim().toUpperCase(),
+      outwardDutyCommenced: quickOutwardCommenced.value.trim(),
+      outwardDuration: Number(quickOutwardDuration.value || 0),
+      outwardDutyTerminated: quickOutwardTerminated.value.trim(),
+      inwardDuty: quickInwardDuty.value.trim().toUpperCase(),
+      inwardDutyCommenced: quickInwardCommenced.value.trim(),
+      inwardDuration: Number(quickInwardDuration.value || 0),
+      inwardDutyTerminated: quickInwardTerminated.value.trim(),
+      remarks: quickRemarks.value.trim().toUpperCase(),
+    };
+
+    if (op72QuickSubmitBtn) op72QuickSubmitBtn.disabled = true;
+    if (op72QuickNotice) {
+      op72QuickNotice.className = "op72-quick-notice";
+      op72QuickNotice.style.display = "block";
+      op72QuickNotice.textContent = "Saving to RawData & OP72 RawData...";
+    }
+
+    try {
+      const rows = buildRawDataRowsFromEntry(entry);
+      const res = await fetch(`${OP72_API_BASE}/api/raw-data/data-rows`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.message || `HTTP ${res.status}`);
+      }
+
+      closeQuickEntryDialog();
+
+      // Show temporary notification on OP-72 sheet
+      if (op72Msg) {
+        op72Msg.textContent = `✓ Data saved for ${emp1} on ${sDate}! Reloading sheet...`;
+      }
+
+      // Reload sheet and recalculate all totals
+      await loadAllEmployees();
+
+      // Refresh empty dates dialog so filled date disappears
+      scanGroupEmptyDates();
+
+      // Highlight the updated cell on sheet with success green
+      if (quickTargetDay && quickTargetEmpIndex) {
+        const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
+        const targetRow = dailyRows[quickTargetDay - 1];
+        if (targetRow) {
+          const cells = targetRow.querySelectorAll("td");
+          const dutyCell = cells[1 + (quickTargetEmpIndex - 1) * 3];
+          if (dutyCell) {
+            dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+            dutyCell.classList.add("op72-cell-success-highlight");
+            setTimeout(() => dutyCell.classList.remove("op72-cell-success-highlight"), 2500);
+          }
+        }
+      }
+    } catch (err) {
+      if (op72QuickNotice) {
+        op72QuickNotice.className = "op72-quick-notice error";
+        op72QuickNotice.textContent = `Error: ${err.message}`;
+      } else {
+        alert(`Error saving entry: ${err.message}`);
+      }
+    } finally {
+      if (op72QuickSubmitBtn) op72QuickSubmitBtn.disabled = false;
+    }
+  });
+}
+
 if (op72EmptyList) {
   op72EmptyList.addEventListener("click", (e) => {
     const chip = e.target.closest(".date-chip");
     if (!chip) return;
     const dayNum = Number(chip.dataset.day);
     const empIndex = Number(chip.dataset.emp);
+    const empName = chip.dataset.empName || "";
     if (!dayNum || !empIndex) return;
 
     const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
     const row = dailyRows[dayNum - 1];
-    if (!row) return;
 
-    const cells = row.querySelectorAll("td");
-    const dutyCell = cells[1 + (empIndex - 1) * 3];
+    if (row) {
+      const cells = row.querySelectorAll("td");
+      const dutyCell = cells[1 + (empIndex - 1) * 3];
 
-    if (dutyCell) {
-      dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-      dutyCell.classList.add("op72-cell-highlight");
-      setTimeout(() => {
-        dutyCell.classList.remove("op72-cell-highlight");
-      }, 1800);
+      if (dutyCell) {
+        dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        dutyCell.classList.add("op72-cell-highlight");
+        setTimeout(() => {
+          dutyCell.classList.remove("op72-cell-highlight");
+        }, 1800);
+      }
     }
+
+    // Open the Quick Data Entry Dialog for this empty date!
+    openQuickEntryDialog(dayNum, empIndex, empName);
   });
 }
 
