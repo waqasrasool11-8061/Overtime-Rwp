@@ -1139,22 +1139,24 @@
       });
     });
 
+    // Portrait mode page sizes (mm)
     const pageSizes = {
-      A4:    { w: 297,   h: 210   },
-      A3:    { w: 420,   h: 297   },
-      Legal: { w: 355.6, h: 215.9 },
+      A4:    { w: 210,   h: 297   },
+      A3:    { w: 297,   h: 420   },
+      Legal: { w: 215.9, h: 355.6 },
     };
     const pageSize = pageSizes[pageSizeSelect.value] || pageSizes.Legal;
 
-    // Margins (mm) - Left 20mm for file punch hole clearance, Right 7mm to eliminate extra right space
+    // Margins (mm) in Portrait mode - Left 20mm for file punch hole clearance, Right 7mm
     const marginLeft   = 20; // mm (punch-hole filing clearance)
-    const marginRight  = 7;  // mm (compact right margin, eliminates dead space)
-    const marginTop    = 6;  // mm
-    const marginBottom = 6;  // mm
+    const marginRight  = 7;  // mm (compact right margin)
+    const marginTop    = 8;  // mm
+    const marginBottom = 8;  // mm
     const availW       = pageSize.w - marginLeft - marginRight;
+    const availH       = pageSize.h - marginTop - marginBottom;
 
-    const pxPerMm  = 3.7795275591;
-    const canvasW  = Math.round(availW * pxPerMm);
+    // High-resolution render width for clean, un-wrapped table layout
+    const canvasW = 1200;
 
     // Collapse grid to 1fr and set width to canvasW so table spans full available printable width
     const origGridCols = printArea.style.gridTemplateColumns;
@@ -1219,19 +1221,21 @@
       const { jsPDF } = window.jspdf;
 
       const canvasRatio = canvas.width / canvas.height;
-      const imgW  = availW;
-      const imgH  = imgW / canvasRatio;
+      let imgW  = availW;
+      let imgH  = imgW / canvasRatio;
 
-      const targetW = pageSize.w;
-      const targetH = Math.max(imgH + marginTop + marginBottom, pageSize.h);
-      // In jsPDF, if width < height and orientation is 'landscape', jsPDF forcibly swaps width & height.
-      // Setting orientation based on target dimensions ensures jsPDF preserves targetW as page width and targetH as page height.
-      const orientation = targetW >= targetH ? "landscape" : "portrait";
-      const pdf   = new jsPDF({ orientation, unit: "mm", format: [targetW, targetH] });
+      // Scale down proportionally if content height exceeds printable page height
+      if (imgH > availH) {
+        imgH = availH;
+        imgW = imgH * canvasRatio;
+      }
 
-      // Left margin 20mm for punching holes; right margin is exactly 7mm; top & bottom margins preserved
+      // Strictly Portrait mode as requested by user
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageSize.w, pageSize.h] });
+
+      // Left margin 20mm for punching holes, top margin 8mm
       const offsetX = marginLeft;
-      const offsetY = Math.max(marginTop, (targetH - imgH) / 2);
+      const offsetY = marginTop;
       pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
 
       // output() returns a string; convert to Blob for File System API
