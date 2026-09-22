@@ -1167,17 +1167,22 @@
     printArea.style.minWidth = canvasW + "px";
     printArea.style.maxWidth = canvasW + "px";
 
-    // Remove overflow so html2canvas captures full scrollable content
+    // Remove overflow and max-height so html2canvas captures full scrollable content
     const overflowEls = [];
-    printArea.querySelectorAll("*").forEach((el) => {
+    const checkEls = [printArea, ...Array.from(printArea.querySelectorAll("*"))];
+    checkEls.forEach((el) => {
+      if (!el || !el.style) return;
       const computed = window.getComputedStyle(el);
       const ox = computed.overflowX;
       const oy = computed.overflowY;
+      const maxH = el.style.maxHeight;
       if (ox === "auto" || ox === "hidden" || ox === "scroll" ||
-          oy === "auto" || oy === "hidden" || oy === "scroll") {
-        overflowEls.push({ el, ox: el.style.overflowX, oy: el.style.overflowY });
+          oy === "auto" || oy === "hidden" || oy === "scroll" ||
+          (computed.maxHeight && computed.maxHeight !== "none")) {
+        overflowEls.push({ el, ox: el.style.overflowX, oy: el.style.overflowY, maxH });
         el.style.overflowX = "visible";
         el.style.overflowY = "visible";
+        el.style.maxHeight = "none";
       }
     });
 
@@ -1189,9 +1194,10 @@
       printArea.style.minWidth = origMinWidth;
       printArea.style.maxWidth = origMaxWidth;
       hiddenEls.forEach((el) => { el.style.display = ""; });
-      overflowEls.forEach(({ el, ox, oy }) => {
+      overflowEls.forEach(({ el, ox, oy, maxH }) => {
         el.style.overflowX = ox;
         el.style.overflowY = oy;
+        el.style.maxHeight = maxH;
       });
     };
 
@@ -1215,12 +1221,17 @@
       const canvasRatio = canvas.width / canvas.height;
       const imgW  = availW;
       const imgH  = imgW / canvasRatio;
-      const pdfH  = Math.max(imgH + marginTop + marginBottom, pageSize.h);
-      const pdf   = new jsPDF({ orientation: "landscape", unit: "mm", format: [pageSize.w, pdfH] });
 
-      // Left margin 20mm for punching holes; right margin is exactly 7mm
+      const targetW = pageSize.w;
+      const targetH = Math.max(imgH + marginTop + marginBottom, pageSize.h);
+      // In jsPDF, if width < height and orientation is 'landscape', jsPDF forcibly swaps width & height.
+      // Setting orientation based on target dimensions ensures jsPDF preserves targetW as page width and targetH as page height.
+      const orientation = targetW >= targetH ? "landscape" : "portrait";
+      const pdf   = new jsPDF({ orientation, unit: "mm", format: [targetW, targetH] });
+
+      // Left margin 20mm for punching holes; right margin is exactly 7mm; top & bottom margins preserved
       const offsetX = marginLeft;
-      const offsetY = (pdfH - imgH) / 2;
+      const offsetY = Math.max(marginTop, (targetH - imgH) / 2);
       pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
 
       // output() returns a string; convert to Blob for File System API
