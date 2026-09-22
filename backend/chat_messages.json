@@ -2,42 +2,136 @@
   {
     "id": "msg_welcome",
     "sender": "Vicky Ch",
-    "senderRole": "admin",
+    "sender_role": "admin",
     "receiver": "ALL",
     "text": "Welcome to Employee Portal! If you notice any overtime calculation discrepancy, wrong duty type, or leave error, please send a message here.",
-    "timestamp": "2026-08-18T03:42:06.867Z"
+    "timestamp": "2026-08-18T03:42:06.867Z",
+    "is_read": 1
   },
   {
     "id": "msg_1787024541107_7luq70pb9",
     "sender": "WAQAS RASOOL",
-    "senderRole": "employee",
+    "sender_role": "employee",
     "receiver": "Vicky Ch",
     "text": "SALAM",
-    "timestamp": "2026-08-18T03:42:21.107Z"
+    "timestamp": "2026-08-18T03:42:21.107Z",
+    "is_read": 1
   },
   {
-    "sender": "VERIFY_USER",
-    "senderRole": "employee",
-    "receiver": "admin",
-    "text": "Hello from verification script",
-    "read": true
+    "id": "msg_1789754507482_bhuhqgefa",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "WAQAS RASOOL",
+    "text": "wasalam",
+    "timestamp": "2026-09-18T18:01:47.482Z",
+    "is_read": 1
   },
   {
-    "id": "msg_1789753312944_chmr3nemj",
-    "sender": "VERIFY_USER",
-    "senderRole": "employee",
-    "receiver": "admin",
-    "text": "Hello from verification script",
-    "timestamp": "2026-09-18T17:41:52.945Z",
-    "read": true
+    "id": "msg_1789754522629_ueyvsjzte",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "WAQAS RASOOL",
+    "text": "Your query has been noted and is currently under review by shed office.",
+    "timestamp": "2026-09-18T18:02:02.629Z",
+    "is_read": 1
   },
   {
-    "id": "msg_1789753332284_ntn7xqonw",
-    "sender": "VERIFY_USER",
-    "senderRole": "employee",
-    "receiver": "admin",
-    "text": "Hello from verification script",
-    "timestamp": "2026-09-18T17:42:12.284Z",
-    "read": true
+    "id": "msg_1789824803422_4cg4cvdd4",
+    "sender": "HAQ NAWAZ",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Hi",
+    "timestamp": "2026-09-19T13:33:23.422Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789828645075_avhunv2e1",
+    "sender": "M IMTIAZ HAJI",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Excellent",
+    "timestamp": "2026-09-19T14:37:25.075Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789830545630_z2chqpn5s",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "HAQ NAWAZ",
+    "text": "g bhai",
+    "timestamp": "2026-09-19T15:09:05.630Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789830553804_rn4lw7pyt",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M IMTIAZ HAJI",
+    "text": "thanks",
+    "timestamp": "2026-09-19T15:09:13.804Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789831443073_tx2eym9on",
+    "sender": "ZAHEER AHMED",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "August Kay abi sirf ik he duty update Hy  aur abi Howa ni ya aoo pa show ni ho ra",
+    "timestamp": "2026-09-19T15:24:03.073Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789831515972_jq33h3dd3",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "ZAHEER AHMED",
+    "text": "upder process",
+    "timestamp": "2026-09-19T15:25:15.972Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789852877752_075mzxs2s",
+    "sender": "M DANISH",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Duty type needs correction in daily records.",
+    "timestamp": "2026-09-19T21:21:17.752Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789852888304_6db418npb",
+    "sender": "M DANISH",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Duty type needs correction in daily records.",
+    "timestamp": "2026-09-19T21:21:28.304Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789853295992_2y668ktdw",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M DANISH",
+    "text": "kiya masla he dear",
+    "timestamp": "2026-09-19T21:28:15.992Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789853318959_a403ddn4h",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M DANISH",
+    "text": "MKW paki posting krwani he hahaha",
+    "timestamp": "2026-09-19T21:28:38.959Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1789853342790_lm0oes3ts",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M DANISH",
+    "text": "abi August ka abi complete nai howa",
+    "timestamp": "2026-09-19T21:29:02.790Z",
+    "is_read": 1
   }
 ]

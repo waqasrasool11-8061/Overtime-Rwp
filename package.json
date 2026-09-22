@@ -10,7 +10,8 @@
     "migrate:raw-data": "node scripts/migrate-raw-data.js",
     "migrate:employee-master": "node scripts/migrate-employee-master.js",
     "create:op72-raw-data": "node scripts/create-op72-raw-data-db.js",
-    "db:backup": "node scripts/backup-db.js"
+    "db:backup": "node scripts/backup-db.js",
+    "db:sync": "node scripts/sync-from-turso.js"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

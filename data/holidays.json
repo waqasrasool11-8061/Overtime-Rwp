@@ -1,10 +1,58 @@
 [
   {
+    "date": "2026-02-05",
+    "name": "Kashmir Day"
+  },
+  {
+    "date": "2026-03-20",
+    "name": "Eid ul Fitr"
+  },
+  {
+    "date": "2026-03-21",
+    "name": "Eid ul Fitr"
+  },
+  {
+    "date": "2026-03-23",
+    "name": "Pakistan Day"
+  },
+  {
+    "date": "2026-05-01",
+    "name": "Labour Day"
+  },
+  {
+    "date": "2026-05-26",
+    "name": "Eid ul azha"
+  },
+  {
+    "date": "2026-05-27",
+    "name": "Eid ul azha"
+  },
+  {
+    "date": "2026-05-28",
+    "name": "Youm e Takber"
+  },
+  {
     "date": "2026-06-25",
     "name": "9th Moharam"
   },
   {
     "date": "2026-06-26",
     "name": "10th Moharam"
+  },
+  {
+    "date": "2026-08-14",
+    "name": "INDEPENDANCE DAY"
+  },
+  {
+    "date": "2026-08-25",
+    "name": "EID MILAD UN NABI"
+  },
+  {
+    "date": "2026-09-09",
+    "name": "Allama Iqbal Day"
+  },
+  {
+    "date": "2026-12-25",
+    "name": "Quaid e Azam Day"
   }
 ]

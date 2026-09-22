@@ -2677,9 +2677,236 @@ const quickInwardDuration = document.getElementById("quickInwardDuration");
 const quickInwardTerminated = document.getElementById("quickInwardTerminated");
 const quickRemarks = document.getElementById("quickRemarks");
 const op72QuickSubmitBtn = document.getElementById("op72QuickSubmitBtn");
+const quickEmployee1Dropdown = document.getElementById("quickEmployee1Dropdown");
+const quickEmployee2Dropdown = document.getElementById("quickEmployee2Dropdown");
+const quickEmployee1ToggleBtn = document.getElementById("quickEmployee1ToggleBtn");
+const quickEmployee2ToggleBtn = document.getElementById("quickEmployee2ToggleBtn");
 
 let quickTargetDay = null;
 let quickTargetEmpIndex = null;
+let quickEmp1Auto = null;
+let quickEmp2Auto = null;
+
+function collectQuickEmployeeNames() {
+  const names = new Set();
+
+  try {
+    const savedRows = JSON.parse(localStorage.getItem("EmployeeMasterData") || "[]");
+    if (Array.isArray(savedRows)) {
+      savedRows.forEach((row) => {
+        const name = Array.isArray(row) ? String(row[1] || "").trim() : "";
+        if (name) names.add(name);
+      });
+    }
+  } catch {}
+
+  const workbookRows = window.employeeMasterWorkbookData?.rows;
+  const workbookHeaderRows = Number(window.employeeMasterWorkbookData?.headerRows || 0);
+  if (Array.isArray(workbookRows)) {
+    workbookRows.slice(workbookHeaderRows).forEach((row) => {
+      const name = Array.isArray(row) ? String(row[1] || "").trim() : "";
+      if (name) names.add(name);
+    });
+  }
+
+  if (Array.isArray(groupEmployees)) {
+    groupEmployees.forEach((emp) => {
+      const name = String(emp.name || "").trim();
+      if (name) names.add(name);
+    });
+  }
+
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+async function loadEmployeeMasterDataForQuickEntry() {
+  try {
+    const res = await fetch(`${OP72_API_BASE}/api/employee-master/workbook`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (res.ok) {
+      window.employeeMasterWorkbookData = await res.json();
+    }
+  } catch {}
+}
+
+function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn) {
+  if (!inputElement || !dropdownElement) return null;
+
+  let currentItems = [];
+  let selectedIndex = -1;
+
+  function closeDropdown() {
+    dropdownElement.hidden = true;
+    dropdownElement.innerHTML = "";
+    currentItems = [];
+    selectedIndex = -1;
+  }
+
+  function setHighlight(index) {
+    if (!currentItems.length) {
+      selectedIndex = -1;
+      return;
+    }
+    const total = currentItems.length;
+    selectedIndex = (index + total) % total;
+
+    const children = dropdownElement.children;
+    for (let i = 0; i < children.length; i++) {
+      if (i === selectedIndex) {
+        children[i].classList.add("is-selected");
+        children[i].scrollIntoView({ block: "nearest" });
+      } else {
+        children[i].classList.remove("is-selected");
+      }
+    }
+  }
+
+  function selectName(name) {
+    inputElement.value = name;
+    inputElement.setCustomValidity("");
+    closeDropdown();
+    inputElement.dispatchEvent(new Event("input", { bubbles: true }));
+    inputElement.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function renderList(matchedNames, defaultSelectIdx = -1) {
+    dropdownElement.innerHTML = "";
+    currentItems = matchedNames;
+
+    if (!matchedNames.length) {
+      const emptyLi = document.createElement("li");
+      emptyLi.className = "employee-dropdown-empty";
+      emptyLi.textContent = "No matching employee found";
+      dropdownElement.appendChild(emptyLi);
+      dropdownElement.hidden = false;
+      selectedIndex = -1;
+      return;
+    }
+
+    matchedNames.forEach((name, idx) => {
+      const li = document.createElement("li");
+      li.className = "employee-dropdown-item";
+      li.setAttribute("role", "option");
+      li.textContent = name;
+      if (idx === defaultSelectIdx) {
+        li.classList.add("is-selected");
+      }
+
+      li.addEventListener("mouseenter", () => {
+        selectedIndex = idx;
+        const siblings = dropdownElement.children;
+        for (let j = 0; j < siblings.length; j++) {
+          siblings[j].classList.toggle("is-selected", j === idx);
+        }
+      });
+
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectName(name);
+      });
+
+      dropdownElement.appendChild(li);
+    });
+
+    selectedIndex = defaultSelectIdx;
+    dropdownElement.hidden = false;
+    if (defaultSelectIdx >= 0 && dropdownElement.children[defaultSelectIdx]) {
+      dropdownElement.children[defaultSelectIdx].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function openDropdown() {
+    const allNames = collectQuickEmployeeNames();
+    const query = inputElement.value.trim().toLowerCase();
+    let matched = allNames;
+    let initialHighlight = -1;
+
+    if (query) {
+      matched = allNames.filter((n) => n.toLowerCase().includes(query));
+      const exactIdx = matched.findIndex((n) => n.toLowerCase() === query);
+      initialHighlight = exactIdx >= 0 ? exactIdx : (matched.length > 0 ? 0 : -1);
+    } else {
+      initialHighlight = -1;
+    }
+
+    renderList(matched, initialHighlight);
+  }
+
+  inputElement.addEventListener("focus", () => {
+    openDropdown();
+  });
+
+  inputElement.addEventListener("click", () => {
+    if (dropdownElement.hidden) {
+      openDropdown();
+    }
+  });
+
+  inputElement.addEventListener("input", () => {
+    inputElement.setCustomValidity("");
+    openDropdown();
+  });
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropdownElement.hidden) {
+        inputElement.focus();
+        openDropdown();
+      } else {
+        closeDropdown();
+      }
+    });
+  }
+
+  inputElement.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (dropdownElement.hidden) {
+        openDropdown();
+        if (currentItems.length) setHighlight(0);
+      } else {
+        setHighlight(selectedIndex + 1);
+      }
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (dropdownElement.hidden) {
+        openDropdown();
+        if (currentItems.length) setHighlight(currentItems.length - 1);
+      } else {
+        setHighlight(selectedIndex - 1);
+      }
+    } else if (event.key === "Enter") {
+      if (!dropdownElement.hidden && selectedIndex >= 0 && selectedIndex < currentItems.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectName(currentItems[selectedIndex]);
+      } else if (!dropdownElement.hidden) {
+        closeDropdown();
+      }
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeDropdown();
+    } else if (event.key === "Tab") {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (
+      !inputElement.contains(event.target) &&
+      !dropdownElement.contains(event.target) &&
+      (!toggleBtn || !toggleBtn.contains(event.target))
+    ) {
+      closeDropdown();
+    }
+  });
+
+  return { closeDropdown, openDropdown };
+}
 
 function formatEntryDate(dateValue) {
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -2911,6 +3138,9 @@ function openQuickEntryDialog(dayNum, empIndex, empName) {
   quickInwardTerminated.value = "";
   quickRemarks.value = "";
 
+  if (quickEmp1Auto) quickEmp1Auto.closeDropdown();
+  if (quickEmp2Auto) quickEmp2Auto.closeDropdown();
+
   if (op72QuickNotice) {
     op72QuickNotice.style.display = "none";
     op72QuickNotice.textContent = "";
@@ -2934,6 +3164,8 @@ function openQuickEntryDialog(dayNum, empIndex, empName) {
 }
 
 function closeQuickEntryDialog() {
+  if (quickEmp1Auto) quickEmp1Auto.closeDropdown();
+  if (quickEmp2Auto) quickEmp2Auto.closeDropdown();
   if (op72QuickEntryDialog) {
     if (typeof op72QuickEntryDialog.close === "function") {
       op72QuickEntryDialog.close();
@@ -2953,6 +3185,10 @@ if (closeQuickEntryFooterBtn) {
 [quickOutwardCommenced, quickOutwardTerminated, quickInwardCommenced, quickInwardTerminated, quickOutwardDuration, quickInwardDuration].forEach((el) => {
   if (el) el.addEventListener("blur", syncQuickEndDate);
 });
+
+quickEmp1Auto = setupQuickEmployeeAutocomplete(quickEmployee1, quickEmployee1Dropdown, quickEmployee1ToggleBtn);
+quickEmp2Auto = setupQuickEmployeeAutocomplete(quickEmployee2, quickEmployee2Dropdown, quickEmployee2ToggleBtn);
+loadEmployeeMasterDataForQuickEntry();
 
 if (op72QuickEntryForm) {
   op72QuickEntryForm.addEventListener("submit", async (e) => {

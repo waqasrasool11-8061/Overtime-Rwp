@@ -247,11 +247,19 @@
           </label>
           <label>
             Employee 1 Name <span class="required-star">*</span>
-            <input type="text" id="quickEmployee1" name="employee1Name" placeholder="Employee 1" autocomplete="off" required>
+            <div class="autocomplete-wrapper">
+              <input type="text" id="quickEmployee1" name="employee1Name" placeholder="Type or choose Employee 1" autocomplete="off" required>
+              <button type="button" id="quickEmployee1ToggleBtn" class="dropdown-trigger-btn" aria-label="Toggle employee 1 list" tabindex="-1">▾</button>
+              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee1Dropdown" role="listbox" hidden></ul>
+            </div>
           </label>
           <label>
             Employee 2 Name (Optional)
-            <input type="text" id="quickEmployee2" name="employee2Name" placeholder="Optional Employee 2" autocomplete="off">
+            <div class="autocomplete-wrapper">
+              <input type="text" id="quickEmployee2" name="employee2Name" placeholder="Type or choose Employee 2" autocomplete="off">
+              <button type="button" id="quickEmployee2ToggleBtn" class="dropdown-trigger-btn" aria-label="Toggle employee 2 list" tabindex="-1">▾</button>
+              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee2Dropdown" role="listbox" hidden></ul>
+            </div>
           </label>
           <label>
             DutyType <span class="required-star">*</span>
@@ -358,8 +366,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="auth-guard.js?v=2.1"></script>
+  <script src="Employee_Master.data.js?v=2.1"></script>
   <script src="Group_Master.data.js?v=2.1"></script>
-  <script src="op-72.js?v=2.1"></script>
+  <script src="op-72.js?v=2.2"></script>
 </body>
 
 </html>
