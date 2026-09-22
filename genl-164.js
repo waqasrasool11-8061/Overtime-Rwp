@@ -1220,20 +1220,15 @@
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const { jsPDF } = window.jspdf;
 
-      const canvasRatio = canvas.width / canvas.height;
-      let imgW  = availW;
-      let imgH  = imgW / canvasRatio;
-
-      // Scale down proportionally if content height exceeds printable page height
-      if (imgH > availH) {
-        imgH = availH;
-        imgW = imgH * canvasRatio;
-      }
+      // Fit to Page: Stretch content to fill 100% of available portrait page width and height
+      // Ensures no empty space at bottom, larger clear details, and perfect 20mm punch margin
+      const imgW = availW;
+      const imgH = availH;
 
       // Strictly Portrait mode as requested by user
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageSize.w, pageSize.h] });
 
-      // Left margin 20mm for punching holes, top margin 8mm
+      // Left margin 20mm for punching holes, top margin 8mm, fills completely down to bottom margin
       const offsetX = marginLeft;
       const offsetY = marginTop;
       pdf.addImage(imgData, "JPEG", offsetX, offsetY, imgW, imgH);
