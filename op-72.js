@@ -2702,6 +2702,22 @@ if (refreshEmptyDatesBtn) {
   refreshEmptyDatesBtn.addEventListener("click", scanGroupEmptyDates);
 }
 
+const emptyDatesReloadAllBtn = document.getElementById("emptyDatesReloadAllBtn");
+if (emptyDatesReloadAllBtn) {
+  emptyDatesReloadAllBtn.addEventListener("click", async () => {
+    emptyDatesReloadAllBtn.disabled = true;
+    const origText = emptyDatesReloadAllBtn.textContent;
+    emptyDatesReloadAllBtn.textContent = "Loading sheet...";
+    try {
+      await loadAllEmployees();
+      scanGroupEmptyDates();
+    } finally {
+      emptyDatesReloadAllBtn.disabled = false;
+      emptyDatesReloadAllBtn.textContent = origText;
+    }
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OP-72 Quick Data Entry for Empty Dates
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3302,30 +3318,40 @@ if (op72QuickEntryForm) {
 
       closeQuickEntryDialog();
 
-      // Show temporary notification on OP-72 sheet
-      if (op72Msg) {
-        op72Msg.textContent = `✓ Data saved for ${emp1} on ${sDate}! Reloading sheet...`;
+      // Update cell(s) immediately in the table DOM for instant visual feedback without slow reload
+      if (quickTargetDay && quickTargetEmpIndex && Array.isArray(rows)) {
+        const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
+        rows.forEach((r, offset) => {
+          const dayIdx = (quickTargetDay - 1) + offset;
+          const targetRow = dailyRows[dayIdx];
+          if (targetRow) {
+            const cells = targetRow.querySelectorAll("td");
+            const dutyCell = cells[1 + (quickTargetEmpIndex - 1) * 3];
+            const otCell = cells[1 + (quickTargetEmpIndex - 1) * 3 + 1];
+            const mileageCell = cells[1 + (quickTargetEmpIndex - 1) * 3 + 2];
+
+            if (dutyCell) {
+              dutyCell.textContent = r[3] || duty;
+              dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+              dutyCell.classList.add("op72-cell-success-highlight");
+              setTimeout(() => dutyCell.classList.remove("op72-cell-success-highlight"), 3000);
+            }
+            if (otCell) {
+              otCell.textContent = r[4] ? toHhMm(r[4]) : "-";
+            }
+            if (mileageCell) {
+              mileageCell.textContent = Number(r[5]) > 0 ? Number(r[5]).toFixed(2) : "-";
+            }
+          }
+        });
       }
 
-      // Reload sheet and recalculate all totals
-      await loadAllEmployees();
-
-      // Refresh empty dates dialog so filled date disappears
+      // Refresh empty dates dialog immediately so the filled date chip vanishes with zero delay
       scanGroupEmptyDates();
 
-      // Highlight the updated cell on sheet with success green
-      if (quickTargetDay && quickTargetEmpIndex) {
-        const dailyRows = Array.from(op72Body.querySelectorAll('tr[data-row-type="daily-date"]'));
-        const targetRow = dailyRows[quickTargetDay - 1];
-        if (targetRow) {
-          const cells = targetRow.querySelectorAll("td");
-          const dutyCell = cells[1 + (quickTargetEmpIndex - 1) * 3];
-          if (dutyCell) {
-            dutyCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-            dutyCell.classList.add("op72-cell-success-highlight");
-            setTimeout(() => dutyCell.classList.remove("op72-cell-success-highlight"), 2500);
-          }
-        }
+      // Show friendly notification on OP-72 sheet
+      if (op72Msg) {
+        op72Msg.textContent = `✓ Data saved for ${emp1} on ${sDate}! (Fast entry mode: Click 'Load Group' when all entries are done to recalculate full sheet)`;
       }
     } catch (err) {
       if (op72QuickNotice) {
