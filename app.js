@@ -139,12 +139,59 @@ function setHomeAccessByRole(user) {
   });
 }
 
+function getAdminThemeInfo(user) {
+  if (!user || !user.userId) return null;
+  const uid = String(user.userId).trim().toLowerCase();
+  if (uid === "vicky ch" || (user.role === "admin" && uid.includes("vicky"))) {
+    return {
+      key: "vicky-ch",
+      displayName: "Vicky Ch",
+      roleTitle: "Main Admin",
+      badgeIcon: "👑",
+      colorLabel: "Royal Blue",
+    };
+  }
+  if (uid === "vicky raja" || user.role === "restricted-admin" || uid.includes("raja")) {
+    return {
+      key: "vicky-raja",
+      displayName: "Vicky Raja",
+      roleTitle: "Restricted Admin",
+      badgeIcon: "🛡️",
+      colorLabel: "Emerald Green",
+    };
+  }
+  if (uid === "ehtisham") {
+    return {
+      key: "ehtisham",
+      displayName: "EHTISHAM",
+      roleTitle: "Sub Admin / Clerk",
+      badgeIcon: "✏️",
+      colorLabel: "Amber Gold",
+    };
+  }
+  if (uid === "arsalan shah" || uid.includes("arsalan")) {
+    return {
+      key: "arsalan-shah",
+      displayName: "ARSALAN SHAH",
+      roleTitle: "Sub Admin / Clerk",
+      badgeIcon: "✏️",
+      colorLabel: "Purple Violet",
+    };
+  }
+  return null;
+}
+
 function renderAuthState() {
   updateLocoLinkButtonUI();
+  const adminIdentityPill = document.getElementById("adminIdentityPill");
+
   if (!activeUser) {
     loginStateText.textContent = "Not signed in.";
     loginToggleBtn.textContent = "Login";
     if (logoutBtn) logoutBtn.hidden = true;
+    delete document.body.dataset.adminTheme;
+    delete document.documentElement.dataset.adminTheme;
+    if (adminIdentityPill) adminIdentityPill.style.display = "none";
     setHomeAccessByRole(null);
     setLandingMode(true);
     return;
@@ -160,6 +207,27 @@ function renderAuthState() {
   loginStateText.textContent = `Signed in: ${activeUser.userId} | ${roleText}`;
   loginToggleBtn.textContent = activeUser.userId;
   if (logoutBtn) logoutBtn.hidden = false;
+
+  const theme = getAdminThemeInfo(activeUser);
+  if (theme) {
+    document.body.dataset.adminTheme = theme.key;
+    document.documentElement.dataset.adminTheme = theme.key;
+    if (adminIdentityPill) {
+      adminIdentityPill.style.display = "inline-flex";
+      adminIdentityPill.className = `admin-identity-pill admin-pill-${theme.key}`;
+      adminIdentityPill.innerHTML = `
+        <span class="admin-pill-badge">${theme.badgeIcon}</span>
+        <span class="admin-pill-name">${theme.displayName}</span>
+        <span class="admin-pill-role">${theme.roleTitle}</span>
+        <span class="admin-pill-dot" title="Signature Color: ${theme.colorLabel}"></span>
+      `;
+    }
+  } else {
+    delete document.body.dataset.adminTheme;
+    delete document.documentElement.dataset.adminTheme;
+    if (adminIdentityPill) adminIdentityPill.style.display = "none";
+  }
+
   applyNavigationPermissions(activeUser);
   setLandingMode(false);
   setHomeAccessByRole(activeUser);
@@ -864,13 +932,14 @@ function buildRawDataRowsFromEntry(entry) {
 
   const rows = Array.from({ length: totalRowCount }, (_, index) => {
     const rowDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + index);
-    const row = new Array(13).fill("");
+    const row = new Array(14).fill("");
     row[0] = formatDateDdMmmYyyy(rowDate);
 
     // Automatically set employee 1, employee 2, and duty type on all generated journey dates
     row[1] = entry.employee1Name || "";
     row[2] = entry.employee2Name || "";
     row[3] = entry.dutyType || "";
+    row[13] = entry.createdBy || "";
 
     return row;
   });
@@ -915,6 +984,12 @@ function buildRawDataRowsFromEntry(entry) {
       if (index < rows.length) {
         rows[index][12] = part;
       }
+    });
+  }
+
+  if (entry.createdBy) {
+    rows.forEach((row) => {
+      row[13] = entry.createdBy;
     });
   }
 
@@ -1087,6 +1162,7 @@ form.addEventListener("submit", async (event) => {
     inwardDuration: normalizedInwardDuration,
     inwardDutyTerminated: normalizedInwardTerminated,
     remarks: String(formData.get("remarks") || "").trim().toUpperCase(),
+    createdBy: activeUser?.userId || (JSON.parse(localStorage.getItem(homeAuthSessionKey) || "{}")?.userId) || "",
   };
 
   try {

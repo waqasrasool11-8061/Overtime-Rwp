@@ -109,18 +109,28 @@ function isEmptyRawDataRow(row) {
   return true;
 }
 
+function normalizeAdminCreator(rawCreator) {
+  if (!rawCreator) return "unassigned";
+  const str = String(rawCreator).trim().toLowerCase();
+  if (str === "vicky ch" || str === "vicky-ch" || str.includes("vicky ch")) return "vicky-ch";
+  if (str === "vicky raja" || str === "vicky-raja" || str.includes("vicky raja") || str.includes("raja")) return "vicky-raja";
+  if (str === "ehtisham") return "ehtisham";
+  if (str === "arsalan shah" || str === "arsalan-shah" || str.includes("arsalan")) return "arsalan-shah";
+  return "unassigned";
+}
+
 function getVisibleColumnCount(rows) {
   let lastUsedColumn = 0;
 
   rows.forEach((row) => {
     row.forEach((value, columnIndex) => {
-      if (normalizeCellValue(value).trim() !== "") {
+      if (columnIndex < RAW_DATA_COLUMNS.length && normalizeCellValue(value).trim() !== "") {
         lastUsedColumn = Math.max(lastUsedColumn, columnIndex + 1);
       }
     });
   });
 
-  return Math.max(RAW_DATA_COLUMNS.length, lastUsedColumn || detectedColumnCount || RAW_DATA_COLUMNS.length);
+  return RAW_DATA_COLUMNS.length;
 }
 
 function formatDateDdMmmYy(value) {
@@ -417,6 +427,19 @@ function addDataRowToTable(targetBody, row, visibleColumnCount, rowMeta) {
   const tr = document.createElement("tr");
   tr.dataset.rowIndex = String(Number(rowMeta?.rowIndex || -1));
 
+  const creatorRaw = String(row[13] || rowMeta?.createdBy || "").trim();
+  const adminKey = normalizeAdminCreator(creatorRaw);
+  if (adminKey !== "unassigned") {
+    tr.classList.add("admin-row", `admin-row-${adminKey}`);
+    tr.dataset.creatorAdmin = adminKey;
+    tr.title = `Entry Creator: ${creatorRaw}`;
+  } else {
+    tr.dataset.creatorAdmin = "unassigned";
+  }
+  if (creatorRaw) {
+    tr.dataset.creatorRaw = creatorRaw;
+  }
+
   const selectTd = document.createElement("td");
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
@@ -448,18 +471,26 @@ function getCurrentSheetRows() {
       allTrs.push(...trs);
     });
 
-    return allTrs.map((tr) =>
-      Array.from(tr.querySelectorAll("td"))
+    return allTrs.map((tr) => {
+      const rowVals = Array.from(tr.querySelectorAll("td"))
         .slice(1)
-        .map((td) => td.textContent.trim())
-    );
+        .map((td) => td.textContent.trim());
+      if (tr.dataset.creatorRaw) {
+        rowVals[13] = tr.dataset.creatorRaw;
+      }
+      return rowVals;
+    });
   }
 
-  return Array.from(rawDataTableBody.querySelectorAll("tr")).map((tr) =>
-    Array.from(tr.querySelectorAll("td"))
+  return Array.from(rawDataTableBody.querySelectorAll("tr")).map((tr) => {
+    const rowVals = Array.from(tr.querySelectorAll("td"))
       .slice(1)
-      .map((td) => td.textContent.trim())
-  );
+      .map((td) => td.textContent.trim());
+    if (tr.dataset.creatorRaw) {
+      rowVals[13] = tr.dataset.creatorRaw;
+    }
+    return rowVals;
+  });
 }
 
 function getSelectedRowIndices() {
@@ -816,6 +847,14 @@ function renderRawDataTable() {
           <span class="month-row-badge">${group.items.length} ${group.items.length === 1 ? "Record" : "Records"}</span>
         </div>
         <div class="month-header-actions">
+          <select class="month-admin-filter" data-month-filter="${key}" title="Filter this month by Admin / Color" onclick="event.stopPropagation()">
+            <option value="all">🎨 All Admins / Colors</option>
+            <option value="vicky-ch">🔵 Vicky Ch (Main Admin)</option>
+            <option value="vicky-raja">🟢 Vicky Raja (Restricted Admin)</option>
+            <option value="ehtisham">🟡 EHTISHAM (Sub Admin)</option>
+            <option value="arsalan-shah">🟣 ARSALAN SHAH (Sub Admin)</option>
+            <option value="unassigned">⚪ Legacy / Other</option>
+          </select>
           <button type="button" class="btn-month-copy" data-copy-month="${key}" title="Copy ${group.label} records to clipboard (Excel ready)">
             📋 Copy Month
           </button>
@@ -1109,7 +1148,7 @@ if (rawDataContainer) {
 
     // 3. Header Click (Accordion toggle)
     const header = e.target.closest(".month-accordion-header");
-    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label")) {
+    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label") && !e.target.closest(".month-admin-filter")) {
       const monthKey = header.dataset.toggleMonth;
       const body = document.getElementById(`monthBody_${monthKey}`);
       const chevron = header.querySelector(".month-chevron");
@@ -1126,6 +1165,56 @@ if (rawDataContainer) {
       }
     }
   });
+
+  // Handle month admin / color filter change
+  rawDataContainer.addEventListener("change", (e) => {
+    const filterSelect = e.target.closest("select.month-admin-filter");
+    if (filterSelect) {
+      e.stopPropagation();
+      const monthKey = filterSelect.dataset.monthFilter;
+      const selectedAdmin = filterSelect.value;
+      applyRawDataMonthAdminFilter(monthKey, selectedAdmin);
+      return;
+    }
+  });
+}
+
+function applyRawDataMonthAdminFilter(monthKey, selectedAdmin) {
+  const block = document.getElementById(`monthBlock_${monthKey}`);
+  if (!block) return;
+  const trs = Array.from(block.querySelectorAll("tbody tr"));
+  let visibleCount = 0;
+  trs.forEach((tr) => {
+    let show = false;
+    if (selectedAdmin === "all") {
+      show = true;
+    } else if (selectedAdmin === "unassigned") {
+      show = (!tr.dataset.creatorAdmin || tr.dataset.creatorAdmin === "unassigned");
+    } else {
+      show = (tr.dataset.creatorAdmin === selectedAdmin);
+    }
+    tr.style.display = show ? "" : "none";
+    if (show) visibleCount += 1;
+  });
+
+  const badge = block.querySelector(".month-row-badge");
+  if (badge) {
+    if (selectedAdmin === "all") {
+      badge.textContent = `${trs.length} ${trs.length === 1 ? "Record" : "Records"}`;
+    } else {
+      badge.textContent = `${visibleCount}/${trs.length} Records`;
+    }
+  }
+
+  // If filtered to a specific admin and block is collapsed, expand it
+  const header = block.querySelector(".month-accordion-header");
+  const body = block.querySelector(".month-accordion-body");
+  if (header && body && selectedAdmin !== "all" && body.classList.contains("is-collapsed")) {
+    header.classList.add("is-open");
+    body.classList.remove("is-collapsed");
+    const chevron = header.querySelector(".month-chevron");
+    if (chevron) chevron.textContent = "▼";
+  }
 }
 
 if (rawDataMonthJump) {
@@ -1267,6 +1356,15 @@ submitRawRecordBtn.addEventListener("click", async () => {
   const rowValues = Array.from(rawDataAddFields.querySelectorAll("input[data-raw-column-index]"))
     .sort((a, b) => Number(a.dataset.rawColumnIndex) - Number(b.dataset.rawColumnIndex))
     .map((input) => input.value.trim());
+
+  let activeAdminUser = "";
+  try {
+    const auth = JSON.parse(localStorage.getItem("HomeAuthSession") || "{}");
+    activeAdminUser = auth?.userId || "";
+  } catch (_) {}
+  if (activeAdminUser) {
+    rowValues[13] = activeAdminUser;
+  }
 
   try {
     await addSingleRawDataRecord(rowValues);

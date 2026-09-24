@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>OverTime</title>
-	<!-- Instant redirect check to prevent UI flash for logged-in employee / restricted admin -->
+	<!-- Instant session & theme check to prevent UI flash -->
 	<script>
 		(function () {
 			try {
@@ -14,9 +14,17 @@
 					if (session && session.role === "employee") {
 						document.documentElement.style.display = "none";
 						window.location.replace("employee-home.html");
-					} else if (session && session.role === "restricted-admin") {
-						document.documentElement.style.display = "none";
-						window.location.replace("raw-data.html");
+						return;
+					}
+					var uid = String(session.userId || "").trim().toLowerCase();
+					if (uid === "vicky ch" || (session.role === "admin" && uid.indexOf("vicky") !== -1)) {
+						document.documentElement.dataset.adminTheme = "vicky-ch";
+					} else if (uid === "vicky raja" || session.role === "restricted-admin") {
+						document.documentElement.dataset.adminTheme = "vicky-raja";
+					} else if (uid === "ehtisham") {
+						document.documentElement.dataset.adminTheme = "ehtisham";
+					} else if (uid === "arsalan shah" || uid.indexOf("arsalan") !== -1) {
+						document.documentElement.dataset.adminTheme = "arsalan-shah";
 					}
 				}
 			} catch (_) {}
@@ -103,7 +111,10 @@
 	<main class="simple-page home-form-page">
 		<section class="panel">
 			<div class="data-entry-header-row">
-				<h2>Data Entry Form</h2>
+				<div class="data-entry-title-wrap">
+					<h2>Data Entry Form</h2>
+					<div id="adminIdentityPill" class="admin-identity-pill" style="display: none;"></div>
+				</div>
 				<div class="entry-mode-tabs" role="tablist">
 					<button type="button" id="tabManualMode" class="btn-tab is-active" role="tab" aria-selected="true">
 						⌨️ Form Mode

@@ -557,11 +557,12 @@ function rowValuesToSearchRecord(id, rowIndex, rowValues) {
     inwardCommenced: normalizeClockTimeToHhMm(values[10]),
     inwardTerminated: normalizeClockTimeToHhMm(values[11]),
     remarks: normalizeText(values[12]),
+    createdBy: normalizeText(values[13]),
   };
 }
 
 function searchRecordToRowValues(record) {
-  return RAW_DATA_SEARCH_COLUMNS.map((key) => {
+  const row = RAW_DATA_SEARCH_COLUMNS.map((key) => {
     if (key === "ot") {
       return normalizeOtValueToHhMm(record?.[key]);
     }
@@ -570,6 +571,10 @@ function searchRecordToRowValues(record) {
     }
     return normalizeText(record?.[key]);
   });
+  if (record?.createdBy) {
+    row.push(normalizeText(record.createdBy));
+  }
+  return row;
 }
 
 function validateSearchRecord(record, employeeNameSet) {

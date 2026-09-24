@@ -257,9 +257,33 @@ function formatCellValue(value, columnIndex, isDataRow) {
   return String(value ?? "");
 }
 
+function normalizeAdminCreator(rawCreator) {
+  if (!rawCreator) return "unassigned";
+  const str = String(rawCreator).trim().toLowerCase();
+  if (str === "vicky ch" || str === "vicky-ch" || str.includes("vicky ch")) return "vicky-ch";
+  if (str === "vicky raja" || str === "vicky-raja" || str.includes("vicky raja") || str.includes("raja")) return "vicky-raja";
+  if (str === "ehtisham") return "ehtisham";
+  if (str === "arsalan shah" || str === "arsalan-shah" || str.includes("arsalan")) return "arsalan-shah";
+  return "unassigned";
+}
+
 function addOp72RowToTable(targetBody, row, meta) {
   const tr = document.createElement("tr");
   tr.dataset.rowIndex = String(meta?.rowIndex ?? -1);
+
+  const creatorRaw = String(row[13] || meta?.createdBy || "").trim();
+  const adminKey = normalizeAdminCreator(creatorRaw);
+  if (adminKey !== "unassigned") {
+    tr.classList.add("admin-row", `admin-row-${adminKey}`);
+    tr.dataset.creatorAdmin = adminKey;
+    tr.title = `Entry Creator: ${creatorRaw}`;
+  } else {
+    tr.dataset.creatorAdmin = "unassigned";
+  }
+  if (creatorRaw) {
+    tr.dataset.creatorRaw = creatorRaw;
+  }
+
   const selectCell = document.createElement("td");
   const isData = meta?.rowKind !== "header";
 
@@ -385,6 +409,14 @@ function renderTable() {
           <span class="month-row-badge">${group.items.length} ${group.items.length === 1 ? "Record" : "Records"}</span>
         </div>
         <div class="month-header-actions">
+          <select class="month-admin-filter" data-month-filter="${key}" title="Filter this month by Admin / Color" onclick="event.stopPropagation()">
+            <option value="all">🎨 All Admins / Colors</option>
+            <option value="vicky-ch">🔵 Vicky Ch (Main Admin)</option>
+            <option value="vicky-raja">🟢 Vicky Raja (Restricted Admin)</option>
+            <option value="ehtisham">🟡 EHTISHAM (Sub Admin)</option>
+            <option value="arsalan-shah">🟣 ARSALAN SHAH (Sub Admin)</option>
+            <option value="unassigned">⚪ Legacy / Other</option>
+          </select>
           <button type="button" class="btn-month-copy" data-copy-month="${key}" title="Copy ${group.label} records to clipboard (Excel ready)">
             📋 Copy Month
           </button>
@@ -441,16 +473,24 @@ function currentRows() {
       allTrs.push(...trs);
     });
 
-    return allTrs.map((tr) =>
-      Array.from(tr.querySelectorAll("td"))
+    return allTrs.map((tr) => {
+      const rowVals = Array.from(tr.querySelectorAll("td"))
         .slice(1)
-        .map((cell) => cell.textContent.trim())
-    );
+        .map((cell) => cell.textContent.trim());
+      if (tr.dataset.creatorRaw) {
+        rowVals[13] = tr.dataset.creatorRaw;
+      }
+      return rowVals;
+    });
   }
 
-  return Array.from(tableBody.querySelectorAll("tr"), (tr) =>
-    Array.from(tr.querySelectorAll("td")).slice(1).map((cell) => cell.textContent.trim())
-  );
+  return Array.from(tableBody.querySelectorAll("tr"), (tr) => {
+    const rowVals = Array.from(tr.querySelectorAll("td")).slice(1).map((cell) => cell.textContent.trim());
+    if (tr.dataset.creatorRaw) {
+      rowVals[13] = tr.dataset.creatorRaw;
+    }
+    return rowVals;
+  });
 }
 
 function selectedRowIndices() {
@@ -616,6 +656,14 @@ document.getElementById("submitOp72Record").addEventListener("click", async () =
   const row = Array.from(entryFields.querySelectorAll("input"), (input) => input.value.trim());
   if (row.length > 4) {
     row[4] = formatTimeHhMm(row[4]);
+  }
+  let activeAdminUser = "";
+  try {
+    const auth = JSON.parse(localStorage.getItem("HomeAuthSession") || "{}");
+    activeAdminUser = auth?.userId || "";
+  } catch (_) {}
+  if (activeAdminUser) {
+    row[13] = activeAdminUser;
   }
   try {
     await request(OP72_API_PATHS.dataRow, { method: "POST", body: JSON.stringify({ row }) });
@@ -835,7 +883,7 @@ if (op72Container) {
 
     // 3. Header Click (Accordion toggle)
     const header = e.target.closest(".month-accordion-header");
-    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label")) {
+    if (header && !e.target.closest(".btn-month-copy") && !e.target.closest(".month-select-label") && !e.target.closest(".month-admin-filter")) {
       const monthKey = header.dataset.toggleMonth;
       const body = document.getElementById(`op72MonthBody_${monthKey}`);
       const chevron = header.querySelector(".month-chevron");
@@ -852,6 +900,56 @@ if (op72Container) {
       }
     }
   });
+
+  // Handle month admin / color filter change
+  op72Container.addEventListener("change", (e) => {
+    const filterSelect = e.target.closest("select.month-admin-filter");
+    if (filterSelect) {
+      e.stopPropagation();
+      const monthKey = filterSelect.dataset.monthFilter;
+      const selectedAdmin = filterSelect.value;
+      applyOp72MonthAdminFilter(monthKey, selectedAdmin);
+      return;
+    }
+  });
+}
+
+function applyOp72MonthAdminFilter(monthKey, selectedAdmin) {
+  const block = document.getElementById(`op72MonthBlock_${monthKey}`);
+  if (!block) return;
+  const trs = Array.from(block.querySelectorAll("tbody tr"));
+  let visibleCount = 0;
+  trs.forEach((tr) => {
+    let show = false;
+    if (selectedAdmin === "all") {
+      show = true;
+    } else if (selectedAdmin === "unassigned") {
+      show = (!tr.dataset.creatorAdmin || tr.dataset.creatorAdmin === "unassigned");
+    } else {
+      show = (tr.dataset.creatorAdmin === selectedAdmin);
+    }
+    tr.style.display = show ? "" : "none";
+    if (show) visibleCount += 1;
+  });
+
+  const badge = block.querySelector(".month-row-badge");
+  if (badge) {
+    if (selectedAdmin === "all") {
+      badge.textContent = `${trs.length} ${trs.length === 1 ? "Record" : "Records"}`;
+    } else {
+      badge.textContent = `${visibleCount}/${trs.length} Records`;
+    }
+  }
+
+  // If filtered to a specific admin and block is collapsed, expand it
+  const header = block.querySelector(".month-accordion-header");
+  const body = block.querySelector(".month-accordion-body");
+  if (header && body && selectedAdmin !== "all" && body.classList.contains("is-collapsed")) {
+    header.classList.add("is-open");
+    body.classList.remove("is-collapsed");
+    const chevron = header.querySelector(".month-chevron");
+    if (chevron) chevron.textContent = "▼";
+  }
 }
 
 if (op72MonthJump) {

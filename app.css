@@ -3895,4 +3895,288 @@ td[contenteditable="true"]:focus {
   font-size: 0.84rem;
   color: #94a3b8;
   font-style: italic;
-}
+}
+
+/* ============================================================
+   ADMIN THEMES, ROW COLOR NOMINATIONS & MONTH FILTER
+   ============================================================ */
+
+/* Data Entry Title + Admin Badge Container */
+.data-entry-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Floating Liquid Admin Identity Pill */
+.admin-identity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.admin-identity-pill .admin-pill-badge {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.admin-identity-pill .admin-pill-name {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.admin-identity-pill .admin-pill-role {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 800;
+}
+
+.admin-identity-pill .admin-pill-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Theme 1: Main Admin - Vicky Ch (Royal Sapphire Blue) */
+.admin-pill-vicky-ch {
+  background: rgba(239, 246, 255, 0.94);
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #1e3a8a;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.16);
+}
+.admin-pill-vicky-ch .admin-pill-name { color: #1e40af; }
+.admin-pill-vicky-ch .admin-pill-role {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.admin-pill-vicky-ch .admin-pill-dot {
+  background: #2563eb;
+  color: #2563eb;
+}
+
+html[data-admin-theme="vicky-ch"] body,
+body[data-admin-theme="vicky-ch"] {
+  --admin-accent-gradient: linear-gradient(135deg, #1d4ed8, #2563eb 50%, #3b82f6);
+  --admin-accent-glow: rgba(37, 99, 235, 0.28);
+}
+body[data-admin-theme="vicky-ch"] .hero {
+  border-bottom: 3px solid #2563eb;
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.18);
+}
+body[data-admin-theme="vicky-ch"] .btn-primary {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb 50%, #3b82f6) !important;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35) !important;
+  border-color: rgba(147, 197, 253, 0.5) !important;
+}
+body[data-admin-theme="vicky-ch"] .bg-shape-one {
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.35) 0%, transparent 70%);
+}
+
+/* Theme 2: Restricted Admin - Vicky Raja (Emerald Green) */
+.admin-pill-vicky-raja {
+  background: rgba(236, 253, 245, 0.94);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #064e3b;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.16);
+}
+.admin-pill-vicky-raja .admin-pill-name { color: #047857; }
+.admin-pill-vicky-raja .admin-pill-role {
+  background: #d1fae5;
+  color: #065f46;
+}
+.admin-pill-vicky-raja .admin-pill-dot {
+  background: #10b981;
+  color: #10b981;
+}
+
+html[data-admin-theme="vicky-raja"] body,
+body[data-admin-theme="vicky-raja"] {
+  --admin-accent-gradient: linear-gradient(135deg, #047857, #059669 50%, #10b981);
+  --admin-accent-glow: rgba(16, 185, 129, 0.28);
+}
+body[data-admin-theme="vicky-raja"] .hero {
+  border-bottom: 3px solid #10b981;
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.18);
+}
+body[data-admin-theme="vicky-raja"] .btn-primary {
+  background: linear-gradient(135deg, #047857, #059669 50%, #10b981) !important;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.35) !important;
+  border-color: rgba(110, 231, 183, 0.5) !important;
+}
+body[data-admin-theme="vicky-raja"] .bg-shape-one {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, transparent 70%);
+}
+
+/* Theme 3: Sub Admin / Clerk 1 - EHTISHAM (Warm Amber / Gold) */
+.admin-pill-ehtisham {
+  background: rgba(254, 243, 199, 0.94);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #78350f;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.18);
+}
+.admin-pill-ehtisham .admin-pill-name { color: #b45309; }
+.admin-pill-ehtisham .admin-pill-role {
+  background: #fde68a;
+  color: #92400e;
+}
+.admin-pill-ehtisham .admin-pill-dot {
+  background: #f59e0b;
+  color: #f59e0b;
+}
+
+html[data-admin-theme="ehtisham"] body,
+body[data-admin-theme="ehtisham"] {
+  --admin-accent-gradient: linear-gradient(135deg, #b45309, #d97706 50%, #f59e0b);
+  --admin-accent-glow: rgba(245, 158, 11, 0.28);
+}
+body[data-admin-theme="ehtisham"] .hero {
+  border-bottom: 3px solid #f59e0b;
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.18);
+}
+body[data-admin-theme="ehtisham"] .btn-primary {
+  background: linear-gradient(135deg, #b45309, #d97706 50%, #f59e0b) !important;
+  box-shadow: 0 8px 22px rgba(245, 158, 11, 0.35) !important;
+  border-color: rgba(252, 211, 77, 0.5) !important;
+}
+body[data-admin-theme="ehtisham"] .bg-shape-one {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, transparent 70%);
+}
+
+/* Theme 4: Sub Admin / Clerk 2 - ARSALAN SHAH (Purple Violet) */
+.admin-pill-arsalan-shah {
+  background: rgba(250, 245, 255, 0.94);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #581c87;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.18);
+}
+.admin-pill-arsalan-shah .admin-pill-name { color: #7e22ce; }
+.admin-pill-arsalan-shah .admin-pill-role {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+.admin-pill-arsalan-shah .admin-pill-dot {
+  background: #a855f7;
+  color: #a855f7;
+}
+
+html[data-admin-theme="arsalan-shah"] body,
+body[data-admin-theme="arsalan-shah"] {
+  --admin-accent-gradient: linear-gradient(135deg, #6b21a8, #7c3aed 50%, #9333ea);
+  --admin-accent-glow: rgba(168, 85, 247, 0.28);
+}
+body[data-admin-theme="arsalan-shah"] .hero {
+  border-bottom: 3px solid #a855f7;
+  box-shadow: 0 8px 30px rgba(168, 85, 247, 0.18);
+}
+body[data-admin-theme="arsalan-shah"] .btn-primary {
+  background: linear-gradient(135deg, #6b21a8, #7c3aed 50%, #9333ea) !important;
+  box-shadow: 0 8px 22px rgba(168, 85, 247, 0.35) !important;
+  border-color: rgba(216, 180, 254, 0.5) !important;
+}
+body[data-admin-theme="arsalan-shah"] .bg-shape-one {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.35) 0%, transparent 70%);
+}
+
+/* ============================================================
+   ROW BACKGROUND NOMINATION IN RAWDATA & OP72 RAWDATA
+   ============================================================ */
+
+/* Base transition for nominated rows */
+tbody tr.admin-row {
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Admin 1: Vicky Ch (Royal Blue) */
+tbody tr.admin-row-vicky-ch {
+  background-color: #eff6ff !important;
+  box-shadow: inset 4px 0 0 #2563eb !important;
+}
+tbody tr.admin-row-vicky-ch:hover {
+  background-color: #dbeafe !important;
+  box-shadow: inset 5px 0 0 #1d4ed8 !important;
+}
+
+/* Admin 2: Vicky Raja (Emerald Green) */
+tbody tr.admin-row-vicky-raja {
+  background-color: #ecfdf5 !important;
+  box-shadow: inset 4px 0 0 #10b981 !important;
+}
+tbody tr.admin-row-vicky-raja:hover {
+  background-color: #d1fae5 !important;
+  box-shadow: inset 5px 0 0 #059669 !important;
+}
+
+/* Admin 3: EHTISHAM (Warm Amber / Gold) */
+tbody tr.admin-row-ehtisham {
+  background-color: #fffbeb !important;
+  box-shadow: inset 4px 0 0 #f59e0b !important;
+}
+tbody tr.admin-row-ehtisham:hover {
+  background-color: #fef3c7 !important;
+  box-shadow: inset 5px 0 0 #d97706 !important;
+}
+
+/* Admin 4: ARSALAN SHAH (Purple Violet) */
+tbody tr.admin-row-arsalan-shah {
+  background-color: #faf5ff !important;
+  box-shadow: inset 4px 0 0 #a855f7 !important;
+}
+tbody tr.admin-row-arsalan-shah:hover {
+  background-color: #f3e8ff !important;
+  box-shadow: inset 5px 0 0 #7e22ce !important;
+}
+
+/* ============================================================
+   MONTH ADMIN / COLOR SELECT FILTER DROPDOWN
+   ============================================================ */
+.month-admin-filter {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: 220px;
+}
+
+.month-admin-filter:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+  transform: translateY(-1px);
+}
+
+.month-admin-filter:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+}
+
+.month-admin-filter option {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+

@@ -3092,12 +3092,13 @@ function buildRawDataRowsFromEntry(entry) {
 
   const rows = Array.from({ length: totalRowCount }, (_, index) => {
     const rowDate = new Date(startOnly.getFullYear(), startOnly.getMonth(), startOnly.getDate() + index);
-    const row = new Array(13).fill("");
+    const row = new Array(14).fill("");
     row[0] = formatEntryDate(rowDate);
 
     row[1] = entry.employee1Name || "";
     row[2] = entry.employee2Name || "";
     row[3] = entry.dutyType || "";
+    row[13] = entry.createdBy || "";
 
     return row;
   });
@@ -3130,6 +3131,10 @@ function buildRawDataRowsFromEntry(entry) {
     remarksParts.forEach((part, index) => {
       if (index < rows.length) rows[index][12] = part;
     });
+  }
+
+  if (entry.createdBy) {
+    rows.forEach((row) => { row[13] = entry.createdBy; });
   }
 
   return rows;
@@ -3293,6 +3298,13 @@ if (op72QuickEntryForm) {
       inwardDuration: Number(quickInwardDuration.value || 0),
       inwardDutyTerminated: quickInwardTerminated.value.trim(),
       remarks: quickRemarks.value.trim().toUpperCase(),
+      createdBy: (() => {
+        try {
+          return JSON.parse(localStorage.getItem("HomeAuthSession") || "{}")?.userId || "";
+        } catch (_) {
+          return "";
+        }
+      })(),
     };
 
     if (op72QuickSubmitBtn) op72QuickSubmitBtn.disabled = true;
