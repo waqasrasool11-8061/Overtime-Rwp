@@ -2777,10 +2777,27 @@ function collectQuickEmployeeNames() {
     });
   }
 
-  if (Array.isArray(groupEmployees)) {
-    groupEmployees.forEach((emp) => {
-      const name = String(emp.name || "").trim();
-      if (name) names.add(name);
+  if (typeof groupLookup !== "undefined" && groupLookup && typeof groupLookup.forEach === "function") {
+    groupLookup.forEach((list) => {
+      if (Array.isArray(list)) {
+        list.forEach((n) => {
+          const name = String(n || "").trim();
+          if (name) names.add(name);
+        });
+      }
+    });
+  }
+
+  const groupRows = window.groupMasterWorkbookData?.rows;
+  const groupHeaderRows = Number(window.groupMasterWorkbookData?.headerRows || 0);
+  if (Array.isArray(groupRows)) {
+    groupRows.slice(groupHeaderRows).forEach((row) => {
+      if (Array.isArray(row)) {
+        for (let c = 1; c < row.length; c++) {
+          const name = String(row[c] || "").trim();
+          if (name) names.add(name);
+        }
+      }
     });
   }
 
@@ -2807,6 +2824,7 @@ function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn
 
   function closeDropdown() {
     dropdownElement.hidden = true;
+    dropdownElement.style.display = "none";
     dropdownElement.innerHTML = "";
     currentItems = [];
     selectedIndex = -1;
@@ -2849,6 +2867,7 @@ function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn
       emptyLi.textContent = "No matching employee found";
       dropdownElement.appendChild(emptyLi);
       dropdownElement.hidden = false;
+      dropdownElement.style.display = "block";
       selectedIndex = -1;
       return;
     }
@@ -2880,6 +2899,7 @@ function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn
 
     selectedIndex = defaultSelectIdx;
     dropdownElement.hidden = false;
+    dropdownElement.style.display = "block";
     if (defaultSelectIdx >= 0 && dropdownElement.children[defaultSelectIdx]) {
       dropdownElement.children[defaultSelectIdx].scrollIntoView({ block: "nearest" });
     }
@@ -2907,7 +2927,7 @@ function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn
   });
 
   inputElement.addEventListener("click", () => {
-    if (dropdownElement.hidden) {
+    if (dropdownElement.hidden || dropdownElement.style.display === "none") {
       openDropdown();
     }
   });
@@ -2918,11 +2938,14 @@ function setupQuickEmployeeAutocomplete(inputElement, dropdownElement, toggleBtn
   });
 
   if (toggleBtn) {
+    toggleBtn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+    });
     toggleBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (dropdownElement.hidden) {
-        inputElement.focus();
+      const isClosed = dropdownElement.hidden || dropdownElement.style.display === "none";
+      if (isClosed) {
         openDropdown();
       } else {
         closeDropdown();
@@ -3013,12 +3036,66 @@ function parseClockToMinutes(value) {
   return (hours * 60) + minutes;
 }
 
+function normalizeOtValue(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return "";
+
+  const compact = raw.replace(/\s+/g, "");
+
+  // If already has colon, e.g. "4:00", "04:00", "4:30", "4:5", "4:"
+  if (compact.includes(":")) {
+    const parts = compact.split(":");
+    let h = parseInt(parts[0], 10);
+    let m = parts[1] ? parseInt(parts[1], 10) : 0;
+    if (isNaN(h)) h = 0;
+    if (isNaN(m)) m = 0;
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // If contains dot (e.g. 4.5, 4.30, 4.0)
+  if (compact.includes(".")) {
+    const parts = compact.split(".");
+    let h = parseInt(parts[0], 10);
+    if (isNaN(h)) h = 0;
+    const decStr = parts[1] || "";
+    let m = 0;
+    if (decStr.length === 2 && parseInt(decStr, 10) < 60) {
+      m = parseInt(decStr, 10);
+    } else {
+      const dec = parseFloat("0." + decStr);
+      m = Math.round(dec * 60);
+    }
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // Pure digits: e.g. "4", "8", "12", "400", "0400", "430", "0430"
+  const digits = compact.replace(/\D/g, "");
+  if (!digits) return "";
+
+  const num = parseInt(digits, 10);
+  if (num === 0) return "";
+
+  if (digits.length <= 2) {
+    return `${String(num).padStart(2, "0")}:00`;
+  } else if (digits.length === 3) {
+    const h = parseInt(digits.slice(0, 1), 10);
+    let m = parseInt(digits.slice(1), 10);
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  } else {
+    const h = parseInt(digits.slice(0, -2), 10);
+    let m = parseInt(digits.slice(-2), 10);
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+}
+
 function toHhMm(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
-  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
-  if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
-  return raw;
+  return normalizeOtValue(raw);
 }
 
 function getJourneyTerminationOffset(startMinutes, endMinutes, durationDays) {
@@ -3259,6 +3336,12 @@ if (closeQuickEntryFooterBtn) {
   if (el) el.addEventListener("blur", syncQuickEndDate);
 });
 
+if (quickOt) {
+  quickOt.addEventListener("blur", () => {
+    quickOt.value = normalizeOtValue(quickOt.value);
+  });
+}
+
 quickEmp1Auto = setupQuickEmployeeAutocomplete(quickEmployee1, quickEmployee1Dropdown, quickEmployee1ToggleBtn);
 quickEmp2Auto = setupQuickEmployeeAutocomplete(quickEmployee2, quickEmployee2Dropdown, quickEmployee2ToggleBtn);
 loadEmployeeMasterDataForQuickEntry();
@@ -3281,6 +3364,9 @@ if (op72QuickEntryForm) {
       return;
     }
 
+    const otNormalized = normalizeOtValue(quickOt.value);
+    if (quickOt) quickOt.value = otNormalized;
+
     const entry = {
       startDate: sDate,
       endDate: eDate,
@@ -3288,7 +3374,7 @@ if (op72QuickEntryForm) {
       employee2Name: quickEmployee2.value.trim().toUpperCase(),
       dutyType: duty,
       mileageKm: Number(quickMileage.value || 0),
-      overTimeOt: quickOt.value.trim(),
+      overTimeOt: otNormalized,
       outwardDuty: quickOutwardDuty.value.trim().toUpperCase(),
       outwardDutyCommenced: quickOutwardCommenced.value.trim(),
       outwardDuration: Number(quickOutwardDuration.value || 0),

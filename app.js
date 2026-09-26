@@ -493,6 +493,62 @@ function normalizeJourneyTimeInput(inputElement) {
   return normalized;
 }
 
+function normalizeOtValue(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return "";
+
+  const compact = raw.replace(/\s+/g, "");
+
+  // If already has colon, e.g. "4:00", "04:00", "4:30", "4:5", "4:"
+  if (compact.includes(":")) {
+    const parts = compact.split(":");
+    let h = parseInt(parts[0], 10);
+    let m = parts[1] ? parseInt(parts[1], 10) : 0;
+    if (isNaN(h)) h = 0;
+    if (isNaN(m)) m = 0;
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // If contains dot (e.g. 4.5, 4.30, 4.0)
+  if (compact.includes(".")) {
+    const parts = compact.split(".");
+    let h = parseInt(parts[0], 10);
+    if (isNaN(h)) h = 0;
+    const decStr = parts[1] || "";
+    let m = 0;
+    if (decStr.length === 2 && parseInt(decStr, 10) < 60) {
+      m = parseInt(decStr, 10);
+    } else {
+      const dec = parseFloat("0." + decStr);
+      m = Math.round(dec * 60);
+    }
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // Pure digits: e.g. "4", "8", "12", "400", "0400", "430", "0430"
+  const digits = compact.replace(/\D/g, "");
+  if (!digits) return "";
+
+  const num = parseInt(digits, 10);
+  if (num === 0) return "";
+
+  if (digits.length <= 2) {
+    return `${String(num).padStart(2, "0")}:00`;
+  } else if (digits.length === 3) {
+    const h = parseInt(digits.slice(0, 1), 10);
+    let m = parseInt(digits.slice(1), 10);
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  } else {
+    const h = parseInt(digits.slice(0, -2), 10);
+    let m = parseInt(digits.slice(-2), 10);
+    if (m > 59) m = 59;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+}
+
 function normalizeOtInput(inputElement) {
   const raw = String(inputElement.value || "").trim();
   if (!raw) {
@@ -500,45 +556,8 @@ function normalizeOtInput(inputElement) {
     return "";
   }
 
-  const compact = raw.replace(/\s+/g, "");
-  let hoursPart = "";
-  let minutesPart = "";
-
-  if (compact.includes(":")) {
-    const match = compact.match(/^(\d+):(\d{1,2})$/);
-    if (!match) {
-      inputElement.setCustomValidity("Use OT format h:mm");
-      return null;
-    }
-
-    hoursPart = match[1];
-    minutesPart = match[2].padStart(2, "0");
-  } else {
-    const digits = compact.replace(/\D/g, "");
-    if (!digits) {
-      inputElement.setCustomValidity("Use OT format h:mm");
-      return null;
-    }
-
-    if (digits.length <= 2) {
-      hoursPart = "00";
-      minutesPart = digits.padStart(2, "0");
-    } else if (digits.length === 3) {
-      hoursPart = String(Number(digits.slice(0, 1)));
-      minutesPart = digits.slice(1);
-    } else {
-      hoursPart = String(Number(digits.slice(0, -2)));
-      minutesPart = digits.slice(-2);
-    }
-  }
-
-  if (Number(minutesPart) > 59) {
-    inputElement.setCustomValidity("Minutes must be between 00 and 59");
-    return null;
-  }
-
+  const normalized = normalizeOtValue(raw);
   inputElement.setCustomValidity("");
-  const normalized = `${hoursPart}:${minutesPart}`;
   inputElement.value = normalized;
   return normalized;
 }
@@ -1463,6 +1482,10 @@ outwardDurationInput.addEventListener("blur", () => {
 inwardDurationInput.addEventListener("blur", () => {
   normalizeDurationInput(inwardDurationInput);
   syncCalculatedEndDate();
+});
+
+overTimeOtInput.addEventListener("blur", () => {
+  normalizeOtInput(overTimeOtInput);
 });
 
 mileageInput.addEventListener("input", () => {
