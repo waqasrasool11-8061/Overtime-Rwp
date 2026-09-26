@@ -45,7 +45,9 @@
     document.querySelectorAll(".nav-link").forEach((link) => {
       const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
       const permission = navPermissions[href];
-      link.hidden = Boolean(permission && !allow(user, permission));
+      const isAllowed = !permission || allow(user, permission);
+      link.hidden = !isAllowed;
+      link.style.display = isAllowed ? "" : "none";
     });
   }
 
@@ -69,6 +71,7 @@
     if (user.role === "admin" || user.role === "guest") {
       document.querySelectorAll(".nav-link").forEach((link) => {
         link.hidden = false;
+        link.style.display = "";
       });
       return;
     }
@@ -76,11 +79,64 @@
     if (allowed && !allowed.includes("*")) {
       document.querySelectorAll(".nav-link").forEach((link) => {
         const href = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-        link.hidden = !allowed.includes(href);
+        const isAllowed = allowed.includes(href);
+        link.hidden = !isAllowed;
+        link.style.display = isAllowed ? "" : "none";
       });
       return;
     }
     hideDeniedNavigation(user);
+  }
+
+  function ensureUniversalLogoutButton(u) {
+    if (!u) {
+      const existing = document.getElementById("logoutBtn");
+      if (existing) {
+        existing.hidden = true;
+        existing.style.display = "none";
+      }
+      return;
+    }
+
+    if (currentPage === "employee-home.html") {
+      return;
+    }
+
+    function doInject() {
+      if (!document.body) return;
+      let btn = document.getElementById("logoutBtn");
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "logoutBtn";
+        btn.className = "logout-corner-btn";
+        btn.type = "button";
+        btn.title = "Sign Out";
+        btn.innerHTML = "&#x21AA; Logout";
+        document.body.appendChild(btn);
+      }
+
+      btn.hidden = false;
+      btn.style.display = "inline-flex";
+
+      if (currentPage !== "index.html" && !btn._hasUniversalLogout) {
+        btn._hasUniversalLogout = true;
+        btn.addEventListener("click", async () => {
+          try {
+            await fetch(`${authBaseUrl}/api/auth/logout`, { method: "POST", credentials: "include" });
+          } catch (_) {}
+          try {
+            localStorage.removeItem(sessionKey);
+          } catch (_) {}
+          window.location.replace("index.html");
+        });
+      }
+    }
+
+    if (document.body) {
+      doInject();
+    } else {
+      document.addEventListener("DOMContentLoaded", doInject);
+    }
   }
 
   const currentPage = currentPageName();
@@ -324,6 +380,7 @@
       if (cached) {
         if (!checkPageAccess(cached)) return;
         applyRoleNavigation(cached);
+        ensureUniversalLogoutButton(cached);
         setupAdminChatBadge(cached);
         if (cached.role === "guest") enforceGuestViewOnly();
       }
@@ -343,6 +400,7 @@
 
   if (!user) {
     localStorage.removeItem(sessionKey);
+    ensureUniversalLogoutButton(null);
     if (currentPage === "index.html") return;
     window.location.replace("index.html");
     return;
@@ -350,6 +408,17 @@
 
   if (!checkPageAccess(user)) return;
   applyRoleNavigation(user);
+  ensureUniversalLogoutButton(user);
   setupAdminChatBadge(user);
   if (user.role === "guest") enforceGuestViewOnly();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      const currentActive = user || (localStorage.getItem(sessionKey) ? JSON.parse(localStorage.getItem(sessionKey)) : null);
+      if (currentActive) {
+        applyRoleNavigation(currentActive);
+        ensureUniversalLogoutButton(currentActive);
+      }
+    });
+  }
 })();

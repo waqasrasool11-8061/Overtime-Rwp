@@ -113,34 +113,51 @@ body.login-landing .login-toggle-btn {
 
 .logout-corner-btn {
   position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 40;
-  border: 1px solid #fca5a5;
+  top: 10px;
+  right: 12px;
+  z-index: 9999;
+  border: 1px solid rgba(239, 68, 68, 0.45);
   background: rgba(254, 242, 242, 0.96);
   color: #b91c1c;
-  border-radius: 10px;
+  border-radius: 9999px;
   padding: 6px 14px;
   font: inherit;
   font-size: 0.84rem;
   font-weight: 700;
-  box-shadow: 0 8px 20px rgba(185, 28, 28, 0.15);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .logout-corner-btn:hover {
   background: #fee2e2;
   color: #991b1b;
-  border-color: #f87171;
+  border-color: #ef4444;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.3);
+}
+
+.logout-corner-btn:active {
+  transform: scale(0.97);
 }
 
 body.login-landing .logout-corner-btn {
   display: none !important;
+}
+
+@media (max-width: 768px) {
+  .logout-corner-btn {
+    top: 6px;
+    right: 8px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+  }
 }
 
 .login-dialog {
@@ -280,6 +297,14 @@ body.login-landing .logout-corner-btn {
   align-items: center;
   gap: 6px;
   position: relative;
+}
+
+/* Guarantee that hidden nav-links and hidden elements never show */
+[hidden],
+.nav-link[hidden],
+[hidden="true"],
+.nav-link[hidden="true"] {
+  display: none !important;
 }
 
 .nav-link:hover {

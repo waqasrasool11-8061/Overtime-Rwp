@@ -1086,9 +1086,6 @@ app.get(["/", "/index.html"], (req, res, next) => {
   if (session && session.role === "employee") {
     return res.redirect("/employee-home.html");
   }
-  if (session && session.role === "restricted-admin") {
-    return res.redirect("/raw-data.html");
-  }
   return next();
 });
 
@@ -2111,9 +2108,6 @@ app.get("/", (req, res) => {
   const session = currentSession(req);
   if (session && session.role === "employee") {
     return res.redirect("/employee-home.html");
-  }
-  if (session && session.role === "restricted-admin") {
-    return res.redirect("/raw-data.html");
   }
   res.sendFile(path.join(__dirname, "index.html"));
 });

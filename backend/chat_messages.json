@@ -376,5 +376,14 @@
     "text": "FFARMAO",
     "timestamp": "2026-09-24T17:56:47.614Z",
     "is_read": 1
+  },
+  {
+    "id": "msg_1790356806991_2lf7m6gp1",
+    "sender": "M IRFAN ASGHAR",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Overtime (OT) hours discrepancy in OP-72 sheet. Kindly check.",
+    "timestamp": "2026-09-25T17:20:06.991Z",
+    "is_read": 1
   }
 ]

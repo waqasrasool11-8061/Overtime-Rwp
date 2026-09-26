@@ -70,6 +70,7 @@ function applyNavigationPermissions(user) {
   if (user?.role === "admin" || user?.role === "guest") {
     document.querySelectorAll(".nav-link").forEach((link) => {
       link.hidden = false;
+      link.style.display = "";
     });
     return;
   }
@@ -77,7 +78,9 @@ function applyNavigationPermissions(user) {
     const allowed = user.allowedPages.map((p) => String(p).toLowerCase());
     document.querySelectorAll(".nav-link").forEach((link) => {
       const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-      link.hidden = !allowed.includes(page);
+      const isAllowed = allowed.includes(page);
+      link.hidden = !isAllowed;
+      link.style.display = isAllowed ? "" : "none";
     });
     return;
   }
@@ -92,7 +95,9 @@ function applyNavigationPermissions(user) {
     ];
     document.querySelectorAll(".nav-link").forEach((link) => {
       const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-      link.hidden = !restrictedAllowed.includes(page);
+      const isAllowed = restrictedAllowed.includes(page);
+      link.hidden = !isAllowed;
+      link.style.display = isAllowed ? "" : "none";
     });
     return;
   }
@@ -100,7 +105,9 @@ function applyNavigationPermissions(user) {
     const employeeAllowed = ["employee-home.html", "video.html"];
     document.querySelectorAll(".nav-link").forEach((link) => {
       const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
-      link.hidden = !employeeAllowed.includes(page);
+      const isAllowed = employeeAllowed.includes(page);
+      link.hidden = !isAllowed;
+      link.style.display = isAllowed ? "" : "none";
     });
     return;
   }
@@ -120,7 +127,9 @@ function applyNavigationPermissions(user) {
   document.querySelectorAll(".nav-link").forEach((link) => {
     const page = String(link.getAttribute("href") || "").split("#")[0].toLowerCase();
     const permission = permissionsByPage[page];
-    link.hidden = Boolean(permission && !user?.permissions?.includes(permission));
+    const isAllowed = !permission || Boolean(user?.permissions?.includes(permission));
+    link.hidden = !isAllowed;
+    link.style.display = isAllowed ? "" : "none";
   });
 }
 
