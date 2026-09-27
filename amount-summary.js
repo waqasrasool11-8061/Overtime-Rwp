@@ -464,6 +464,61 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
   let gdsCnt  = g("Operating (Gds)");
   let mlCnt   = opMail;
 
+  // Self-healing fallback: If summary matrix had 0 or was missing, scan daily cells for OP operating count & mileage
+  if (Array.isArray(allRawCells) && allRawCells.length >= 10) {
+    let dailyShnt = 0;
+    let dailyM = 0;
+    let dailyP = 0;
+    let dailyG = 0;
+    let dailyMileM = 0;
+    let dailyMileP = 0;
+    let dailyMileOPG = 0;
+
+    for (let day = 0; day < 31; day++) {
+      const dutyIdx = 10 + day * 30 + empIdx0 * 3;
+      const mileIdx = 10 + day * 30 + empIdx0 * 3 + 2;
+      if (dutyIdx < allRawCells.length) {
+        const duty = String(allRawCells[dutyIdx] || "").trim().toUpperCase();
+        if (duty) {
+          const mVal = (mileIdx < allRawCells.length)
+            ? (parseFloat(String(allRawCells[mileIdx] || "").replace(/[^0-9.-]/g, "")) || 0)
+            : 0;
+
+          duty.split("/").forEach((part) => {
+            const trimmed = part.trim();
+            let qty = 1;
+            let sym = trimmed;
+            const m = trimmed.match(/^(\d+)(.+)$/);
+            if (m) { qty = Number(m[1]); sym = m[2].trim(); }
+
+            if (sym === "OP" || sym === "SHNT" || sym === "SHUNT") {
+              dailyShnt += qty;
+              if (mVal > 0) dailyMileOPG += mVal * qty;
+            } else if (sym === "M") {
+              dailyM += qty;
+              if (mVal > 0) dailyMileM += mVal * qty;
+            } else if (sym === "P") {
+              dailyP += qty;
+              if (mVal > 0) dailyMileP += mVal * qty;
+            } else if (sym === "G") {
+              dailyG += qty;
+              if (mVal > 0) dailyMileOPG += mVal * qty;
+            }
+          });
+        }
+      }
+    }
+
+    if (shntCnt === 0 && dailyShnt > 0) shntCnt = dailyShnt;
+    if (mlCnt === 0 && dailyM > 0) mlCnt = dailyM;
+    if (passCnt === 0 && dailyP > 0) passCnt = dailyP;
+    if (gdsCnt === 0 && dailyG > 0) gdsCnt = dailyG;
+
+    if (mileOPG === 0 && dailyMileOPG > 0) mileOPG = Number((dailyMileOPG / 100).toFixed(2));
+    if (mileM === 0 && dailyMileM > 0) mileM = Number((dailyMileM / 100).toFixed(2));
+    if (mileP === 0 && dailyMileP > 0) mileP = Number((dailyMileP / 100).toFixed(2));
+  }
+
   // Extract 55% leaves and Custom Duty types (SEE TO DME, C.OFFICE, IN OFFICE, ENQ, PRC, SUSPENDED, WALTON, SCHOOL, P-8, P-9, BOOK OFF, DI, PVT, S.MAN, FORS & F.OFFICE)
   let { leave55Count: cust55Cnt, customDutyCount: blankCnt, customDutyLabel: blankLabel } = extractTailOrDailyDuties(allRawCells, empIdx0, isSpecialDI);
 

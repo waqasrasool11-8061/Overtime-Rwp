@@ -385,5 +385,176 @@
     "text": "Overtime (OT) hours discrepancy in OP-72 sheet. Kindly check.",
     "timestamp": "2026-09-25T17:20:06.991Z",
     "is_read": 1
+  },
+  {
+    "id": "msg_1790419962568_orf4mbgak",
+    "sender": "GULFAM MAJEED",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Waqas bahi 22 KO 206 gyya tha passenger Ka bhi goods ma hi ay ga operating or millage?",
+    "timestamp": "2026-09-26T10:52:42.568Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790420068646_hhi3bhitu",
+    "sender": "GULFAM MAJEED",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Duty type needs correction in daily records.",
+    "timestamp": "2026-09-26T10:54:28.646Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790424933869_iuu7c3vhe",
+    "sender": "AHMED NADEEM",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Meri basic pay purani wali lgi hwi ha",
+    "timestamp": "2026-09-26T12:15:33.869Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790425722223_tosyqfmiw",
+    "sender": "M IRFAN ASGHAR",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Overtime (OT) hours discrepancy in OP-72 sheet. Kindly check.",
+    "timestamp": "2026-09-26T12:28:42.223Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790425739573_9wad7lzhm",
+    "sender": "M IRFAN ASGHAR",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "15/16 August ka missing hai",
+    "timestamp": "2026-09-26T12:28:59.573Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790425849533_h76zhakq2",
+    "sender": "AHMED NADEEM",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Us hisaab se 55% or sunday ghaztted ka rate b galat banta ha.",
+    "timestamp": "2026-09-26T12:30:49.533Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790431228158_5nrh9fy2l",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "GULFAM MAJEED",
+    "text": "Check kro ga",
+    "timestamp": "2026-09-26T14:00:28.158Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790435913533_zgkljd95p",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M IRFAN ASGHAR",
+    "text": "Check kro ga",
+    "timestamp": "2026-09-26T15:18:33.533Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790438176148_g8z1lptkz",
+    "sender": "GULFAM MAJEED",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "G waqas bahi Awais bahi k sat gya tha",
+    "timestamp": "2026-09-26T15:56:16.148Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790440248179_09n6eoikt",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "GULFAM MAJEED",
+    "text": "Actually Arsalan Shah ne entry ki thi excel file pe. Agy ap khud samjdar hai",
+    "timestamp": "2026-09-26T16:30:48.180Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790477698510_un39jwqhl",
+    "sender": "M IMRAN MA",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "4days 55 ND 2 l2mising of date 12 to 15 aug",
+    "timestamp": "2026-09-27T02:54:58.510Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790480331557_n6r2vmn96",
+    "sender": "MUNIR HASSAN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Aoa",
+    "timestamp": "2026-09-27T03:38:51.557Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790480356558_i4r8cmy76",
+    "sender": "MUNIR HASSAN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "waqas bhai mera 9 aug se 16 aug tak time miss hy",
+    "timestamp": "2026-09-27T03:39:16.558Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790480390038_mwm6gxdda",
+    "sender": "MUNIR HASSAN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "sath 12 rabiul awal gazzted b miss hy",
+    "timestamp": "2026-09-27T03:39:50.038Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790481916867_zdf1ym4c8",
+    "sender": "M ZEESHAN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Vicky Bhai L2 still missing",
+    "timestamp": "2026-09-27T04:05:16.867Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790506317071_obu6tuifn",
+    "sender": "FAISAL KHALID",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Leave / 55% allowance missing in Amount Summary.",
+    "timestamp": "2026-09-27T10:51:57.071Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790506321428_o76r8hahs",
+    "sender": "FAISAL KHALID",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Duty type needs correction in daily records.",
+    "timestamp": "2026-09-27T10:52:01.428Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790506495921_e3bdfqhgq",
+    "sender": "FAISAL KHALID",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Aoa sir last month check kr lain 55% missing tha 3 din ka aur koi L2 bhi thy 2 is month August ki passenger duty show nhi hui sari goods hain",
+    "timestamp": "2026-09-27T10:54:55.922Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790508929948_kc7cybavw",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "FAISAL KHALID",
+    "text": "arsaln shahse rabta kren",
+    "timestamp": "2026-09-27T11:35:29.948Z",
+    "is_read": 1
   }
 ]

@@ -1266,10 +1266,8 @@ function calculateAndFillSummary(holidaySet, employees = []) {
           mileageP += mileageVal * qty;
         } else if (symbol === "OP" || symbol === "G") {
           mileageOpG += mileageVal * qty;
-        } else if (symbol === "S") {
-          // Shunting — already counted in Operating (Shunt) summary row
         } else if (symbol) {
-          // Other duty type (e.g. LR, RR, SL, CL, SPL) — count it per employee
+          // Other duty type (e.g. LR, RR, SL, CL, SPL, SMI) — count it per employee
           otherDutyMap.set(symbol, (otherDutyMap.get(symbol) || 0) + qty);
         }
       });
@@ -1296,7 +1294,7 @@ function calculateAndFillSummary(holidaySet, employees = []) {
 
     // Operating counts — VBA: CountDutyType for M/Shunt/Pass/Gds
     writeSummaryValue(empIdx, "Operating (Mail)",    String(countDutyType(dailyRows, empIdx, "M")));
-    writeSummaryValue(empIdx, "Operating (Shunt)",   String(countDutyType(dailyRows, empIdx, "S")));
+    writeSummaryValue(empIdx, "Operating (Shunt)",   String(countDutyType(dailyRows, empIdx, "OP")));
     writeSummaryValue(empIdx, "Operating (Pass)",    String(countDutyType(dailyRows, empIdx, "P")));
     writeSummaryValue(empIdx, "Operating (Gds)",     String(countDutyType(dailyRows, empIdx, "G")));
 
@@ -1320,7 +1318,7 @@ function calculateAndFillSummary(holidaySet, employees = []) {
         if (sym === "M")            mileageM   += entry.mileage * qty;
         else if (sym === "P")       mileageP   += entry.mileage * qty;
         else if (sym === "OP" || sym === "G") mileageOpG += entry.mileage * qty;
-        else if (sym && sym !== "S") {
+        else if (sym) {
           otherDutyMap.set(sym, (otherDutyMap.get(sym) || 0) + qty);
         }
       });
@@ -1341,8 +1339,8 @@ function calculateAndFillSummary(holidaySet, employees = []) {
     // ── Operating counts include late rows too ──
     const operatingM = countDutyType(dailyRows, empIdx, "M") +
                        lateEntries.reduce((s, e) => s + countSymInDuty(e.dutyType, "M"), 0);
-    const operatingS = countDutyType(dailyRows, empIdx, "S") +
-                       lateEntries.reduce((s, e) => s + countSymInDuty(e.dutyType, "S"), 0);
+    const operatingS = countDutyType(dailyRows, empIdx, "OP") +
+                       lateEntries.reduce((s, e) => s + countSymInDuty(e.dutyType, "OP"), 0);
     const operatingP = countDutyType(dailyRows, empIdx, "P") +
                        lateEntries.reduce((s, e) => s + countSymInDuty(e.dutyType, "P"), 0);
     const operatingG = countDutyType(dailyRows, empIdx, "G") +
@@ -1469,6 +1467,7 @@ function calculateAndFillSummary(holidaySet, employees = []) {
 // Matches VBA CountDutyType: splits by "/", strips numeric prefix
 function countDutyType(dailyRows, empIdx1based, symbol) {
   const target = symbol.toUpperCase();
+  const isShuntTarget = (target === "OP" || target === "SHNT" || target === "SHUNT");
   let count = 0;
   dailyRows.forEach((row) => {
     if (row.dataset.monthActive !== "true") return;
@@ -1484,7 +1483,11 @@ function countDutyType(dailyRows, empIdx1based, symbol) {
       let sym = trimmed;
       const m = trimmed.match(/^(\d+)(.+)$/);
       if (m) { qty = Number(m[1]); sym = m[2].trim(); }
-      if (sym === target) count += qty;
+      if (isShuntTarget) {
+        if (sym === "OP" || sym === "SHNT" || sym === "SHUNT") count += qty;
+      } else {
+        if (sym === target) count += qty;
+      }
     });
   });
   return count;
@@ -1494,6 +1497,7 @@ function countDutyType(dailyRows, empIdx1based, symbol) {
 function countSymInDuty(dutyRaw, symbol) {
   if (!dutyRaw) return 0;
   const target = symbol.toUpperCase();
+  const isShuntTarget = (target === "OP" || target === "SHNT" || target === "SHUNT");
   let count = 0;
   dutyRaw.toUpperCase().split("/").forEach((part) => {
     const trimmed = part.trim();
@@ -1501,7 +1505,11 @@ function countSymInDuty(dutyRaw, symbol) {
     let sym = trimmed;
     const m = trimmed.match(/^(\d+)(.+)$/);
     if (m) { qty = Number(m[1]); sym = m[2].trim(); }
-    if (sym === target) count += qty;
+    if (isShuntTarget) {
+      if (sym === "OP" || sym === "SHNT" || sym === "SHUNT") count += qty;
+    } else {
+      if (sym === target) count += qty;
+    }
   });
   return count;
 }
