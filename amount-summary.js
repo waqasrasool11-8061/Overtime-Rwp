@@ -116,11 +116,55 @@ function getSummaryVal(matrix, label, empIdx0) {
   return matrix[R][empIdx0] || "0";
 }
 
+// Check if a duty type is non-payable / excluded from Amount Summary calculation
+// Excluded duties specified: "AT RWP, AT MKW, AT LLM, AT SRQ, AT LHR, AT PSC, AT KDA, AT FSLD, AT MUL, ABSENT, ON HAND & CT"
+function isExcludedAmountDuty(dutyStr) {
+  if (!dutyStr) return false;
+  const s = String(dutyStr).trim().toUpperCase();
+  if (!s) return false;
+
+  const norm = s.replace(/[\/\-\_\.]+/g, " ").replace(/\s+/g, " ").trim();
+
+  const exactList = [
+    "AT RWP", "AT MKW", "AT LLM", "AT SRQ", "AT LHR",
+    "AT PSC", "AT KDA", "AT FSLD", "AT MUL",
+    "ABSENT", "ABS", "ON HAND", "ONHAND", "CT"
+  ];
+
+  if (exactList.includes(s) || exactList.includes(norm)) {
+    return true;
+  }
+
+  // Any station presence / waiting status starting with "AT " (e.g. AT RWP, AT MKW, etc.)
+  if (s.startsWith("AT ") || norm.startsWith("AT ") || s === "AT") {
+    return true;
+  }
+
+  if (s === "CT" || norm === "CT" || s === "C T" || s === "C.T" || s === "C/T") {
+    return true;
+  }
+
+  if (s.startsWith("ABSENT") || norm.startsWith("ABSENT")) {
+    return true;
+  }
+
+  if (s.includes("ON HAND") || norm.includes("ON HAND") || s === "ONHAND") {
+    return true;
+  }
+
+  return false;
+}
+
 // Check for special custom duty types (SEE TO DME, C.OFFICE, IN OFFICE, ENQ, PRC, SUSPENDED, WALTON, SCHOOL, P-8, P-9, BOOK OFF, DI, PVT, S.MAN, FORS & F.OFFICE)
 function getCustomDutyName(dutyStr) {
   if (!dutyStr) return "";
   const s = String(dutyStr).trim().toUpperCase();
   if (!s) return "";
+
+  // 1. Excluded duties MUST NOT be counted or calculated in Amount Summary
+  if (isExcludedAmountDuty(s)) {
+    return "";
+  }
 
   const norm = s.replace(/[\/\-\_\.]+/g, " ");
   const customMap = [

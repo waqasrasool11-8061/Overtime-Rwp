@@ -176,11 +176,56 @@ function findEmpRecord(rows, nameOrSap) {
   return null;
 }
 
+// Check if a duty type is non-payable / excluded from Amount Summary calculation
+// Excluded duties specified: "AT RWP, AT MKW, AT LLM, AT SRQ, AT LHR, AT PSC, AT KDA, AT FSLD, AT MUL, ABSENT, ON HAND & CT"
+function isExcludedAmountDuty(dutyStr) {
+  if (!dutyStr) return false;
+  const s = String(dutyStr).trim().toUpperCase();
+  if (!s) return false;
+
+  const norm = s.replace(/[\/\-\_\.]+/g, " ").replace(/\s+/g, " ").trim();
+
+  const exactList = [
+    "AT RWP", "AT MKW", "AT LLM", "AT SRQ", "AT LHR",
+    "AT PSC", "AT KDA", "AT FSLD", "AT MUL",
+    "ABSENT", "ABS", "ON HAND", "ONHAND", "CT"
+  ];
+
+  if (exactList.includes(s) || exactList.includes(norm)) {
+    return true;
+  }
+
+  // Any station presence / waiting status starting with "AT " (e.g. AT RWP, AT MKW, etc.)
+  if (s.startsWith("AT ") || norm.startsWith("AT ") || s === "AT") {
+    return true;
+  }
+
+  if (s === "CT" || norm === "CT" || s === "C T" || s === "C.T" || s === "C/T") {
+    return true;
+  }
+
+  if (s.startsWith("ABSENT") || norm.startsWith("ABSENT")) {
+    return true;
+  }
+
+  if (s.includes("ON HAND") || norm.includes("ON HAND") || s === "ONHAND") {
+    return true;
+  }
+
+  return false;
+}
+
 // Check custom duty types
 function getCustomDutyName(dutyStr) {
   if (!dutyStr) return "";
   const s = String(dutyStr).trim().toUpperCase();
   if (!s) return "";
+
+  // 1. Excluded duties MUST NOT be counted or calculated in Amount Summary
+  if (isExcludedAmountDuty(s)) {
+    return "";
+  }
+
   const norm = s.replace(/[\/\-\_\.]+/g, " ");
 
   const customMap = [
@@ -423,7 +468,7 @@ function getLiveOp72SummaryForEmployee(targetEmpName, monthStr) {
           if (leaveKeywords.some(k => tailLbl === k || tailLbl.includes(k))) {
             liveLeave55Cnt += tailVal;
           } else {
-            const cName = getCustomDutyName(tailLbl) || tailLbl;
+            const cName = getCustomDutyName(tailLbl);
             if (cName) {
               liveCustomDutyCnt += tailVal;
               if (!liveCustomDutyNames.includes(cName)) liveCustomDutyNames.push(cName);
