@@ -1297,6 +1297,41 @@ function renderAmtsBundleList() {
   updateAmtsBundleBadges();
 }
 
+async function savePdfFile(pdfBlob, suggestedName) {
+  // 1. Modern File System Access API (Chrome / Edge) — prompts user with native "Save As" file path dialog
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: "PDF Document (*.pdf)",
+          accept: { "application/pdf": [".pdf"] },
+        }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(pdfBlob);
+      await writable.close();
+      return { saved: true, name: fileHandle.name };
+    } catch (err) {
+      if (err.name === "AbortError") {
+        return { saved: false, cancelled: true };
+      }
+      console.warn("showSaveFilePicker failed, trying fallback:", err);
+    }
+  }
+
+  // 2. Fallback for browsers without File System Access API
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = suggestedName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return { saved: true, name: suggestedName };
+}
+
 // ── Event: Add current Amount Summary sheet as a Page to PDF Bundle ──────────
 if (amtsAddToPdfBtn) {
   amtsAddToPdfBtn.addEventListener("click", async () => {
@@ -1329,6 +1364,15 @@ if (amtsAddToPdfBtn) {
         throw new Error("html2canvas library load nahi hui.");
       }
 
+      // Measure rendered dimensions and text of vertical running-total cells from live DOM
+      const runningTds = Array.from(sheetContainer.querySelectorAll("td.amt-running"));
+      const runningMetrics = runningTds.map((td) => {
+        const text = (td.textContent || "").trim();
+        const w = td.offsetWidth || 120;
+        const h = td.offsetHeight || 290;
+        return { w, h, text };
+      });
+
       const canvas = await html2canvas(sheetContainer, {
         scale: 2,
         useCORS: true,
@@ -1336,6 +1380,30 @@ if (amtsAddToPdfBtn) {
         logging: false,
         scrollX: 0,
         scrollY: 0,
+        onclone: (clonedDoc) => {
+          // Fix: Replace CSS writing-mode with vector SVG in cloned DOM so html2canvas renders vertical amount text perfectly
+          const clonedRunningTds = Array.from(clonedDoc.querySelectorAll("td.amt-running"));
+          clonedRunningTds.forEach((clonedTd, i) => {
+            const metric = runningMetrics[i];
+            if (!metric) return;
+            const { w, h, text } = metric;
+            clonedTd.style.writingMode = "horizontal-tb";
+            clonedTd.style.transform = "none";
+            clonedTd.style.padding = "0";
+            clonedTd.style.textAlign = "center";
+            clonedTd.style.verticalAlign = "middle";
+            clonedTd.style.overflow = "hidden";
+
+            // 2.5x font size (approx 32px), dynamically clamped so it never overflows cell height
+            const fontSize = Math.min(32, Math.max(22, Math.floor(h / ((text.length || 8) * 0.85))));
+
+            clonedTd.innerHTML = `
+              <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;overflow:visible;">
+                <text x="-${h / 2}" y="${w / 2 + 1}" transform="rotate(-90)" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}px" font-weight="bold" font-family="'Times New Roman', Times, Georgia, serif" letter-spacing="1px" fill="#000000">${text}</text>
+              </svg>
+            `;
+          });
+        },
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
@@ -1479,15 +1547,12 @@ if (amtsSaveAndDownloadBtn) {
       const pdfBase64 = pdf.output("datauristring");
       const fileSizeKb = Math.round((pdfBlob.size / 1024) * 10) / 10;
 
-      // 1. Trigger local download in browser
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const dlLink = document.createElement("a");
-      dlLink.href = blobUrl;
-      dlLink.download = finalFileName;
-      document.body.appendChild(dlLink);
-      dlLink.click();
-      document.body.removeChild(dlLink);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+      // 1. Trigger Save As / File Picker dialog allowing user to choose save folder & path
+      const saveResult = await savePdfFile(pdfBlob, finalFileName);
+      if (saveResult && saveResult.cancelled) {
+        if (amtsStatus) amtsStatus.textContent = "Save cancelled by user.";
+        return;
+      }
 
       // 2. Upload to Turso Cloud Database via API
       const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";

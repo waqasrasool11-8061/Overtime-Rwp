@@ -1002,17 +1002,23 @@ function promptMultiEntryResolution(empName, dateLabel, records) {
           </div>
         `;
 
-        card.addEventListener("click", () => {
-          const radio = card.querySelector('input[type="radio"]');
-          if (radio) radio.checked = true;
-          tableBody.querySelectorAll(".op72-multi-record-card").forEach((c) => c.classList.remove("is-selected"));
-          card.classList.add("is-selected");
-          if (optSingle) optSingle.checked = true;
-          syncChoiceUI();
-        });
-
         tableBody.appendChild(card);
       });
+    }
+
+    // High performance delegated click for record cards
+    function onTableBodyClick(e) {
+      const card = e.target.closest(".op72-multi-record-card");
+      if (!card || !tableBody) return;
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      tableBody.querySelectorAll(".op72-multi-record-card").forEach((c) => c.classList.remove("is-selected"));
+      card.classList.add("is-selected");
+      if (optSingle) optSingle.checked = true;
+      syncChoiceUI();
+    }
+    if (tableBody) {
+      tableBody.addEventListener("click", onTableBodyClick);
     }
 
     // Default choice is Single (First record selected)
@@ -1040,7 +1046,43 @@ function promptMultiEntryResolution(empName, dateLabel, records) {
     });
     syncChoiceUI();
 
+    // Fast keyboard shortcuts: Enter to Apply, 1-9 to select row, C for combine
+    function onKeyDown(e) {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          onApply();
+        }
+        return;
+      }
+      if (e.key >= "1" && e.key <= "9") {
+        const idx = Number(e.key) - 1;
+        if (idx < parsedRecords.length) {
+          const cards = tableBody ? tableBody.querySelectorAll(".op72-multi-record-card") : [];
+          if (cards[idx]) {
+            const radio = cards[idx].querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+            cards.forEach((c) => c.classList.remove("is-selected"));
+            cards[idx].classList.add("is-selected");
+            if (optSingle) optSingle.checked = true;
+            syncChoiceUI();
+          }
+        }
+      } else if (e.key === "c" || e.key === "C") {
+        if (optCombine) {
+          optCombine.checked = true;
+          syncChoiceUI();
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        onApply();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+
     function cleanup() {
+      window.removeEventListener("keydown", onKeyDown);
+      if (tableBody)     tableBody.removeEventListener("click", onTableBodyClick);
       if (applyBtn)      applyBtn.removeEventListener("click", onApply);
       if (combineAllBtn) combineAllBtn.removeEventListener("click", onCombineAll);
       dialog.removeEventListener("cancel", onCancel);
@@ -3989,6 +4031,41 @@ if (op72ClearBundleBtn) {
   });
 }
 
+async function saveOp72PdfFile(pdfBlob, suggestedName) {
+  // 1. Modern File System Access API (Chrome / Edge) — prompts user with native "Save As" file path dialog
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: "PDF Document (*.pdf)",
+          accept: { "application/pdf": [".pdf"] },
+        }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(pdfBlob);
+      await writable.close();
+      return { saved: true, name: fileHandle.name };
+    } catch (err) {
+      if (err.name === "AbortError") {
+        return { saved: false, cancelled: true };
+      }
+      console.warn("showSaveFilePicker failed, trying fallback:", err);
+    }
+  }
+
+  // 2. Fallback for browsers without File System Access API
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = suggestedName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return { saved: true, name: suggestedName };
+}
+
 // ── Event: Compile Multi-Page PDF, Download Locally & Upload to Turso Cloud ───
 if (op72SaveAndDownloadBtn) {
   op72SaveAndDownloadBtn.addEventListener("click", async () => {
@@ -4045,15 +4122,14 @@ if (op72SaveAndDownloadBtn) {
       const pdfBase64 = pdf.output("datauristring");
       const fileSizeKb = Math.round((pdfBlob.size / 1024) * 10) / 10;
 
-      // 1. Download locally via browser
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const dlLink = document.createElement("a");
-      dlLink.href = blobUrl;
-      dlLink.download = finalFileName;
-      document.body.appendChild(dlLink);
-      dlLink.click();
-      document.body.removeChild(dlLink);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+      // 1. Trigger Save As / File Picker dialog allowing user to choose save folder & path
+      const saveResult = await saveOp72PdfFile(pdfBlob, finalFileName);
+      if (saveResult && saveResult.cancelled) {
+        if (op72Msg) op72Msg.textContent = "Save cancelled by user.";
+        op72SaveAndDownloadBtn.disabled = false;
+        op72SaveAndDownloadBtn.innerHTML = originalBtnText;
+        return;
+      }
 
       // 2. Upload to Turso Cloud Database
       const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
