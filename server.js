@@ -1121,6 +1121,13 @@ app.get("/sitemap.xml", (req, res) => {
   res.send(xml);
 });
 
+// Google Search Console HTML File verification handler
+app.get(/^\/google([a-zA-Z0-9_-]+)\.html$/, (req, res) => {
+  const fileName = `google${req.params[0]}.html`;
+  res.type("text/html");
+  res.send(`google-site-verification: ${fileName}`);
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // Serve Trainz HTML page folder from sibling directory "TRS DEP PAK"
