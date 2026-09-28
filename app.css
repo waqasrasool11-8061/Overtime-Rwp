@@ -160,6 +160,15 @@ body.login-landing .logout-corner-btn {
   }
 }
 
+@media print {
+  .logout-corner-btn,
+  #logoutBtn,
+  [class*="logout"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
 .login-dialog {
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 22px;

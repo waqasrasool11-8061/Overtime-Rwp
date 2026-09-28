@@ -976,7 +976,14 @@ if (amtsPrintBtn) {
       setStatus("Pehle Load karein.", true);
       return;
     }
-    window.print();
+    const logoutBtn = document.getElementById("logoutBtn");
+    const prevDisplay = logoutBtn ? logoutBtn.style.display : null;
+    if (logoutBtn) logoutBtn.style.display = "none";
+    try {
+      window.print();
+    } finally {
+      if (logoutBtn) logoutBtn.style.display = prevDisplay || "";
+    }
   });
 }
 
