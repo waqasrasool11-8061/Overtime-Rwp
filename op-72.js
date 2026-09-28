@@ -3558,8 +3558,107 @@ const op72ArchiveMonthFilter  = document.getElementById("op72ArchiveMonthFilter"
 const op72RefreshArchiveBtn   = document.getElementById("op72RefreshArchiveBtn");
 const op72ArchiveTableWrap    = document.getElementById("op72ArchiveTableWrap");
 
-// In-memory queue for OP-72 multi-page PDF compilation
+// ── Persistent PDF Bundle Queue Store (IndexedDB with LocalStorage Fallback) ──
+// Survives page navigation between OP-72, Amount Summary, and other pages
+const OP72_BUNDLE_DB_NAME = "OvertimePdfBundlesDB";
+const OP72_BUNDLE_DB_VERSION = 1;
+const OP72_BUNDLE_STORE_NAME = "bundle_queues";
+
+function openOp72PdfBundleDb() {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.indexedDB) {
+      return resolve(null);
+    }
+    try {
+      const req = indexedDB.open(OP72_BUNDLE_DB_NAME, OP72_BUNDLE_DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(OP72_BUNDLE_STORE_NAME)) {
+          db.createObjectStore(OP72_BUNDLE_STORE_NAME, { keyPath: "sheetType" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function loadPersistedOp72BundleQueue(sheetType) {
+  try {
+    const db = await openOp72PdfBundleDb();
+    if (db) {
+      const res = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(OP72_BUNDLE_STORE_NAME, "readonly");
+          const store = tx.objectStore(OP72_BUNDLE_STORE_NAME);
+          const req = store.get(sheetType);
+          req.onsuccess = () => resolve(req.result?.queue || null);
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+      if (Array.isArray(res)) return res;
+    }
+  } catch (err) {
+    console.warn("IndexedDB load error:", err);
+  }
+
+  // Fallback to localStorage
+  try {
+    const raw = localStorage.getItem(`PdfBundleQueue_${sheetType}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+
+  return [];
+}
+
+async function savePersistedOp72BundleQueue(sheetType, queue) {
+  // 1. Primary: Save to IndexedDB
+  try {
+    const db = await openOp72PdfBundleDb();
+    if (db) {
+      await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(OP72_BUNDLE_STORE_NAME, "readwrite");
+          const store = tx.objectStore(OP72_BUNDLE_STORE_NAME);
+          store.put({ sheetType, queue });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch {
+          resolve(false);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("IndexedDB save error:", err);
+  }
+
+  // 2. Secondary fallback: LocalStorage
+  try {
+    localStorage.setItem(`PdfBundleQueue_${sheetType}`, JSON.stringify(queue));
+  } catch (err) {}
+}
+
+// Active queue for OP-72 multi-page PDF compilation (persisted across page navigation)
 let op72BundleQueue = [];
+
+const op72QueueReadyPromise = (async function initOp72BundleQueue() {
+  try {
+    op72BundleQueue = await loadPersistedOp72BundleQueue("op-72");
+    updateOp72BundleBadges();
+    if (op72BundleQueue.length > 0 && op72Msg) {
+      op72Msg.textContent = `OP-72 PDF bundle active: ${op72BundleQueue.length} page(s) in queue.`;
+    }
+  } catch (err) {
+    console.error("Failed to restore OP-72 bundle queue:", err);
+  }
+})();
 
 function getOp72DateInfo() {
   const MONTHS_SHORT = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -3580,6 +3679,17 @@ function updateOp72BundleBadges() {
   const count = op72BundleQueue.length;
   if (op72BundleCount) op72BundleCount.textContent = count;
   if (op72ModalBundleCount) op72ModalBundleCount.textContent = count;
+  if (op72ViewBundleBtn) {
+    if (count > 0) {
+      op72ViewBundleBtn.style.borderColor = "#0284c7";
+      op72ViewBundleBtn.style.color = "#0284c7";
+      op72ViewBundleBtn.style.fontWeight = "700";
+    } else {
+      op72ViewBundleBtn.style.borderColor = "";
+      op72ViewBundleBtn.style.color = "";
+      op72ViewBundleBtn.style.fontWeight = "";
+    }
+  }
   if (op72SaveAndDownloadBtn) {
     op72SaveAndDownloadBtn.disabled = count === 0;
     op72SaveAndDownloadBtn.style.opacity = count === 0 ? "0.6" : "1";
@@ -3749,7 +3859,7 @@ async function captureOp72SheetSnapshot() {
     });
 
     restoreAll();
-    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
     return {
       imgData,
       canvasW: canvas.width,
@@ -3767,6 +3877,7 @@ async function captureOp72SheetSnapshot() {
 // ── Event: Add Current OP-72 sheet to bundle ─────────────────────────────────
 if (op72AddToPdfBtn) {
   op72AddToPdfBtn.addEventListener("click", async () => {
+    await op72QueueReadyPromise;
     const originalBtnText = op72AddToPdfBtn.innerHTML;
     op72AddToPdfBtn.disabled = true;
     op72AddToPdfBtn.innerHTML = `⏳ Capturing Page ${op72BundleQueue.length + 1}...`;
@@ -3798,10 +3909,11 @@ if (op72AddToPdfBtn) {
       };
 
       op72BundleQueue.push(pageItem);
+      await savePersistedOp72BundleQueue("op-72", op72BundleQueue);
       updateOp72BundleBadges();
 
       if (op72Msg) {
-        op72Msg.textContent = `✓ Page ${op72BundleQueue.length} (${currentGroup}) added to OP-72 PDF bundle!`;
+        op72Msg.textContent = `✓ Page ${op72BundleQueue.length} (${currentGroup}) added to OP-72 PDF bundle! (Queue saved)`;
       }
 
       if (op72ViewBundleBtn) {
@@ -3824,7 +3936,8 @@ if (op72AddToPdfBtn) {
 
 // ── Event: Open View PDF Bundle Modal ─────────────────────────────────────────
 if (op72ViewBundleBtn && op72BundleModal) {
-  op72ViewBundleBtn.addEventListener("click", () => {
+  op72ViewBundleBtn.addEventListener("click", async () => {
+    await op72QueueReadyPromise;
     const { monthShort, yearNum } = getOp72DateInfo();
     const currentGroup = getOp72CurrentGroup();
     if (!op72CustomTagInput.value) {
@@ -3849,12 +3962,13 @@ if (op72CustomTagInput) {
 
 // Delegate Remove button inside Bundle List
 if (op72BundleList) {
-  op72BundleList.addEventListener("click", (e) => {
+  op72BundleList.addEventListener("click", async (e) => {
     const removeBtn = e.target.closest(".pdf-bundle-remove-btn");
     if (!removeBtn) return;
     const idx = parseInt(removeBtn.dataset.index, 10);
     if (!isNaN(idx) && idx >= 0 && idx < op72BundleQueue.length) {
       op72BundleQueue.splice(idx, 1);
+      await savePersistedOp72BundleQueue("op-72", op72BundleQueue);
       renderOp72BundleList();
     }
   });
@@ -3862,10 +3976,11 @@ if (op72BundleList) {
 
 // Clear Bundle
 if (op72ClearBundleBtn) {
-  op72ClearBundleBtn.addEventListener("click", () => {
+  op72ClearBundleBtn.addEventListener("click", async () => {
     if (!op72BundleQueue.length) return;
     if (confirm("Kya aap waqayi OP-72 active bundle ke tamam pages clear karna chahte hain?")) {
       op72BundleQueue = [];
+      await savePersistedOp72BundleQueue("op-72", op72BundleQueue);
       renderOp72BundleList();
       if (op72Msg) {
         op72Msg.textContent = "OP-72 PDF bundle queue cleared.";

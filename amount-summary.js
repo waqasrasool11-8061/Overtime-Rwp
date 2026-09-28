@@ -1099,8 +1099,110 @@ const amtsArchiveMonthFilter  = document.getElementById("amtsArchiveMonthFilter"
 const amtsRefreshArchiveBtn   = document.getElementById("amtsRefreshArchiveBtn");
 const amtsArchiveTableWrap    = document.getElementById("amtsArchiveTableWrap");
 
-// Active in-memory queue for multi-page PDF compilation
+// ── Persistent PDF Bundle Queue Store (IndexedDB with LocalStorage Fallback) ──
+// Survives page navigation between Amount Summary, OP-72, and any other tabs
+const BUNDLE_DB_NAME = "OvertimePdfBundlesDB";
+const BUNDLE_DB_VERSION = 1;
+const BUNDLE_STORE_NAME = "bundle_queues";
+
+function openPdfBundleDb() {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.indexedDB) {
+      return resolve(null);
+    }
+    try {
+      const req = indexedDB.open(BUNDLE_DB_NAME, BUNDLE_DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(BUNDLE_STORE_NAME)) {
+          db.createObjectStore(BUNDLE_STORE_NAME, { keyPath: "sheetType" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function loadPersistedBundleQueue(sheetType) {
+  try {
+    const db = await openPdfBundleDb();
+    if (db) {
+      const res = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(BUNDLE_STORE_NAME, "readonly");
+          const store = tx.objectStore(BUNDLE_STORE_NAME);
+          const req = store.get(sheetType);
+          req.onsuccess = () => resolve(req.result?.queue || null);
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+      if (Array.isArray(res)) return res;
+    }
+  } catch (err) {
+    console.warn("IndexedDB load error:", err);
+  }
+
+  // Fallback to localStorage
+  try {
+    const raw = localStorage.getItem(`PdfBundleQueue_${sheetType}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+
+  return [];
+}
+
+async function savePersistedBundleQueue(sheetType, queue) {
+  // 1. Primary: Save to IndexedDB (handles large multi-page bundles without quota limits)
+  try {
+    const db = await openPdfBundleDb();
+    if (db) {
+      await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(BUNDLE_STORE_NAME, "readwrite");
+          const store = tx.objectStore(BUNDLE_STORE_NAME);
+          store.put({ sheetType, queue });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch {
+          resolve(false);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("IndexedDB save error:", err);
+  }
+
+  // 2. Secondary fallback: LocalStorage (if size fits)
+  try {
+    localStorage.setItem(`PdfBundleQueue_${sheetType}`, JSON.stringify(queue));
+  } catch (err) {
+    // Quota exceeded in localStorage is safe since IndexedDB already stored it
+  }
+}
+
+// Active queue for multi-page PDF compilation (persisted across page navigation)
 let amtsBundleQueue = [];
+
+const amtsQueueReadyPromise = (async function initAmtsBundleQueue() {
+  try {
+    amtsBundleQueue = await loadPersistedBundleQueue("amount-summary");
+    updateAmtsBundleBadges();
+    if (amtsBundleQueue.length > 0 && amtsStatus) {
+      amtsStatus.textContent = `PDF bundle active: ${amtsBundleQueue.length} page(s) in queue. Next group load kar ke 'Add to PDF' karein ya bundle download karein.`;
+      amtsStatus.style.color = "#0284c7";
+    }
+  } catch (err) {
+    console.error("Failed to restore bundle queue:", err);
+  }
+})();
 
 function getAmtsDateInfo() {
   const MONTHS_SHORT = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -1128,6 +1230,17 @@ function updateAmtsBundleBadges() {
   const count = amtsBundleQueue.length;
   if (amtsBundleCount) amtsBundleCount.textContent = count;
   if (amtsModalBundleCount) amtsModalBundleCount.textContent = count;
+  if (amtsViewBundleBtn) {
+    if (count > 0) {
+      amtsViewBundleBtn.style.borderColor = "#0284c7";
+      amtsViewBundleBtn.style.color = "#0284c7";
+      amtsViewBundleBtn.style.fontWeight = "700";
+    } else {
+      amtsViewBundleBtn.style.borderColor = "";
+      amtsViewBundleBtn.style.color = "";
+      amtsViewBundleBtn.style.fontWeight = "";
+    }
+  }
   if (amtsSaveAndDownloadBtn) {
     amtsSaveAndDownloadBtn.disabled = count === 0;
     amtsSaveAndDownloadBtn.style.opacity = count === 0 ? "0.6" : "1";
@@ -1187,6 +1300,8 @@ function renderAmtsBundleList() {
 // ── Event: Add current Amount Summary sheet as a Page to PDF Bundle ──────────
 if (amtsAddToPdfBtn) {
   amtsAddToPdfBtn.addEventListener("click", async () => {
+    await amtsQueueReadyPromise;
+
     const tb = document.getElementById("amtBody");
     if (!tb || !tb.children.length) {
       alert("Pehle 'Load from OP-72' chalayein ta ke sheet render ho sake.");
@@ -1223,7 +1338,7 @@ if (amtsAddToPdfBtn) {
         scrollY: 0,
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const { monthShort, yearNum } = getAmtsDateInfo();
       const currentGroup = getAmtsCurrentGroup();
       const now = new Date();
@@ -1239,10 +1354,11 @@ if (amtsAddToPdfBtn) {
       };
 
       amtsBundleQueue.push(pageItem);
+      await savePersistedBundleQueue("amount-summary", amtsBundleQueue);
       updateAmtsBundleBadges();
 
       if (amtsStatus) {
-        amtsStatus.textContent = `✓ Page ${amtsBundleQueue.length} (${currentGroup}) added to PDF bundle!`;
+        amtsStatus.textContent = `✓ Page ${amtsBundleQueue.length} (${currentGroup}) added to PDF bundle! (Queue saved)`;
         amtsStatus.style.color = "#0284c7";
       }
 
@@ -1268,7 +1384,8 @@ if (amtsAddToPdfBtn) {
 
 // ── Event: Open View PDF Bundle Modal ─────────────────────────────────────────
 if (amtsViewBundleBtn && amtsBundleModal) {
-  amtsViewBundleBtn.addEventListener("click", () => {
+  amtsViewBundleBtn.addEventListener("click", async () => {
+    await amtsQueueReadyPromise;
     const { monthShort, yearNum } = getAmtsDateInfo();
     const currentGroup = getAmtsCurrentGroup();
     if (!amtsCustomTagInput.value) {
@@ -1293,12 +1410,13 @@ if (amtsCustomTagInput) {
 
 // Delegate Remove button inside Bundle List
 if (amtsBundleList) {
-  amtsBundleList.addEventListener("click", (e) => {
+  amtsBundleList.addEventListener("click", async (e) => {
     const removeBtn = e.target.closest(".pdf-bundle-remove-btn");
     if (!removeBtn) return;
     const idx = parseInt(removeBtn.dataset.index, 10);
     if (!isNaN(idx) && idx >= 0 && idx < amtsBundleQueue.length) {
       amtsBundleQueue.splice(idx, 1);
+      await savePersistedBundleQueue("amount-summary", amtsBundleQueue);
       renderAmtsBundleList();
     }
   });
@@ -1306,10 +1424,11 @@ if (amtsBundleList) {
 
 // Clear Bundle
 if (amtsClearBundleBtn) {
-  amtsClearBundleBtn.addEventListener("click", () => {
+  amtsClearBundleBtn.addEventListener("click", async () => {
     if (!amtsBundleQueue.length) return;
     if (confirm("Kya aap waqayi active bundle ke tamam pages clear karna chahte hain?")) {
       amtsBundleQueue = [];
+      await savePersistedBundleQueue("amount-summary", amtsBundleQueue);
       renderAmtsBundleList();
       if (amtsStatus) {
         amtsStatus.textContent = "PDF bundle queue cleared.";

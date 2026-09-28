@@ -673,5 +673,23 @@
     "text": "check krty hain",
     "timestamp": "2026-09-28T12:58:43.663Z",
     "is_read": 1
+  },
+  {
+    "id": "msg_1790605784150_e6bz2beru",
+    "sender": "M IMTIAZ HAJI",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Bhi g 26 wala guzated nai lagya",
+    "timestamp": "2026-09-28T14:29:44.150Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790605895793_0k5feroeq",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "M IMTIAZ HAJI",
+    "text": "25 KO GHAZTTED THA",
+    "timestamp": "2026-09-28T14:31:35.793Z",
+    "is_read": 1
   }
 ]
