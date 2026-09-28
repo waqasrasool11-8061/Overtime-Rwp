@@ -153,9 +153,11 @@ function getCustomDutyName(dutyStr) {
     { key: "S.MAN", display: "S.MAN" },
     { key: "SMAN", display: "S.MAN" },
     { key: "FORS", display: "FORS" },
+    { key: "FORSHIFT", display: "FORSHIFT" },
     { key: "F OFFICE", display: "F.OFFICE" },
     { key: "F.OFFICE", display: "F.OFFICE" },
-    { key: "ACCIDENT", display: "ACCIDENT" }
+    { key: "ACCIDENT", display: "ACCIDENT" },
+    { key: "SMI", display: "SMI" }
   ];
 
   for (const item of customMap) {
@@ -164,6 +166,13 @@ function getCustomDutyName(dutyStr) {
       return item.display;
     }
   }
+
+  // Any other non-operating, non-leave, non-rest duty type is also treated as a custom duty
+  const opOrLeave = ["M", "ML", "P", "PASS", "PASSNGER", "OP", "G", "GDS", "SHUNT", "SHNT", "S", "LEAVE", "SICK", "55%", "REST", "OFF"];
+  if (!opOrLeave.some(k => s === k || s.startsWith(k + " ") || s.endsWith(" " + k))) {
+    return s;
+  }
+
   return "";
 }
 
@@ -259,20 +268,28 @@ function extractTailOrDailyDuties(cells, empIdx0, isSpecialDI = false) {
       const duty = String(cells[dutyIdx] || "").trim().toUpperCase();
       if (!duty) continue;
 
-      if (leaveKeywords.some(k => duty === k || duty.includes(k))) {
-        leave55Count += 1;
-      } else {
-        const cName = getCustomDutyName(duty);
-        if (cName) {
-          if (isSpecialDI && (cName === "DI" || isDIDuty(duty))) {
-            continue;
-          }
-          customDutyCount += 1;
-          if (!customDutyNames.includes(cName)) {
-            customDutyNames.push(cName);
+      duty.split("/").forEach((part) => {
+        const trimmed = part.trim();
+        let qty = 1;
+        let sym = trimmed;
+        const m = trimmed.match(/^(\d+)(.+)$/);
+        if (m) { qty = Number(m[1]); sym = m[2].trim(); }
+
+        if (leaveKeywords.some(k => sym === k || sym.includes(k))) {
+          leave55Count += qty;
+        } else {
+          const cName = getCustomDutyName(sym);
+          if (cName) {
+            if (isSpecialDI && (cName === "DI" || isDIDuty(sym))) {
+              return;
+            }
+            customDutyCount += qty;
+            if (!customDutyNames.includes(cName)) {
+              customDutyNames.push(cName);
+            }
           }
         }
-      }
+      });
     }
   }
 

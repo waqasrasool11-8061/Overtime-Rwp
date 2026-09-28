@@ -213,8 +213,11 @@ function getCustomDutyName(dutyStr) {
     { key: "S.MAN", display: "S.MAN" },
     { key: "SMAN", display: "S.MAN" },
     { key: "FORS", display: "FORS" },
+    { key: "FORSHIFT", display: "FORSHIFT" },
     { key: "F OFFICE", display: "F.OFFICE" },
-    { key: "F.OFFICE", display: "F.OFFICE" }
+    { key: "F.OFFICE", display: "F.OFFICE" },
+    { key: "ACCIDENT", display: "ACCIDENT" },
+    { key: "SMI", display: "SMI" }
   ];
 
   for (const item of customMap) {
@@ -223,6 +226,13 @@ function getCustomDutyName(dutyStr) {
       return item.display;
     }
   }
+
+  // Any other non-operating, non-leave, non-rest duty type is also treated as a custom duty
+  const opOrLeave = ["M", "ML", "P", "PASS", "PASSNGER", "OP", "G", "GDS", "SHUNT", "SHNT", "S", "LEAVE", "SICK", "55%", "REST", "OFF"];
+  if (!opOrLeave.some(k => s === k || s.startsWith(k + " ") || s.endsWith(" " + k))) {
+    return s;
+  }
+
   return "";
 }
 
@@ -267,6 +277,13 @@ function switchTab(tabId) {
       tabBtnAmountSummary.setAttribute("aria-selected", "true");
     }
     if (tabContentAmountSummary) tabContentAmountSummary.classList.add("active");
+    if (currentEmployeeName && currentMonthStr) {
+      const baseEmp = findEmpRecord(cachedMasterRows, currentEmployeeName);
+      const empRecord = (typeof getEffectivePayRecord === "function")
+        ? getEffectivePayRecord(baseEmp, currentMonthStr)
+        : baseEmp;
+      renderAmountSummarySingleSheet(currentEmployeeName, currentMonthStr, empRecord);
+    }
   } else if (tabId === "chat") {
     if (tabBtnChat) {
       tabBtnChat.classList.add("active");
@@ -390,6 +407,32 @@ function getLiveOp72SummaryForEmployee(targetEmpName, monthStr) {
       return String(cells[valIdx] ?? "0").trim();
     };
 
+    let liveLeave55Cnt = 0;
+    let liveCustomDutyCnt = 0;
+    const liveCustomDutyNames = [];
+    const tailStart = summaryStart + 11 * 20; // 1280
+    const leaveKeywords = ["LEAVE", "SICK", "U.DMO", "55%", "C/L", "S/L", "L/A", "A/L", "L/P", "L/E"];
+
+    for (let t = tailStart; t < cells.length; t += 20) {
+      const lblIdx = t + foundIdx * 2;
+      const valIdx = t + foundIdx * 2 + 1;
+      if (valIdx < cells.length) {
+        const tailLbl = String(cells[lblIdx] || "").trim().toUpperCase();
+        const tailVal = cleanNum(cells[valIdx]);
+        if (tailVal > 0) {
+          if (leaveKeywords.some(k => tailLbl === k || tailLbl.includes(k))) {
+            liveLeave55Cnt += tailVal;
+          } else {
+            const cName = getCustomDutyName(tailLbl) || tailLbl;
+            if (cName) {
+              liveCustomDutyCnt += tailVal;
+              if (!liveCustomDutyNames.includes(cName)) liveCustomDutyNames.push(cName);
+            }
+          }
+        }
+      }
+    }
+
     return {
       otHhmm: getSumVal(0),
       totalOt: cleanNum(getSumVal(1)),
@@ -402,6 +445,9 @@ function getLiveOp72SummaryForEmployee(targetEmpName, monthStr) {
       shntCnt: cleanNum(getSumVal(8)),
       passCnt: cleanNum(getSumVal(9)),
       gdsCnt: cleanNum(getSumVal(10)),
+      leave55Cnt: liveLeave55Cnt,
+      customDutyCnt: liveCustomDutyCnt,
+      customDutyLabel: liveCustomDutyNames.join(", "),
       foundIdx
     };
   } catch (err) {
@@ -728,6 +774,19 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
       opShntCnt = liveOp72.shntCnt;
       opPassCnt = liveOp72.passCnt;
       opGdsCnt = liveOp72.gdsCnt;
+      if (liveOp72.leave55Cnt > 0 && leave55Cnt === 0) {
+        leave55Cnt = liveOp72.leave55Cnt;
+      }
+      if (liveOp72.customDutyCnt > 0) {
+        if (customDutyCnt === 0) {
+          customDutyCnt = liveOp72.customDutyCnt;
+        }
+        if (liveOp72.customDutyLabel) {
+          liveOp72.customDutyLabel.split(",").map(s => s.trim()).forEach(nm => {
+            if (nm && !customDutyNames.includes(nm)) customDutyNames.push(nm);
+          });
+        }
+      }
     }
   }
 
