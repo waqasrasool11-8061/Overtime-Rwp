@@ -1769,8 +1769,7 @@ async function loadAllEmployees() {
     applyHolidayColors(holidaySet);
 
     // 6. Fetch & fill late entry rows (previous month entries with remarks=current month)
-    const lateRemarks = currentMonthRemarksLabel();
-    const lateEntriesByEmployee = await fetchLateEntries(employees, lateRemarks);
+    const lateEntriesByEmployee = await fetchLateEntries(employees);
     fillLateEntryRows(lateEntriesByEmployee, employees, holidaySet);
 
     // 7. Auto-calculate summary — includes late entries via _lateEntriesByEmployee cache
@@ -1801,11 +1800,29 @@ if (op72LoadAllBtn) {
 // Structure: Map<empIdx1based, Array<{dateEntry, dutyType, otMins, mileage, dateObj}>>
 let _lateEntriesByEmployee = new Map();
 
-// Month name format used in remarks: "June 2026", "May 2026" etc.
+const OP72_FULL_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
+                          "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+
+// Month name format used in remarks: "June 2026", "May 2026", "AUG" etc.
 function currentMonthRemarksLabel() {
-  const FULL_MONTHS = ["January","February","March","April","May","June",
-                       "July","August","September","October","November","December"];
-  return `${FULL_MONTHS[seedDate.getMonth()]} ${seedDate.getFullYear()}`;
+  const mFull = OP72_FULL_MONTHS[seedDate.getMonth()] || "";
+  return `${mFull.charAt(0)}${mFull.slice(1).toLowerCase()} ${seedDate.getFullYear()}`;
+}
+
+function isLateEntryForTargetMonth(remarks, targetMonth0, targetYear) {
+  if (!remarks) return false;
+  const rem = String(remarks).trim().toUpperCase();
+  const mShort = MONTH_LABELS[targetMonth0] || "";
+  const mFull = OP72_FULL_MONTHS[targetMonth0] || "";
+  if (!mShort) return false;
+  const regex = new RegExp(`(?:^|[^A-Z])(?:${mShort}|${mFull})(?:[^A-Z]|$)`, "i");
+  if (!regex.test(rem)) return false;
+  const yrMatch = rem.match(/(?:20)?(2[4-9]|3[0-9])/);
+  if (yrMatch) {
+    const yr = Number(yrMatch[1].length === 2 ? "20" + yrMatch[1] : yrMatch[1]);
+    if (yr !== targetYear) return false;
+  }
+  return true;
 }
 
 // Parse a date string from OP72 Raw Data into a JS Date (or null)
@@ -1831,10 +1848,10 @@ function parseLateEntryDate(dateStr) {
 }
 
 // Fetch ALL op72 workbook rows, then filter for late entries:
-// - dateEntry month < current selected month (same year)
-// - remarks === current month name (e.g. "June 2026")
+// - dateEntry < target month start
+// - remarks mentions current target month (e.g. "AUG", "AUG-26", "August")
 // Returns Map<empName.toUpperCase(), Array<rowValues>>
-async function fetchLateEntries(employees, currentMonthLabel) {
+async function fetchLateEntries(employees) {
   const result = new Map(); // empName.upper => [{dateObj, dutyType, otMins, mileage}]
 
   let allRows = [];
@@ -1857,11 +1874,12 @@ async function fetchLateEntries(employees, currentMonthLabel) {
   const empSet = new Set(employees.map((n) => n.toUpperCase()));
   const targetYear = seedDate.getFullYear();
   const targetMonth0 = seedDate.getMonth(); // 0-based current month
+  const targetMonthStart = new Date(targetYear, targetMonth0, 1);
 
   for (const row of allRows) {
-    // remarks (col 12) must match currentMonthLabel
+    // remarks (col 12) must match current target month
     const remarks = String(row[12] || "").trim();
-    if (remarks.toLowerCase() !== currentMonthLabel.toLowerCase()) continue;
+    if (!isLateEntryForTargetMonth(remarks, targetMonth0, targetYear)) continue;
 
     // employee1 (col 1) or employee2 (col 2) must be in our group
     const emp1 = String(row[1] || "").trim().toUpperCase();
@@ -1869,11 +1887,10 @@ async function fetchLateEntries(employees, currentMonthLabel) {
     const matchedEmp = empSet.has(emp1) ? emp1 : (empSet.has(emp2) ? emp2 : null);
     if (!matchedEmp) continue;
 
-    // date must be < current month (same year)
+    // date must be < current month start
     const dateObj = parseLateEntryDate(String(row[0] || "").trim());
     if (!dateObj) continue;
-    if (dateObj.getFullYear() !== targetYear) continue;
-    if (dateObj.getMonth() >= targetMonth0) continue; // must be strictly before current month
+    if (dateObj >= targetMonthStart) continue; // must be strictly before current month
 
     if (!result.has(matchedEmp)) result.set(matchedEmp, []);
     result.get(matchedEmp).push({

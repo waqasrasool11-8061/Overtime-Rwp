@@ -261,8 +261,8 @@ function extractTailOrDailyDuties(cells, empIdx0, isSpecialDI = false) {
 
   const leaveKeywords = ["LEAVE", "SICK", "U.DMO", "55%", "C/L", "S/L", "L/A", "A/L", "L/P", "L/E"];
 
-  // 1. Check daily rows (31 days, 30 cells per day: [duty, ot, mile] * 10)
-  for (let day = 0; day < 31; day++) {
+  // 1. Check daily rows + 4 late entry rows (35 rows total, 30 cells per row: [duty, ot, mile] * 10)
+  for (let day = 0; day < 35; day++) {
     const dutyIdx = 10 + day * 30 + empIdx0 * 3;
     if (dutyIdx < cells.length) {
       const duty = String(cells[dutyIdx] || "").trim().toUpperCase();
@@ -482,7 +482,7 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
   let gdsCnt  = g("Operating (Gds)");
   let mlCnt   = opMail;
 
-  // Self-healing fallback: If summary matrix had 0 or was missing, scan daily cells for OP operating count & mileage
+  // Self-healing fallback: If summary matrix had 0 or was missing, scan daily + late entry cells for OT, OP operating count & mileage
   if (Array.isArray(allRawCells) && allRawCells.length >= 10) {
     let dailyShnt = 0;
     let dailyM = 0;
@@ -491,9 +491,11 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
     let dailyMileM = 0;
     let dailyMileP = 0;
     let dailyMileOPG = 0;
+    let dailyOtMins = 0;
 
-    for (let day = 0; day < 31; day++) {
+    for (let day = 0; day < 35; day++) {
       const dutyIdx = 10 + day * 30 + empIdx0 * 3;
+      const otIdx   = 10 + day * 30 + empIdx0 * 3 + 1;
       const mileIdx = 10 + day * 30 + empIdx0 * 3 + 2;
       if (dutyIdx < allRawCells.length) {
         const duty = String(allRawCells[dutyIdx] || "").trim().toUpperCase();
@@ -501,6 +503,13 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
           const mVal = (mileIdx < allRawCells.length)
             ? (parseFloat(String(allRawCells[mileIdx] || "").replace(/[^0-9.-]/g, "")) || 0)
             : 0;
+
+          if (otIdx < allRawCells.length) {
+            const oText = String(allRawCells[otIdx] || "").trim();
+            const otM = oText.match(/^(\d+):(\d{2})$/);
+            if (otM) dailyOtMins += Number(otM[1]) * 60 + Number(otM[2]);
+            else if (!isNaN(parseFloat(oText))) dailyOtMins += Math.round(parseFloat(oText) * 60);
+          }
 
           duty.split("/").forEach((part) => {
             const trimmed = part.trim();
@@ -527,6 +536,7 @@ function calcEmp(matrix, empIdx0, masterRows, empName, allRawCells) {
       }
     }
 
+    if (totalOt === 0 && dailyOtMins > 0) totalOt = Number((dailyOtMins / 60 / 8).toFixed(2));
     if (shntCnt === 0 && dailyShnt > 0) shntCnt = dailyShnt;
     if (mlCnt === 0 && dailyM > 0) mlCnt = dailyM;
     if (passCnt === 0 && dailyP > 0) passCnt = dailyP;

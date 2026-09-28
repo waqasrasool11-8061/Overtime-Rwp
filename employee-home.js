@@ -473,8 +473,10 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
   cachedHolidays = await fetchHolidays(monthStr);
   const rawRecords = await fetchOp72Records(empName, monthStr);
 
-  // Group records by day (1..31)
+  // Group records by day (1..31) and collect late/previous month records
   const byDay = new Map();
+  const lateRecords = [];
+
   rawRecords.forEach(rec => {
     const dateStr = String(rec.dateEntry || (Array.isArray(rec.rowValues) ? rec.rowValues[0] : "") || "").trim();
     if (!dateStr) return;
@@ -503,11 +505,17 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
       const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (dmy) dt = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
     }
-    if (!dt || dt.getFullYear() !== year || dt.getMonth() !== mIdx) return;
+    if (!dt) return;
 
-    const d = dt.getDate();
-    if (!byDay.has(d)) byDay.set(d, []);
-    byDay.get(d).push(rec);
+    rec.parsedDateObj = dt;
+
+    if (dt.getFullYear() === year && dt.getMonth() === mIdx && !rec.isLateEntry) {
+      const d = dt.getDate();
+      if (!byDay.has(d)) byDay.set(d, []);
+      byDay.get(d).push(rec);
+    } else if (rec.isLateEntry || dt < new Date(year, mIdx, 1)) {
+      lateRecords.push(rec);
+    }
   });
 
   // Calculate day rows
@@ -692,6 +700,109 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
     op72DailyBody.appendChild(tr);
   }
 
+  // 3. Process and render Late Entries (previous month entries with remarks for this month)
+  if (lateRecords.length > 0) {
+    const dividerTr = document.createElement("tr");
+    dividerTr.className = "op-late-header-row";
+    const dividerTd = document.createElement("td");
+    dividerTd.colSpan = 4;
+    dividerTd.style.cssText = "background: #e0f2fe; color: #0369a1; font-weight: bold; text-align: center; padding: 6px 8px; font-size: 11px; letter-spacing: 0.5px; border-top: 2px solid #0284c7; border-bottom: 1px solid #bae6fd;";
+    dividerTd.textContent = `LATE / PREVIOUS MONTH ENTRIES (${lateRecords.length} entries included in this month's calculations)`;
+    dividerTr.appendChild(dividerTd);
+    op72DailyBody.appendChild(dividerTr);
+
+    lateRecords.forEach(rec => {
+      const rv = Array.isArray(rec.rowValues) ? rec.rowValues : [];
+      const dType = String(rec.dutyType || rv[3] || "").trim().toUpperCase();
+      const oText = String(rec.ot || rv[4] || "").trim();
+      const mVal  = cleanNum(rec.mileage || rv[5]);
+      const dateStr = String(rec.dateEntry || rv[0] || "").trim();
+      const rem = String(rec.remarks || rv[12] || "").trim();
+
+      // OT
+      const otM = oText.match(/^(\d+):(\d{2})$/);
+      let mins = 0;
+      if (otM) mins = Number(otM[1]) * 60 + Number(otM[2]);
+      else if (!isNaN(parseFloat(oText))) mins = Math.round(parseFloat(oText) * 60);
+      totalOtMins += mins;
+
+      // Mileage
+      if (dType === "M") totalMileM += mVal;
+      else if (dType === "P" || dType === "PASS") totalMileP += mVal;
+      else if (dType === "OP" || dType === "G" || dType === "SHUNT" || dType === "GDS" || dType === "S") totalMileOPG += mVal;
+
+      // Operating counts, Leave, Custom duties
+      if (dType) {
+        const parts = dType.split("/").map(p => p.trim()).filter(Boolean);
+        parts.forEach(part => {
+          let qty = 1;
+          let symbol = part.toUpperCase();
+          const numMatch = symbol.match(/^(\d+)(.*)$/);
+          if (numMatch) {
+            qty = parseInt(numMatch[1], 10) || 1;
+            symbol = numMatch[2].trim();
+          }
+
+          if (symbol === "M") {
+            opMailCnt += qty;
+          } else if (symbol === "SHUNT" || symbol === "OP" || symbol === "S") {
+            opShntCnt += qty;
+          } else if (symbol === "P" || symbol === "PASS") {
+            opPassCnt += qty;
+          } else if (symbol === "G" || symbol === "GDS") {
+            opGdsCnt += qty;
+          }
+
+          if (leaveKeywords.some(k => symbol === k || symbol.includes(k))) {
+            leave55Cnt += qty;
+          } else {
+            const cName = getCustomDutyName(symbol);
+            if (cName) {
+              if (!(isSpecialDI && (cName === "DI" || symbol === "DI" || isDIDuty(symbol)))) {
+                customDutyCnt += qty;
+                if (!customDutyNames.includes(cName)) customDutyNames.push(cName);
+              }
+            }
+          }
+        });
+
+        // Sunday / Gazetted for late entries
+        if (hasValidDuty(dType) && rec.parsedDateObj) {
+          const dow = rec.parsedDateObj.getDay();
+          const isoD = `${rec.parsedDateObj.getFullYear()}-${String(rec.parsedDateObj.getMonth() + 1).padStart(2, "0")}-${String(rec.parsedDateObj.getDate()).padStart(2, "0")}`;
+          if (dow === 0) sundayDutyCnt += 1;
+          if (cachedHolidays.includes(isoD)) gazettedDutyCnt += 1;
+        }
+      }
+
+      // Render late entry row
+      const tr = document.createElement("tr");
+      tr.className = "op-late-row";
+      tr.style.background = "#f0fdf4";
+
+      const tdDate = document.createElement("td");
+      tdDate.className = "op-date-cell";
+      tdDate.style.fontWeight = "600";
+      tdDate.style.color = "#0369a1";
+      tdDate.textContent = `${dateStr} [Remarks: ${rem || monthShort}]`;
+
+      const tdDuty = document.createElement("td");
+      tdDuty.textContent = dType;
+
+      const tdOt = document.createElement("td");
+      tdOt.textContent = oText;
+
+      const tdMile = document.createElement("td");
+      tdMile.textContent = mVal > 0 ? (mVal % 1 === 0 ? String(mVal) : mVal.toFixed(2)) : "";
+
+      tr.appendChild(tdDate);
+      tr.appendChild(tdDuty);
+      tr.appendChild(tdOt);
+      tr.appendChild(tdMile);
+      op72DailyBody.appendChild(tr);
+    });
+  }
+
   // Demo fallback for the 4 employees in PDF if database had 0 records
   if (rawRecords.length === 0) {
     if (empName.includes("WAQAS RASOOL")) {
@@ -763,17 +874,17 @@ async function renderOp72SingleSheet(empName, monthStr, empRecord) {
       const calcM = Math.round((totalOtHours % 1) * 60);
       otHhmm = `${calcH}:${String(calcM).padStart(2, "0")}`;
     } else {
-      totalOtDays = liveOp72.totalOt;
-      otHhmm = liveOp72.otHhmm;
-      mileM_calc = liveOp72.mileM;
-      mileP_calc = liveOp72.mileP;
-      mileOPG_calc = liveOp72.mileOPG;
-      sundayDutyCnt = liveOp72.sunday;
-      gazettedDutyCnt = liveOp72.gazetted;
-      opMailCnt = liveOp72.opMail;
-      opShntCnt = liveOp72.shntCnt;
-      opPassCnt = liveOp72.passCnt;
-      opGdsCnt = liveOp72.gdsCnt;
+      totalOtDays = Math.max(totalOtDays, liveOp72.totalOt);
+      if (liveOp72.otHhmm && liveOp72.totalOt >= totalOtDays) otHhmm = liveOp72.otHhmm;
+      mileM_calc = Math.max(mileM_calc, liveOp72.mileM);
+      mileP_calc = Math.max(mileP_calc, liveOp72.mileP);
+      mileOPG_calc = Math.max(mileOPG_calc, liveOp72.mileOPG);
+      sundayDutyCnt = Math.max(sundayDutyCnt, liveOp72.sunday);
+      gazettedDutyCnt = Math.max(gazettedDutyCnt, liveOp72.gazetted);
+      opMailCnt = Math.max(opMailCnt, liveOp72.opMail);
+      opShntCnt = Math.max(opShntCnt, liveOp72.shntCnt);
+      opPassCnt = Math.max(opPassCnt, liveOp72.passCnt);
+      opGdsCnt = Math.max(opGdsCnt, liveOp72.gdsCnt);
       if (liveOp72.leave55Cnt > 0 && leave55Cnt === 0) {
         leave55Cnt = liveOp72.leave55Cnt;
       }

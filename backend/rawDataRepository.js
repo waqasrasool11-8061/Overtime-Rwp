@@ -1,6 +1,26 @@
 const WORKBOOK_CODE = "raw-data";
 const RAW_DATA_COLUMN_COUNT = 13;
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const FULL_MONTHS = [
+  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+];
+
+function isLateEntryRemarks(remarks, targetMonthIndex, targetYear) {
+  if (!remarks) return false;
+  const rem = String(remarks).trim().toUpperCase();
+  const mShort = MONTHS[targetMonthIndex];
+  const mFull = FULL_MONTHS[targetMonthIndex];
+  if (!mShort) return false;
+  const regex = new RegExp(`(?:^|[^A-Z])(?:${mShort}|${mFull})(?:[^A-Z]|$)`, "i");
+  if (!regex.test(rem)) return false;
+  const yrMatch = rem.match(/(?:20)?(2[4-9]|3[0-9])/);
+  if (yrMatch) {
+    const yr = Number(yrMatch[1].length === 2 ? "20" + yrMatch[1] : yrMatch[1]);
+    if (yr !== targetYear) return false;
+  }
+  return true;
+}
 
 function toJson(value) {
   return JSON.stringify(value ?? []);
@@ -312,7 +332,13 @@ async function searchRawDataByEmployeeAndMonth(db, workbookId, employeeName, mon
 
     const rowMonth = MONTHS[parsedDate.getMonth()] || "";
     const rowYear = parsedDate.getFullYear();
-    if (rowMonth !== targetMonth || rowYear !== targetYear) {
+    const targetMonthIndex = MONTHS.indexOf(targetMonth);
+    const targetMonthStart = new Date(targetYear, targetMonthIndex, 1);
+
+    const isCurrentMonth = (rowMonth === targetMonth && rowYear === targetYear);
+    const isLateEntry = (parsedDate < targetMonthStart) && isLateEntryRemarks(values[12], targetMonthIndex, targetYear);
+
+    if (!isCurrentMonth && !isLateEntry) {
       continue;
     }
 
@@ -320,6 +346,7 @@ async function searchRawDataByEmployeeAndMonth(db, workbookId, employeeName, mon
       id: Number(row.rowId),
       rowIndex: Number(row.rowIndex),
       rowValues: values,
+      isLateEntry: Boolean(isLateEntry),
     });
   }
 

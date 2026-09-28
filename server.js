@@ -1729,7 +1729,10 @@ app.get("/api/raw-data/search", async (req, res) => {
     }
 
     const matches = await searchRawDataByEmployeeAndMonth(db, workbook.id, employee, month, year);
-    const records = matches.map((row) => rowValuesToSearchRecord(row.id, row.rowIndex, row.rowValues));
+    const records = matches.map((row) => ({
+      ...rowValuesToSearchRecord(row.id, row.rowIndex, row.rowValues),
+      isLateEntry: Boolean(row.isLateEntry),
+    }));
     return res.json({
       employee,
       month,
@@ -1837,7 +1840,10 @@ app.get("/api/op72/search", async (req, res) => {
     }
 
     const matches = await searchRawDataByEmployeeAndMonth(db, workbook.id, employee, month, year);
-    const records = matches.map((row) => rowValuesToSearchRecord(row.id, row.rowIndex, row.rowValues));
+    const records = matches.map((row) => ({
+      ...rowValuesToSearchRecord(row.id, row.rowIndex, row.rowValues),
+      isLateEntry: Boolean(row.isLateEntry),
+    }));
     return res.json({ employee, month, year, count: records.length, records });
   } catch (error) {
     return res.status(500).json({ message: "Failed to run OP72 Raw Data search.", detail: error.message });
