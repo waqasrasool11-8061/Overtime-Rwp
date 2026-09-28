@@ -3532,3 +3532,583 @@ try {
   }
 } catch {}
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// MULTI-PAGE PDF BUNDLE & TURSO CLOUD STORAGE ARCHIVE — OP-72 (User Requested)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const op72AddToPdfBtn        = document.getElementById("op72AddToPdfBtn");
+const op72ViewBundleBtn       = document.getElementById("op72ViewBundleBtn");
+const op72BundleCount         = document.getElementById("op72BundleCount");
+const op72CloudArchiveBtn     = document.getElementById("op72CloudArchiveBtn");
+const op72BundleModal         = document.getElementById("op72BundleModal");
+const closeOp72BundleModalBtn = document.getElementById("closeOp72BundleModalBtn");
+const closeOp72BundleModalFooterBtn = document.getElementById("closeOp72BundleModalFooterBtn");
+const op72ModalBundleCount    = document.getElementById("op72ModalBundleCount");
+const op72BundleList          = document.getElementById("op72BundleList");
+const op72NamePrefix          = document.getElementById("op72NamePrefix");
+const op72CustomTagInput      = document.getElementById("op72CustomTagInput");
+const op72FileNamePreview     = document.getElementById("op72FileNamePreview");
+const op72ClearBundleBtn      = document.getElementById("op72ClearBundleBtn");
+const op72SaveAndDownloadBtn  = document.getElementById("op72SaveAndDownloadBtn");
+
+const op72CloudArchiveModal   = document.getElementById("op72CloudArchiveModal");
+const closeOp72CloudModalBtn  = document.getElementById("closeOp72CloudModalBtn");
+const closeOp72CloudModalFooterBtn = document.getElementById("closeOp72CloudModalFooterBtn");
+const op72ArchiveMonthFilter  = document.getElementById("op72ArchiveMonthFilter");
+const op72RefreshArchiveBtn   = document.getElementById("op72RefreshArchiveBtn");
+const op72ArchiveTableWrap    = document.getElementById("op72ArchiveTableWrap");
+
+// In-memory queue for OP-72 multi-page PDF compilation
+let op72BundleQueue = [];
+
+function getOp72DateInfo() {
+  const MONTHS_SHORT = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const mVal = (op72MonthPicker ? op72MonthPicker.value : "") || formatMonthInputValue(seedDate);
+  const parts = mVal.split("-");
+  const y = parseInt(parts[0], 10) || seedDate.getFullYear();
+  const mIdx = (parseInt(parts[1], 10) || (seedDate.getMonth() + 1)) - 1;
+  const mShort = MONTHS_SHORT[mIdx] || "JUN";
+  return { monthShort: mShort, yearNum: y, monthIndex: mIdx };
+}
+
+function getOp72CurrentGroup() {
+  const val = op72GroupSelect ? String(op72GroupSelect.value || "").trim() : "";
+  return val || "ALL_STAFF";
+}
+
+function updateOp72BundleBadges() {
+  const count = op72BundleQueue.length;
+  if (op72BundleCount) op72BundleCount.textContent = count;
+  if (op72ModalBundleCount) op72ModalBundleCount.textContent = count;
+  if (op72SaveAndDownloadBtn) {
+    op72SaveAndDownloadBtn.disabled = count === 0;
+    op72SaveAndDownloadBtn.style.opacity = count === 0 ? "0.6" : "1";
+    op72SaveAndDownloadBtn.style.cursor = count === 0 ? "not-allowed" : "pointer";
+  }
+}
+
+function computeOp72FileName(tag) {
+  const { monthShort, yearNum } = getOp72DateInfo();
+  let cleanTag = String(tag || "").trim().replace(/[\\/:*?"<>|]/g, "_");
+  if (!cleanTag) {
+    cleanTag = getOp72CurrentGroup().replace(/\s+/g, "_");
+  }
+  return `OP72_Sheet_${monthShort}_${yearNum}_${cleanTag}.pdf`;
+}
+
+function updateOp72FileNamePreview() {
+  const { monthShort, yearNum } = getOp72DateInfo();
+  if (op72NamePrefix) {
+    op72NamePrefix.textContent = `OP72_Sheet_${monthShort}_${yearNum}_`;
+  }
+  const tag = op72CustomTagInput ? op72CustomTagInput.value : "";
+  const finalName = computeOp72FileName(tag);
+  if (op72FileNamePreview) {
+    op72FileNamePreview.textContent = finalName;
+  }
+}
+
+function renderOp72BundleList() {
+  if (!op72BundleList) return;
+  if (!op72BundleQueue.length) {
+    op72BundleList.innerHTML = `
+      <div class="pdf-empty-state">
+        <div class="pdf-empty-state-icon">📄</div>
+        <p style="font-weight: 700; margin: 0 0 6px 0; color: #334155;">OP-72 Bundle is empty</p>
+        <p style="font-size: 0.84rem; margin: 0;">Sheet load karein aur '➕ Add to PDF' button daba kar is bundle me OP-72 sheets shamil karein.</p>
+      </div>`;
+    updateOp72BundleBadges();
+    return;
+  }
+
+  op72BundleList.innerHTML = op72BundleQueue.map((item, idx) => `
+    <div class="pdf-bundle-item" data-id="${item.id}">
+      <img class="pdf-bundle-thumb" src="${item.imgData}" alt="Page ${idx + 1} thumbnail">
+      <span class="pdf-bundle-badge">Page ${idx + 1}</span>
+      <div class="pdf-bundle-info">
+        <div class="pdf-bundle-info-title">${item.group}</div>
+        <div class="pdf-bundle-info-meta">Month: ${item.month} ${item.year} &bull; Size: ${item.pageSizeKey} &bull; Added: ${item.time}</div>
+      </div>
+      <button type="button" class="pdf-bundle-remove-btn" data-index="${idx}" title="Is page ko bundle se hatayein">&times; Remove</button>
+    </div>
+  `).join("");
+
+  updateOp72BundleBadges();
+}
+
+// ── Capture OP-72 sheet as high-res snapshot ────────────────────────────────
+async function captureOp72SheetSnapshot() {
+  const printArea = op72PrintArea || document.getElementById("op72PrintArea") || op72Table.closest(".sheet-wrap");
+  if (!printArea) throw new Error("OP-72 print area not found.");
+
+  const selectedGroup = getOp72CurrentGroup();
+  const monthStr = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(seedDate).toUpperCase();
+  if (op72PrintGroup) op72PrintGroup.textContent = selectedGroup;
+  if (op72PrintMonth) op72PrintMonth.textContent = monthStr;
+  if (op72PrintHeader) op72PrintHeader.style.display = "block";
+
+  const prevZoom = op72Table.style.zoom;
+  op72Table.style.zoom = "1";
+
+  const hideSelectors = [
+    ".site-header",
+    ".nav-bar",
+    ".bg-shape",
+    ".op72-heading-row",
+    "#op72Toolbar",
+    "#op72SaveState",
+    "#op72Msg",
+    "#logoutBtn",
+    ".logout-corner-btn",
+    "[class*=\"logout\"]"
+  ];
+  const hiddenEls = [];
+  hideSelectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (el.style.display !== "none") {
+        hiddenEls.push({ el, origDisplay: el.style.display });
+        el.style.display = "none";
+      }
+    });
+  });
+
+  const overflowEls = [];
+  const checkEls = [printArea, printArea.parentElement, ...Array.from(printArea.querySelectorAll("*"))];
+  checkEls.forEach((el) => {
+    if (!el || !el.style) return;
+    const computed = window.getComputedStyle(el);
+    const ox = computed.overflowX;
+    const oy = computed.overflowY;
+    if (ox === "auto" || ox === "hidden" || ox === "scroll" ||
+        oy === "auto" || oy === "hidden" || oy === "scroll") {
+      overflowEls.push({ el, ox: el.style.overflowX, oy: el.style.overflowY });
+      el.style.overflowX = "visible";
+      el.style.overflowY = "visible";
+    }
+  });
+
+  const pageSizes = {
+    A4:    { w: 297,   h: 210   },
+    A3:    { w: 420,   h: 297   },
+    Legal: { w: 355.6, h: 215.9 },
+  };
+  const selectedSizeKey = op72PageSizeSelect ? op72PageSizeSelect.value : "Legal";
+  const pageSize = pageSizes[selectedSizeKey] || pageSizes.Legal;
+  const pxPerMm  = 3.7795275591;
+  const baseW    = Math.round(pageSize.w * pxPerMm);
+  const targetW  = Math.max(baseW, op72Table.scrollWidth, printArea.scrollWidth);
+  const targetH  = Math.max(printArea.scrollHeight, printArea.offsetHeight);
+
+  const origWidth = printArea.style.width;
+  printArea.style.width = targetW + "px";
+
+  const restoreAll = () => {
+    printArea.style.width = origWidth;
+    op72Table.style.zoom = prevZoom || "1";
+    if (op72PrintHeader) op72PrintHeader.style.display = "none";
+    hiddenEls.forEach(({ el, origDisplay }) => { el.style.display = origDisplay; });
+    overflowEls.forEach(({ el, ox, oy }) => {
+      el.style.overflowX = ox;
+      el.style.overflowY = oy;
+    });
+  };
+
+  const realSummaryTitle = document.getElementById("op72SummaryTitle");
+  const summaryTitleH = realSummaryTitle ? (realSummaryTitle.offsetHeight || realSummaryTitle.clientHeight || 320) : 320;
+  const summaryTitleW = realSummaryTitle ? (realSummaryTitle.offsetWidth || realSummaryTitle.clientWidth || 34) : 34;
+
+  try {
+    const canvas = await html2canvas(printArea, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      width: targetW,
+      height: targetH,
+      windowWidth: targetW,
+      windowHeight: targetH,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false,
+      onclone: (clonedDoc) => {
+        const summaryTitle = clonedDoc.getElementById("op72SummaryTitle");
+        if (summaryTitle) {
+          const h = summaryTitleH;
+          const w = summaryTitleW;
+          summaryTitle.style.writingMode = "horizontal-tb";
+          summaryTitle.style.transform = "none";
+          summaryTitle.style.padding = "0";
+          summaryTitle.style.textAlign = "center";
+          summaryTitle.style.verticalAlign = "middle";
+          summaryTitle.innerHTML = `
+            <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:auto;">
+              <text x="-${h / 2}" y="${w / 2 + 4}" transform="rotate(-90)" text-anchor="middle" font-weight="700" font-size="12px" font-family="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" letter-spacing="1px" fill="#000000">SUMMARY OF OVERTIME</text>
+            </svg>
+          `;
+        }
+      },
+    });
+
+    restoreAll();
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+    return {
+      imgData,
+      canvasW: canvas.width,
+      canvasH: canvas.height,
+      pageW: pageSize.w,
+      pageH: pageSize.h,
+      pageSizeKey: selectedSizeKey,
+    };
+  } catch (err) {
+    restoreAll();
+    throw err;
+  }
+}
+
+// ── Event: Add Current OP-72 sheet to bundle ─────────────────────────────────
+if (op72AddToPdfBtn) {
+  op72AddToPdfBtn.addEventListener("click", async () => {
+    const originalBtnText = op72AddToPdfBtn.innerHTML;
+    op72AddToPdfBtn.disabled = true;
+    op72AddToPdfBtn.innerHTML = `⏳ Capturing Page ${op72BundleQueue.length + 1}...`;
+    if (op72Msg) op72Msg.textContent = "Capturing high-resolution OP-72 page snapshot for PDF bundle...";
+
+    try {
+      if (typeof window.html2canvas === "undefined") {
+        throw new Error("html2canvas library load nahi hui.");
+      }
+
+      const capture = await captureOp72SheetSnapshot();
+      const { monthShort, yearNum } = getOp72DateInfo();
+      const currentGroup = getOp72CurrentGroup();
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      const pageItem = {
+        id: Date.now() + Math.random(),
+        group: currentGroup,
+        month: monthShort,
+        year: yearNum,
+        time: timeStr,
+        imgData: capture.imgData,
+        canvasW: capture.canvasW,
+        canvasH: capture.canvasH,
+        pageW: capture.pageW,
+        pageH: capture.pageH,
+        pageSizeKey: capture.pageSizeKey,
+      };
+
+      op72BundleQueue.push(pageItem);
+      updateOp72BundleBadges();
+
+      if (op72Msg) {
+        op72Msg.textContent = `✓ Page ${op72BundleQueue.length} (${currentGroup}) added to OP-72 PDF bundle!`;
+      }
+
+      if (op72ViewBundleBtn) {
+        op72ViewBundleBtn.style.transform = "scale(1.08)";
+        op72ViewBundleBtn.style.borderColor = "#0284c7";
+        setTimeout(() => {
+          op72ViewBundleBtn.style.transform = "";
+          op72ViewBundleBtn.style.borderColor = "";
+        }, 400);
+      }
+    } catch (err) {
+      console.error("OP-72 Add to PDF failed:", err);
+      alert("Page capture karne me error aya: " + err.message);
+    } finally {
+      op72AddToPdfBtn.disabled = false;
+      op72AddToPdfBtn.innerHTML = originalBtnText;
+    }
+  });
+}
+
+// ── Event: Open View PDF Bundle Modal ─────────────────────────────────────────
+if (op72ViewBundleBtn && op72BundleModal) {
+  op72ViewBundleBtn.addEventListener("click", () => {
+    const { monthShort, yearNum } = getOp72DateInfo();
+    const currentGroup = getOp72CurrentGroup();
+    if (!op72CustomTagInput.value) {
+      op72CustomTagInput.value = currentGroup.replace(/\s+/g, "_");
+    }
+    updateOp72FileNamePreview();
+    renderOp72BundleList();
+    op72BundleModal.showModal();
+  });
+}
+
+if (closeOp72BundleModalBtn && op72BundleModal) {
+  closeOp72BundleModalBtn.addEventListener("click", () => op72BundleModal.close());
+}
+if (closeOp72BundleModalFooterBtn && op72BundleModal) {
+  closeOp72BundleModalFooterBtn.addEventListener("click", () => op72BundleModal.close());
+}
+
+if (op72CustomTagInput) {
+  op72CustomTagInput.addEventListener("input", updateOp72FileNamePreview);
+}
+
+// Delegate Remove button inside Bundle List
+if (op72BundleList) {
+  op72BundleList.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".pdf-bundle-remove-btn");
+    if (!removeBtn) return;
+    const idx = parseInt(removeBtn.dataset.index, 10);
+    if (!isNaN(idx) && idx >= 0 && idx < op72BundleQueue.length) {
+      op72BundleQueue.splice(idx, 1);
+      renderOp72BundleList();
+    }
+  });
+}
+
+// Clear Bundle
+if (op72ClearBundleBtn) {
+  op72ClearBundleBtn.addEventListener("click", () => {
+    if (!op72BundleQueue.length) return;
+    if (confirm("Kya aap waqayi OP-72 active bundle ke tamam pages clear karna chahte hain?")) {
+      op72BundleQueue = [];
+      renderOp72BundleList();
+      if (op72Msg) {
+        op72Msg.textContent = "OP-72 PDF bundle queue cleared.";
+      }
+    }
+  });
+}
+
+// ── Event: Compile Multi-Page PDF, Download Locally & Upload to Turso Cloud ───
+if (op72SaveAndDownloadBtn) {
+  op72SaveAndDownloadBtn.addEventListener("click", async () => {
+    if (!op72BundleQueue.length) {
+      alert("PDF bundle me kam az kam 1 page hona lazmi hai.");
+      return;
+    }
+
+    if (typeof window.jspdf === "undefined" || !window.jspdf.jsPDF) {
+      alert("jsPDF library dastiyab nahi hai.");
+      return;
+    }
+
+    const originalBtnText = op72SaveAndDownloadBtn.innerHTML;
+    op72SaveAndDownloadBtn.disabled = true;
+    op72SaveAndDownloadBtn.innerHTML = `⏳ Compiling &amp; Uploading to Cloud...`;
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const firstItem = op72BundleQueue[0];
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: [firstItem.pageW, firstItem.pageH]
+      });
+
+      op72BundleQueue.forEach((item, idx) => {
+        if (idx > 0) {
+          pdf.addPage([item.pageW, item.pageH], "landscape");
+        }
+        const marginX = 8;
+        const marginY = 8;
+        const availW = item.pageW - (marginX * 2);
+        const availH = item.pageH - (marginY * 2);
+
+        const canvasRatio = item.canvasW / item.canvasH;
+        let imgW = availW;
+        let imgH = imgW / canvasRatio;
+        if (imgH > availH) {
+          imgH = availH;
+          imgW = imgH * canvasRatio;
+        }
+
+        const offsetX = Math.max(0, (item.pageW - imgW) / 2);
+        const offsetY = Math.max(0, (item.pageH - imgH) / 2);
+        pdf.addImage(item.imgData, "JPEG", offsetX, offsetY, imgW, imgH, undefined, "FAST");
+      });
+
+      const { monthShort, yearNum } = getOp72DateInfo();
+      const tag = op72CustomTagInput ? op72CustomTagInput.value : "";
+      const finalFileName = computeOp72FileName(tag);
+
+      const pdfBlob = pdf.output("blob");
+      const pdfBase64 = pdf.output("datauristring");
+      const fileSizeKb = Math.round((pdfBlob.size / 1024) * 10) / 10;
+
+      // 1. Download locally via browser
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const dlLink = document.createElement("a");
+      dlLink.href = blobUrl;
+      dlLink.download = finalFileName;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+
+      // 2. Upload to Turso Cloud Database
+      const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+      const uploadRes = await fetch(`${baseUrl}/api/saved-pdfs/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          sheet_type: "op-72",
+          month: monthShort,
+          year: yearNum,
+          file_name: finalFileName,
+          custom_tag: tag || "",
+          total_pages: op72BundleQueue.length,
+          file_size_kb: fileSizeKb,
+          pdf_base64: pdfBase64,
+        }),
+      });
+
+      if (!uploadRes.ok) {
+        const errPayload = await uploadRes.json().catch(() => ({}));
+        throw new Error(errPayload.message || `Upload failed with HTTP ${uploadRes.status}`);
+      }
+
+      alert(`✅ Kamyabi!\n\nOP-72 Multi-page PDF file download ho chuki hai aur Turso Cloud database me bhi mehfooz ho gayi hai!\n\nFile: ${finalFileName}\nPages: ${op72BundleQueue.length}\nSize: ${fileSizeKb} KB\n\n(Queue aapke pass barkarar hai, aap mazeed pages shamil kar sakte hain ya Clear button se clear kar sakte hain)`);
+
+      if (op72Msg) {
+        op72Msg.textContent = `✓ Downloaded & Saved to Cloud: "${finalFileName}" (${op72BundleQueue.length} pages)`;
+      }
+
+      op72BundleModal.close();
+    } catch (err) {
+      console.error("OP-72 Save & Download failed:", err);
+      alert("Error saving OP-72 PDF bundle: " + err.message);
+    } finally {
+      op72SaveAndDownloadBtn.disabled = false;
+      op72SaveAndDownloadBtn.innerHTML = originalBtnText;
+    }
+  });
+}
+
+// ── Cloud Archive Viewer & Manager for OP-72 ─────────────────────────────────
+async function loadOp72CloudArchive(selectedMonth = "") {
+  if (!op72ArchiveTableWrap) return;
+  op72ArchiveTableWrap.innerHTML = `
+    <div style="padding: 24px; text-align: center; color: #64748b;">
+      <span style="font-size: 1.5rem;">⏳</span><br>Turso Cloud Database se OP-72 saved PDF files load ho rahi hain...
+    </div>`;
+
+  try {
+    const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+    let url = `${baseUrl}/api/saved-pdfs?sheet_type=op-72`;
+    if (selectedMonth) {
+      url += `&month=${encodeURIComponent(selectedMonth)}`;
+    }
+
+    const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const pdfs = Array.isArray(data.pdfs) ? data.pdfs : [];
+
+    if (!pdfs.length) {
+      op72ArchiveTableWrap.innerHTML = `
+        <div class="pdf-empty-state">
+          <div class="pdf-empty-state-icon">☁️</div>
+          <p style="font-weight: 700; margin: 0 0 6px 0; color: #334155;">Turso Cloud Archive me koi OP-72 PDF file nahi mili</p>
+          <p style="font-size: 0.84rem; margin: 0;">OP-72 sheet se 'Add to PDF' aur 'Save to Cloud' chala kar files yahan mehfooz karein.</p>
+        </div>`;
+      return;
+    }
+
+    op72ArchiveTableWrap.innerHTML = `
+      <table class="pdf-archive-table">
+        <thead>
+          <tr>
+            <th>File Name</th>
+            <th>Month / Year</th>
+            <th>Pages</th>
+            <th>Size</th>
+            <th>Saved Date</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pdfs.map((p) => {
+            const dateStr = p.created_at ? new Date(p.created_at).toLocaleString("en-GB", {
+              day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+            }) : "—";
+            return `
+              <tr>
+                <td>
+                  <strong style="color: #0f172a; display: block; word-break: break-all;">${p.file_name}</strong>
+                  <span style="font-size: 0.75rem; color: #64748b;">By: ${p.created_by || "Admin"}</span>
+                </td>
+                <td><span class="pdf-bundle-badge">${p.month} ${p.year}</span></td>
+                <td><strong>${p.total_pages}</strong> page${p.total_pages > 1 ? "s" : ""}</td>
+                <td>${p.file_size_kb ? p.file_size_kb + " KB" : "—"}</td>
+                <td style="font-size: 0.8rem; color: #475569;">${dateStr}</td>
+                <td style="text-align: right;">
+                  <div class="pdf-archive-action-btns" style="justify-content: flex-end;">
+                    <a class="pdf-btn-sm pdf-btn-sm-view" href="${baseUrl}/api/saved-pdfs/${p.id}/download?view=1" target="_blank" title="Browser me naye tab me dekhein">👁️ View</a>
+                    <a class="pdf-btn-sm pdf-btn-sm-download" href="${baseUrl}/api/saved-pdfs/${p.id}/download?download=1" title="Apne computer par download karein">⬇️ Download</a>
+                    <button type="button" class="pdf-btn-sm pdf-btn-sm-del" data-id="${p.id}" data-name="${p.file_name}" title="Turso Database se delete karein">🗑️ Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.error("OP-72 Cloud archive load failed:", err);
+    op72ArchiveTableWrap.innerHTML = `
+      <div style="padding: 20px; color: #b91c1c; text-align: center;">
+        Archive load karne me masla pesh aya: ${err.message}
+      </div>`;
+  }
+}
+
+if (op72CloudArchiveBtn && op72CloudArchiveModal) {
+  op72CloudArchiveBtn.addEventListener("click", () => {
+    op72CloudArchiveModal.showModal();
+    loadOp72CloudArchive(op72ArchiveMonthFilter ? op72ArchiveMonthFilter.value : "");
+  });
+}
+
+if (closeOp72CloudModalBtn && op72CloudArchiveModal) {
+  closeOp72CloudModalBtn.addEventListener("click", () => op72CloudArchiveModal.close());
+}
+if (closeOp72CloudModalFooterBtn && op72CloudArchiveModal) {
+  closeOp72CloudModalFooterBtn.addEventListener("click", () => op72CloudArchiveModal.close());
+}
+
+if (op72RefreshArchiveBtn) {
+  op72RefreshArchiveBtn.addEventListener("click", () => {
+    loadOp72CloudArchive(op72ArchiveMonthFilter ? op72ArchiveMonthFilter.value : "");
+  });
+}
+
+if (op72ArchiveMonthFilter) {
+  op72ArchiveMonthFilter.addEventListener("change", () => {
+    loadOp72CloudArchive(op72ArchiveMonthFilter.value);
+  });
+}
+
+// Delegate Delete button in Cloud Archive table
+if (op72ArchiveTableWrap) {
+  op72ArchiveTableWrap.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest(".pdf-btn-sm-del");
+    if (!delBtn) return;
+    const id = delBtn.dataset.id;
+    const name = delBtn.dataset.name;
+    if (!id) return;
+
+    if (confirm(`Kya aap waqayi is OP-72 PDF file ko Turso Cloud database se delete karna chahte hain?\n\n"${name}"`)) {
+      try {
+        const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+        const res = await fetch(`${baseUrl}/api/saved-pdfs/${id}`, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        loadOp72CloudArchive(op72ArchiveMonthFilter ? op72ArchiveMonthFilter.value : "");
+      } catch (err) {
+        alert("Delete failed: " + err.message);
+      }
+    }
+  });
+}
+
+

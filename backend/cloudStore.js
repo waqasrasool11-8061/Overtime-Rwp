@@ -54,6 +54,21 @@ async function initCloudStore(db) {
       holiday_name TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS saved_summary_pdfs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_type TEXT NOT NULL,
+      month TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      file_name TEXT NOT NULL,
+      custom_tag TEXT DEFAULT '',
+      total_pages INTEGER DEFAULT 1,
+      file_size_kb REAL DEFAULT 0,
+      pdf_base64 MEDIUMTEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_by TEXT DEFAULT 'Admin'
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_summary_pdfs_type_month_year ON saved_summary_pdfs (sheet_type, month, year);
   `);
 
   // Seed chat_messages if table is empty and JSON exists
@@ -390,6 +405,58 @@ async function deleteHolidays(dates) {
   return toRemove.length;
 }
 
+// ── Saved Summary PDFs (Multi-page PDF Bundle Archive) ───────────────────────
+
+async function saveSummaryPdf({ sheetType, month, year, fileName, customTag, totalPages, fileSizeKb, pdfBase64, createdBy }) {
+  const db = await getCloudStoreDb();
+  const res = await db.run(
+    `INSERT INTO saved_summary_pdfs (sheet_type, month, year, file_name, custom_tag, total_pages, file_size_kb, pdf_base64, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sheetType || "amount-summary",
+    String(month || "").toUpperCase(),
+    Number(year) || new Date().getFullYear(),
+    fileName,
+    customTag || "",
+    Number(totalPages) || 1,
+    Number(fileSizeKb) || 0,
+    pdfBase64,
+    createdBy || "Admin"
+  );
+  return { id: res.lastID, fileName };
+}
+
+async function listSummaryPdfs({ sheetType, month, year } = {}) {
+  const db = await getCloudStoreDb();
+  let sql = `SELECT id, sheet_type, month, year, file_name, custom_tag, total_pages, file_size_kb, created_at, created_by
+             FROM saved_summary_pdfs WHERE 1=1`;
+  const params = [];
+  if (sheetType) {
+    sql += ` AND sheet_type = ?`;
+    params.push(sheetType);
+  }
+  if (month) {
+    sql += ` AND month = ?`;
+    params.push(String(month).toUpperCase());
+  }
+  if (year) {
+    sql += ` AND year = ?`;
+    params.push(Number(year));
+  }
+  sql += ` ORDER BY id DESC`;
+  return db.all(sql, params);
+}
+
+async function getSummaryPdfById(id) {
+  const db = await getCloudStoreDb();
+  return db.get(`SELECT * FROM saved_summary_pdfs WHERE id = ?`, [Number(id)]);
+}
+
+async function deleteSummaryPdf(id) {
+  const db = await getCloudStoreDb();
+  await db.run(`DELETE FROM saved_summary_pdfs WHERE id = ?`, [Number(id)]);
+  return { success: true };
+}
+
 module.exports = {
   getCloudStoreDb,
   initCloudStore,
@@ -401,4 +468,8 @@ module.exports = {
   getHolidays,
   addOrUpdateHolidays,
   deleteHolidays,
+  saveSummaryPdf,
+  listSummaryPdfs,
+  getSummaryPdfById,
+  deleteSummaryPdf,
 };

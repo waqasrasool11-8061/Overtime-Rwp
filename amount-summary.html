@@ -511,6 +511,9 @@
         </div>
         <button id="amtsLoadBtn" class="btn-primary" type="button">&#x21E9; Load from OP-72</button>
         <button id="amtsPrintBtn" class="btn-outline" type="button">&#x1F5A8; Print / Save PDF</button>
+        <button id="amtsAddToPdfBtn" class="btn-primary" type="button" title="Is sheet page ko PDF bundle me add karein" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-weight: 700;">&#x2795; Add to PDF</button>
+        <button id="amtsViewBundleBtn" class="btn-outline" type="button" title="Multi-page PDF bundle dekhein">&#x1F4D1; View PDF Bundle (<span id="amtsBundleCount">0</span>)</button>
+        <button id="amtsCloudArchiveBtn" class="btn-outline" type="button" title="Turso Cloud Database me save shuda PDF files dekhein">&#x2601;&#xFE0F; Cloud Archive</button>
         <span id="amtsStatus" class="amts-status">OP-72 page pe Load All Employees chalayein, phir yahan load karein.</span>
       </div>
 
@@ -572,10 +575,98 @@
     </section>
   </main>
 
+  <!-- Multi-Page PDF Bundle Manager Dialog -->
+  <dialog id="amtsBundleModal" class="pdf-modal-dialog">
+    <div class="pdf-modal-content">
+      <div class="pdf-modal-header">
+        <div class="pdf-modal-title-block">
+          <h3>📑 Multi-Page PDF Bundle (<span id="amtsModalBundleCount">0</span> Pages Queued)</h3>
+          <p>Pages compile into a single consolidated PDF file and save directly to Turso Cloud database.</p>
+        </div>
+        <button type="button" id="closeAmtsBundleModalBtn" class="pdf-modal-close-btn" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="pdf-modal-body">
+        <div id="amtsBundleList" class="pdf-bundle-list">
+          <!-- Dynamically populated with queued page cards -->
+        </div>
+
+        <div class="pdf-name-section">
+          <label for="amtsCustomTagInput">File Name Format: (Month &amp; Year auto-detected)</label>
+          <div class="pdf-name-input-group">
+            <span class="pdf-name-prefix" id="amtsNamePrefix">Mileage_Summary_AUG_2026_</span>
+            <input type="text" id="amtsCustomTagInput" class="pdf-name-tag-input" placeholder="Type custom tag / group name..." autocomplete="off">
+            <span class="pdf-name-suffix">.pdf</span>
+          </div>
+          <div class="pdf-name-preview">
+            Output File: <strong id="amtsFileNamePreview">Mileage_Summary_AUG_2026_All_Staff.pdf</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="pdf-modal-footer">
+        <button type="button" id="amtsClearBundleBtn" class="btn-outline" style="color: #ef4444; border-color: #fca5a5;">🗑️ Clear Bundle</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" id="closeAmtsBundleModalFooterBtn" class="btn-outline">Cancel</button>
+          <button type="button" id="amtsSaveAndDownloadBtn" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); font-weight: 700;">
+            💾 Save to Cloud &amp; Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Turso Cloud Archive Dialog -->
+  <dialog id="amtsCloudArchiveModal" class="pdf-modal-dialog">
+    <div class="pdf-modal-content">
+      <div class="pdf-modal-header">
+        <div class="pdf-modal-title-block">
+          <h3>☁️ Turso Cloud PDF Archive &mdash; Amount Summary</h3>
+          <p>Access, view, re-download, or delete previously generated PDF bundles stored in Turso Cloud.</p>
+        </div>
+        <button type="button" id="closeAmtsCloudModalBtn" class="pdf-modal-close-btn" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="pdf-modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="amtsArchiveMonthFilter" style="font-size: 0.82rem; font-weight: 700; color: #475569;">Filter Month:</label>
+            <select id="amtsArchiveMonthFilter" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-weight: 600;">
+              <option value="">All Months</option>
+              <option value="JAN">JAN</option>
+              <option value="FEB">FEB</option>
+              <option value="MAR">MAR</option>
+              <option value="APR">APR</option>
+              <option value="MAY">MAY</option>
+              <option value="JUN">JUN</option>
+              <option value="JUL">JUL</option>
+              <option value="AUG">AUG</option>
+              <option value="SEP">SEP</option>
+              <option value="OCT">OCT</option>
+              <option value="NOV">NOV</option>
+              <option value="DEC">DEC</option>
+            </select>
+          </div>
+          <button type="button" id="amtsRefreshArchiveBtn" class="btn-outline" style="font-size: 0.8rem; padding: 4px 10px;">🔄 Refresh Archive</button>
+        </div>
+
+        <div id="amtsArchiveTableWrap" class="pdf-archive-table-wrap">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <div class="pdf-modal-footer" style="justify-content: flex-end;">
+        <button type="button" id="closeAmtsCloudModalFooterBtn" class="btn-outline">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="Employee_Master.data.js?v=4.6"></script>
   <script src="Group_Master.data.js?v=4.6"></script>
   <script src="auth-guard.js?v=4.6"></script>
   <script src="pay-revisions.js?v=2.0"></script>
-  <script src="amount-summary.js?v=5.3"></script>
+  <script src="amount-summary.js?v=6.0"></script>
 </body>
 </html>

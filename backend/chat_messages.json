@@ -655,5 +655,23 @@
     "text": "Complete details btao kiya kiya missing hy or kiya correction hy",
     "timestamp": "2026-09-28T08:46:24.487Z",
     "is_read": 1
+  },
+  {
+    "id": "msg_1790600089685_pkd8ezs04",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Waqas Bhai pic to ab mery pass nhi ha wo L2 me ne box me dal diya tha....",
+    "timestamp": "2026-09-28T12:54:49.685Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790600323663_x1e61ibww",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "NIAZ HUSSAIN",
+    "text": "check krty hain",
+    "timestamp": "2026-09-28T12:58:43.663Z",
+    "is_read": 1
   }
 ]

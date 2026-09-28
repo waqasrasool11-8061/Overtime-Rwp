@@ -1073,4 +1073,474 @@ if (typeof window !== "undefined") {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// MULTI-PAGE PDF BUNDLE & TURSO CLOUD STORAGE ARCHIVE (User Requested)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const amtsAddToPdfBtn        = document.getElementById("amtsAddToPdfBtn");
+const amtsViewBundleBtn       = document.getElementById("amtsViewBundleBtn");
+const amtsBundleCount         = document.getElementById("amtsBundleCount");
+const amtsCloudArchiveBtn     = document.getElementById("amtsCloudArchiveBtn");
+const amtsBundleModal         = document.getElementById("amtsBundleModal");
+const closeAmtsBundleModalBtn = document.getElementById("closeAmtsBundleModalBtn");
+const closeAmtsBundleModalFooterBtn = document.getElementById("closeAmtsBundleModalFooterBtn");
+const amtsModalBundleCount    = document.getElementById("amtsModalBundleCount");
+const amtsBundleList          = document.getElementById("amtsBundleList");
+const amtsNamePrefix          = document.getElementById("amtsNamePrefix");
+const amtsCustomTagInput      = document.getElementById("amtsCustomTagInput");
+const amtsFileNamePreview     = document.getElementById("amtsFileNamePreview");
+const amtsClearBundleBtn      = document.getElementById("amtsClearBundleBtn");
+const amtsSaveAndDownloadBtn  = document.getElementById("amtsSaveAndDownloadBtn");
+
+const amtsCloudArchiveModal   = document.getElementById("amtsCloudArchiveModal");
+const closeAmtsCloudModalBtn  = document.getElementById("closeAmtsCloudModalBtn");
+const closeAmtsCloudModalFooterBtn = document.getElementById("closeAmtsCloudModalFooterBtn");
+const amtsArchiveMonthFilter  = document.getElementById("amtsArchiveMonthFilter");
+const amtsRefreshArchiveBtn   = document.getElementById("amtsRefreshArchiveBtn");
+const amtsArchiveTableWrap    = document.getElementById("amtsArchiveTableWrap");
+
+// Active in-memory queue for multi-page PDF compilation
+let amtsBundleQueue = [];
+
+function getAmtsDateInfo() {
+  const MONTHS_SHORT = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const mVal = (amtsMonthInput ? amtsMonthInput.value : "") || "2026-06";
+  const parts = mVal.split("-");
+  const y = parseInt(parts[0], 10) || 2026;
+  const mIdx = (parseInt(parts[1], 10) || 6) - 1;
+  const mShort = MONTHS_SHORT[mIdx] || "JUN";
+  return { monthShort: mShort, yearNum: y, monthIndex: mIdx };
+}
+
+function getAmtsCurrentGroup() {
+  const stored = (localStorage.getItem(OP72_GROUP_KEY) || "").trim();
+  if (stored) return stored;
+  const banner = document.getElementById("amtTitleBanner");
+  if (banner && banner.textContent) {
+    const text = banner.textContent.trim();
+    const match = text.match(/RWP SHED\s+(.*?)\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|[0-9]{4})/i);
+    if (match && match[1]) return match[1].trim();
+  }
+  return "ASSISTANT DRIVERS";
+}
+
+function updateAmtsBundleBadges() {
+  const count = amtsBundleQueue.length;
+  if (amtsBundleCount) amtsBundleCount.textContent = count;
+  if (amtsModalBundleCount) amtsModalBundleCount.textContent = count;
+  if (amtsSaveAndDownloadBtn) {
+    amtsSaveAndDownloadBtn.disabled = count === 0;
+    amtsSaveAndDownloadBtn.style.opacity = count === 0 ? "0.6" : "1";
+    amtsSaveAndDownloadBtn.style.cursor = count === 0 ? "not-allowed" : "pointer";
+  }
+}
+
+function computeAmtsFileName(tag) {
+  const { monthShort, yearNum } = getAmtsDateInfo();
+  let cleanTag = String(tag || "").trim().replace(/[\\/:*?"<>|]/g, "_");
+  if (!cleanTag) {
+    cleanTag = getAmtsCurrentGroup().replace(/\s+/g, "_");
+  }
+  return `Mileage_Summary_${monthShort}_${yearNum}_${cleanTag}.pdf`;
+}
+
+function updateAmtsFileNamePreview() {
+  const { monthShort, yearNum } = getAmtsDateInfo();
+  if (amtsNamePrefix) {
+    amtsNamePrefix.textContent = `Mileage_Summary_${monthShort}_${yearNum}_`;
+  }
+  const tag = amtsCustomTagInput ? amtsCustomTagInput.value : "";
+  const finalName = computeAmtsFileName(tag);
+  if (amtsFileNamePreview) {
+    amtsFileNamePreview.textContent = finalName;
+  }
+}
+
+function renderAmtsBundleList() {
+  if (!amtsBundleList) return;
+  if (!amtsBundleQueue.length) {
+    amtsBundleList.innerHTML = `
+      <div class="pdf-empty-state">
+        <div class="pdf-empty-state-icon">📄</div>
+        <p style="font-weight: 700; margin: 0 0 6px 0; color: #334155;">PDF Bundle is empty</p>
+        <p style="font-size: 0.84rem; margin: 0;">Sheet load karein aur '➕ Add to PDF' button daba kar is bundle me pages shamil karein.</p>
+      </div>`;
+    updateAmtsBundleBadges();
+    return;
+  }
+
+  amtsBundleList.innerHTML = amtsBundleQueue.map((item, idx) => `
+    <div class="pdf-bundle-item" data-id="${item.id}">
+      <img class="pdf-bundle-thumb" src="${item.imgData}" alt="Page ${idx + 1} thumbnail">
+      <span class="pdf-bundle-badge">Page ${idx + 1}</span>
+      <div class="pdf-bundle-info">
+        <div class="pdf-bundle-info-title">${item.group}</div>
+        <div class="pdf-bundle-info-meta">Month: ${item.month} ${item.year} &bull; Added: ${item.time}</div>
+      </div>
+      <button type="button" class="pdf-bundle-remove-btn" data-index="${idx}" title="Is page ko bundle se hatayein">&times; Remove</button>
+    </div>
+  `).join("");
+
+  updateAmtsBundleBadges();
+}
+
+// ── Event: Add current Amount Summary sheet as a Page to PDF Bundle ──────────
+if (amtsAddToPdfBtn) {
+  amtsAddToPdfBtn.addEventListener("click", async () => {
+    const tb = document.getElementById("amtBody");
+    if (!tb || !tb.children.length) {
+      alert("Pehle 'Load from OP-72' chalayein ta ke sheet render ho sake.");
+      return;
+    }
+
+    const sheetContainer = document.querySelector(".amts-sheet-container");
+    if (!sheetContainer) {
+      alert("Sheet container nahi mila.");
+      return;
+    }
+
+    const originalBtnText = amtsAddToPdfBtn.innerHTML;
+    amtsAddToPdfBtn.disabled = true;
+    amtsAddToPdfBtn.innerHTML = `⏳ Capturing Page ${amtsBundleQueue.length + 1}...`;
+    if (amtsStatus) amtsStatus.textContent = "Capturing high-resolution page snapshot for PDF bundle...";
+
+    // Temporarily hide elements that shouldn't appear in sheet snapshot
+    const logoutBtn = document.getElementById("logoutBtn");
+    const prevLogoutDisplay = logoutBtn ? logoutBtn.style.display : null;
+    if (logoutBtn) logoutBtn.style.display = "none";
+
+    try {
+      if (typeof window.html2canvas === "undefined") {
+        throw new Error("html2canvas library load nahi hui.");
+      }
+
+      const canvas = await html2canvas(sheetContainer, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const { monthShort, yearNum } = getAmtsDateInfo();
+      const currentGroup = getAmtsCurrentGroup();
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      const pageItem = {
+        id: Date.now() + Math.random(),
+        group: currentGroup,
+        month: monthShort,
+        year: yearNum,
+        time: timeStr,
+        imgData,
+      };
+
+      amtsBundleQueue.push(pageItem);
+      updateAmtsBundleBadges();
+
+      if (amtsStatus) {
+        amtsStatus.textContent = `✓ Page ${amtsBundleQueue.length} (${currentGroup}) added to PDF bundle!`;
+        amtsStatus.style.color = "#0284c7";
+      }
+
+      // Visual flash on View Bundle button
+      if (amtsViewBundleBtn) {
+        amtsViewBundleBtn.style.transform = "scale(1.08)";
+        amtsViewBundleBtn.style.borderColor = "#0284c7";
+        setTimeout(() => {
+          amtsViewBundleBtn.style.transform = "";
+          amtsViewBundleBtn.style.borderColor = "";
+        }, 400);
+      }
+    } catch (err) {
+      console.error("Add to PDF failed:", err);
+      alert("Page capture karne me error aya: " + err.message);
+    } finally {
+      if (logoutBtn) logoutBtn.style.display = prevLogoutDisplay || "";
+      amtsAddToPdfBtn.disabled = false;
+      amtsAddToPdfBtn.innerHTML = originalBtnText;
+    }
+  });
+}
+
+// ── Event: Open View PDF Bundle Modal ─────────────────────────────────────────
+if (amtsViewBundleBtn && amtsBundleModal) {
+  amtsViewBundleBtn.addEventListener("click", () => {
+    const { monthShort, yearNum } = getAmtsDateInfo();
+    const currentGroup = getAmtsCurrentGroup();
+    if (!amtsCustomTagInput.value) {
+      amtsCustomTagInput.value = currentGroup.replace(/\s+/g, "_");
+    }
+    updateAmtsFileNamePreview();
+    renderAmtsBundleList();
+    amtsBundleModal.showModal();
+  });
+}
+
+if (closeAmtsBundleModalBtn && amtsBundleModal) {
+  closeAmtsBundleModalBtn.addEventListener("click", () => amtsBundleModal.close());
+}
+if (closeAmtsBundleModalFooterBtn && amtsBundleModal) {
+  closeAmtsBundleModalFooterBtn.addEventListener("click", () => amtsBundleModal.close());
+}
+
+if (amtsCustomTagInput) {
+  amtsCustomTagInput.addEventListener("input", updateAmtsFileNamePreview);
+}
+
+// Delegate Remove button inside Bundle List
+if (amtsBundleList) {
+  amtsBundleList.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".pdf-bundle-remove-btn");
+    if (!removeBtn) return;
+    const idx = parseInt(removeBtn.dataset.index, 10);
+    if (!isNaN(idx) && idx >= 0 && idx < amtsBundleQueue.length) {
+      amtsBundleQueue.splice(idx, 1);
+      renderAmtsBundleList();
+    }
+  });
+}
+
+// Clear Bundle
+if (amtsClearBundleBtn) {
+  amtsClearBundleBtn.addEventListener("click", () => {
+    if (!amtsBundleQueue.length) return;
+    if (confirm("Kya aap waqayi active bundle ke tamam pages clear karna chahte hain?")) {
+      amtsBundleQueue = [];
+      renderAmtsBundleList();
+      if (amtsStatus) {
+        amtsStatus.textContent = "PDF bundle queue cleared.";
+        amtsStatus.style.color = "";
+      }
+    }
+  });
+}
+
+// ── Event: Compile Multi-Page PDF, Download Locally & Upload to Turso Cloud ───
+if (amtsSaveAndDownloadBtn) {
+  amtsSaveAndDownloadBtn.addEventListener("click", async () => {
+    if (!amtsBundleQueue.length) {
+      alert("PDF bundle me kam az kam 1 page hona lazmi hai.");
+      return;
+    }
+
+    if (typeof window.jspdf === "undefined" || !window.jspdf.jsPDF) {
+      alert("jsPDF library dastiyab nahi hai.");
+      return;
+    }
+
+    const originalBtnText = amtsSaveAndDownloadBtn.innerHTML;
+    amtsSaveAndDownloadBtn.disabled = true;
+    amtsSaveAndDownloadBtn.innerHTML = `⏳ Compiling &amp; Uploading to Cloud...`;
+
+    try {
+      const { jsPDF } = window.jspdf;
+      // Portrait A4: 210mm x 297mm
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const marginX = 8.5; // mm left/right margin per user request
+      const marginY = 6.0; // mm top/bottom margin
+      const availW = 210 - (marginX * 2); // 193 mm
+      const availH = 297 - (marginY * 2); // 285 mm
+
+      amtsBundleQueue.forEach((item, idx) => {
+        if (idx > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+        pdf.addImage(item.imgData, "JPEG", marginX, marginY, availW, availH, undefined, "FAST");
+      });
+
+      const { monthShort, yearNum } = getAmtsDateInfo();
+      const tag = amtsCustomTagInput ? amtsCustomTagInput.value : "";
+      const finalFileName = computeAmtsFileName(tag);
+
+      const pdfBlob = pdf.output("blob");
+      const pdfBase64 = pdf.output("datauristring");
+      const fileSizeKb = Math.round((pdfBlob.size / 1024) * 10) / 10;
+
+      // 1. Trigger local download in browser
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const dlLink = document.createElement("a");
+      dlLink.href = blobUrl;
+      dlLink.download = finalFileName;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+
+      // 2. Upload to Turso Cloud Database via API
+      const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+      const uploadRes = await fetch(`${baseUrl}/api/saved-pdfs/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          sheet_type: "amount-summary",
+          month: monthShort,
+          year: yearNum,
+          file_name: finalFileName,
+          custom_tag: tag || "",
+          total_pages: amtsBundleQueue.length,
+          file_size_kb: fileSizeKb,
+          pdf_base64: pdfBase64,
+        }),
+      });
+
+      if (!uploadRes.ok) {
+        const errPayload = await uploadRes.json().catch(() => ({}));
+        throw new Error(errPayload.message || `Upload failed with HTTP ${uploadRes.status}`);
+      }
+
+      alert(`✅ Kamyabi!\n\nMulti-page PDF file download ho chuki hai aur Turso Cloud database me bhi mehfooz ho gayi hai!\n\nFile: ${finalFileName}\nPages: ${amtsBundleQueue.length}\nSize: ${fileSizeKb} KB\n\n(Queue aapke pass barkarar hai, aap mazeed pages shamil kar sakte hain ya Clear button se clear kar sakte hain)`);
+
+      if (amtsStatus) {
+        amtsStatus.textContent = `✓ Downloaded & Saved to Cloud: "${finalFileName}" (${amtsBundleQueue.length} pages)`;
+        amtsStatus.style.color = "#059669";
+      }
+
+      amtsBundleModal.close();
+    } catch (err) {
+      console.error("Save & Download failed:", err);
+      alert("Error saving PDF bundle: " + err.message);
+    } finally {
+      amtsSaveAndDownloadBtn.disabled = false;
+      amtsSaveAndDownloadBtn.innerHTML = originalBtnText;
+    }
+  });
+}
+
+// ── Cloud Archive Viewer & Manager ───────────────────────────────────────────
+async function loadAmtsCloudArchive(selectedMonth = "") {
+  if (!amtsArchiveTableWrap) return;
+  amtsArchiveTableWrap.innerHTML = `
+    <div style="padding: 24px; text-align: center; color: #64748b;">
+      <span style="font-size: 1.5rem;">⏳</span><br>Turso Cloud Database se saved PDF files load ho rahi hain...
+    </div>`;
+
+  try {
+    const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+    let url = `${baseUrl}/api/saved-pdfs?sheet_type=amount-summary`;
+    if (selectedMonth) {
+      url += `&month=${encodeURIComponent(selectedMonth)}`;
+    }
+
+    const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const pdfs = Array.isArray(data.pdfs) ? data.pdfs : [];
+
+    if (!pdfs.length) {
+      amtsArchiveTableWrap.innerHTML = `
+        <div class="pdf-empty-state">
+          <div class="pdf-empty-state-icon">☁️</div>
+          <p style="font-weight: 700; margin: 0 0 6px 0; color: #334155;">Turso Cloud Archive me koi PDF file nahi mili</p>
+          <p style="font-size: 0.84rem; margin: 0;">Amount Summary sheet se 'Add to PDF' aur 'Save to Cloud' chala kar files yahan mehfooz karein.</p>
+        </div>`;
+      return;
+    }
+
+    amtsArchiveTableWrap.innerHTML = `
+      <table class="pdf-archive-table">
+        <thead>
+          <tr>
+            <th>File Name</th>
+            <th>Month / Year</th>
+            <th>Pages</th>
+            <th>Size</th>
+            <th>Saved Date</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pdfs.map((p) => {
+            const dateStr = p.created_at ? new Date(p.created_at).toLocaleString("en-GB", {
+              day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+            }) : "—";
+            return `
+              <tr>
+                <td>
+                  <strong style="color: #0f172a; display: block; word-break: break-all;">${p.file_name}</strong>
+                  <span style="font-size: 0.75rem; color: #64748b;">By: ${p.created_by || "Admin"}</span>
+                </td>
+                <td><span class="pdf-bundle-badge">${p.month} ${p.year}</span></td>
+                <td><strong>${p.total_pages}</strong> page${p.total_pages > 1 ? "s" : ""}</td>
+                <td>${p.file_size_kb ? p.file_size_kb + " KB" : "—"}</td>
+                <td style="font-size: 0.8rem; color: #475569;">${dateStr}</td>
+                <td style="text-align: right;">
+                  <div class="pdf-archive-action-btns" style="justify-content: flex-end;">
+                    <a class="pdf-btn-sm pdf-btn-sm-view" href="${baseUrl}/api/saved-pdfs/${p.id}/download?view=1" target="_blank" title="Browser me naye tab me dekhein">👁️ View</a>
+                    <a class="pdf-btn-sm pdf-btn-sm-download" href="${baseUrl}/api/saved-pdfs/${p.id}/download?download=1" title="Apne computer par download karein">⬇️ Download</a>
+                    <button type="button" class="pdf-btn-sm pdf-btn-sm-del" data-id="${p.id}" data-name="${p.file_name}" title="Turso Database se delete karein">🗑️ Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.error("Cloud archive load failed:", err);
+    amtsArchiveTableWrap.innerHTML = `
+      <div style="padding: 20px; color: #b91c1c; text-align: center;">
+        Archive load karne me masla pesh aya: ${err.message}
+      </div>`;
+  }
+}
+
+if (amtsCloudArchiveBtn && amtsCloudArchiveModal) {
+  amtsCloudArchiveBtn.addEventListener("click", () => {
+    amtsCloudArchiveModal.showModal();
+    loadAmtsCloudArchive(amtsArchiveMonthFilter ? amtsArchiveMonthFilter.value : "");
+  });
+}
+
+if (closeAmtsCloudModalBtn && amtsCloudArchiveModal) {
+  closeAmtsCloudModalBtn.addEventListener("click", () => amtsCloudArchiveModal.close());
+}
+if (closeAmtsCloudModalFooterBtn && amtsCloudArchiveModal) {
+  closeAmtsCloudModalFooterBtn.addEventListener("click", () => amtsCloudArchiveModal.close());
+}
+
+if (amtsRefreshArchiveBtn) {
+  amtsRefreshArchiveBtn.addEventListener("click", () => {
+    loadAmtsCloudArchive(amtsArchiveMonthFilter ? amtsArchiveMonthFilter.value : "");
+  });
+}
+
+if (amtsArchiveMonthFilter) {
+  amtsArchiveMonthFilter.addEventListener("change", () => {
+    loadAmtsCloudArchive(amtsArchiveMonthFilter.value);
+  });
+}
+
+// Delegate Delete button in Cloud Archive table
+if (amtsArchiveTableWrap) {
+  amtsArchiveTableWrap.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest(".pdf-btn-sm-del");
+    if (!delBtn) return;
+    const id = delBtn.dataset.id;
+    const name = delBtn.dataset.name;
+    if (!id) return;
+
+    if (confirm(`Kya aap waqayi is PDF file ko Turso Cloud database se delete karna chahte hain?\n\n"${name}"`)) {
+      try {
+        const baseUrl = window.location.port === "5500" ? `http://${window.location.hostname}:3000` : "";
+        const res = await fetch(`${baseUrl}/api/saved-pdfs/${id}`, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        loadAmtsCloudArchive(amtsArchiveMonthFilter ? amtsArchiveMonthFilter.value : "");
+      } catch (err) {
+        alert("Delete failed: " + err.message);
+      }
+    }
+  });
+}
+
+
 

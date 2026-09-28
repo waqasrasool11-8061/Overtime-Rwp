@@ -417,6 +417,7 @@ async function syncTursoToLocal() {
   try {
     const cntHol = await syncTableFromTurso(turso, cloudDb, "official_holidays");
     const cntChats = await syncTableFromTurso(turso, cloudDb, "chat_messages");
+    const cntPdfs = await syncTableFromTurso(turso, cloudDb, "saved_summary_pdfs");
     await cloudDb.run("COMMIT");
 
     const tursoHols = await cloudDb.all("SELECT * FROM official_holidays ORDER BY holiday_date");

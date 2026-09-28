@@ -38,6 +38,10 @@ const {
   getHolidays,
   addOrUpdateHolidays,
   deleteHolidays,
+  saveSummaryPdf,
+  listSummaryPdfs,
+  getSummaryPdfById,
+  deleteSummaryPdf,
 } = require("./backend/cloudStore");
 
 const {
@@ -326,6 +330,7 @@ function permissionForRequest(req) {
   if (url === "/api/employee/posting-station") return null;
   if (url === "/api/admin/reset-posting-station-lock") return "employeeMaster";
   if (url === "/api/op72/search") return null;
+  if (url.startsWith("/api/saved-pdfs")) return null;
   if (url.startsWith("/api/holidays")) return null;
   if (url.startsWith("/api/admin/users")) return "userManagement";
   if (url.startsWith("/api/op72/")) return "op72RawData";
@@ -2107,6 +2112,79 @@ app.post("/api/admin/reset-posting-station-lock", async (req, res) => {
     return res.status(500).json({ message: "Failed to reset posting station lock.", detail: error.message });
   }
 });
+
+// ── Saved Summary PDFs (Multi-page Bundle & Cloud Storage) ────────────────────
+app.post("/api/saved-pdfs/upload", async (req, res) => {
+  try {
+    const { sheet_type, month, year, file_name, custom_tag, total_pages, file_size_kb, pdf_base64 } = req.body || {};
+    if (!file_name || !pdf_base64) {
+      return res.status(400).json({ message: "file_name and pdf_base64 are required." });
+    }
+    const session = currentSession(req);
+    const createdBy = session ? (session.username || session.displayName || session.userId || "Admin") : "Admin";
+
+    const result = await saveSummaryPdf({
+      sheetType: sheet_type || "amount-summary",
+      month: String(month || "").toUpperCase(),
+      year: Number(year) || new Date().getFullYear(),
+      fileName: file_name,
+      customTag: custom_tag || "",
+      totalPages: Number(total_pages) || 1,
+      fileSizeKb: Number(file_size_kb) || 0,
+      pdfBase64: pdf_base64,
+      createdBy,
+    });
+
+    return res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to save PDF to cloud database.", detail: error.message });
+  }
+});
+
+app.get("/api/saved-pdfs", async (req, res) => {
+  try {
+    const list = await listSummaryPdfs({
+      sheetType: req.query?.sheet_type,
+      month: req.query?.month,
+      year: req.query?.year,
+    });
+    return res.json({ count: list.length, pdfs: list });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to list saved PDFs.", detail: error.message });
+  }
+});
+
+app.get("/api/saved-pdfs/:id/download", async (req, res) => {
+  try {
+    const record = await getSummaryPdfById(req.params.id);
+    if (!record) {
+      return res.status(404).json({ message: "Saved PDF not found." });
+    }
+
+    if (req.query?.view === "1" || req.query?.download === "1") {
+      const base64Data = record.pdf_base64.replace(/^data:application\/pdf;base64,/, "");
+      const pdfBuffer = Buffer.from(base64Data, "base64");
+      const disposition = req.query?.download === "1" ? "attachment" : "inline";
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `${disposition}; filename="${record.file_name}"`);
+      return res.send(pdfBuffer);
+    }
+
+    return res.json(record);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to retrieve saved PDF.", detail: error.message });
+  }
+});
+
+app.delete("/api/saved-pdfs/:id", async (req, res) => {
+  try {
+    await deleteSummaryPdf(req.params.id);
+    return res.json({ success: true, message: "PDF removed from cloud database." });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete saved PDF.", detail: error.message });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Root route serves index.html
