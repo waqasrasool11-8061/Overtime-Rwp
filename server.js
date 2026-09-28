@@ -1094,6 +1094,33 @@ app.get(["/", "/index.html"], (req, res, next) => {
   return next();
 });
 
+// Dynamic XML Sitemap for Google Search Engine indexing
+app.get("/sitemap.xml", (req, res) => {
+  const host = req.get("host") || "overtime-rwp.onrender.com";
+  const protocol = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const baseUrl = `${protocol}://${host}`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/index.html</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/employee-home.html</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`;
+  res.header("Content-Type", "application/xml");
+  res.send(xml);
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // Serve Trainz HTML page folder from sibling directory "TRS DEP PAK"

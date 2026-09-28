@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /employee-home.html
+
+# Disallow internal backend API routes and data files
+Disallow: /api/
+Disallow: /backend/
+Disallow: /data/
+Disallow: /backups/
+Disallow: /*.sqlite
+Disallow: /*.json
+
+Sitemap: /sitemap.xml
