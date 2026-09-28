@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,7 +28,7 @@
 						document.documentElement.dataset.adminTheme = "arsalan-shah";
 					}
 				}
-			} catch (_) {}
+			} catch (_) { }
 		})();
 	</script>
 	<link rel="stylesheet" href="app.css">
@@ -42,6 +43,7 @@
 	<link rel="icon" type="image/png" href="/icons/icon-192.png">
 	<script src="/pwa.js" defer></script>
 </head>
+
 <body class="login-landing">
 	<div class="bg-shape bg-shape-one"></div>
 	<div class="bg-shape bg-shape-two"></div>
@@ -63,13 +65,16 @@
 				Password
 				<input type="password" id="loginPassword" name="loginPassword" placeholder="Enter password" required>
 			</label>
-			<label id="enableBiometricCheckboxLabel" style="display: none; margin: 6px 0 10px 0; cursor: pointer; user-select: none; font-size: 0.86rem; color: #1e3e62; font-weight: 600; align-items: center; gap: 8px;">
-				<input type="checkbox" id="enableBiometricCheckbox" style="width: 17px; height: 17px; cursor: pointer; accent-color: #2563eb;">
+			<label id="enableBiometricCheckboxLabel"
+				style="display: none; margin: 6px 0 10px 0; cursor: pointer; user-select: none; font-size: 0.86rem; color: #1e3e62; font-weight: 600; align-items: center; gap: 8px;">
+				<input type="checkbox" id="enableBiometricCheckbox"
+					style="width: 17px; height: 17px; cursor: pointer; accent-color: #2563eb;">
 				<span>👆 Enable Fingerprint Login for this device</span>
 			</label>
 			<div class="login-actions">
 				<button type="submit" class="btn-primary" id="homeLoginSubmitBtn">Sign In</button>
-				<button type="button" id="btnDirectRegisterBio" class="btn-outline" style="display: none;" title="User ID aur password likh kar fingerprint bind karein">
+				<button type="button" id="btnDirectRegisterBio" class="btn-outline" style="display: none;"
+					title="User ID aur password likh kar fingerprint bind karein">
 					👆 Register Fingerprint
 				</button>
 				<button type="button" id="forgotPasswordBtn" class="btn-outline">Forget Password</button>
@@ -105,7 +110,8 @@
 		<a class="nav-link" href="employee-home.html">Employee Portal</a>
 		<a class="nav-link" href="video.html">Video</a>
 		<a class="nav-link" href="user-management.html">User Management</a>
-		<a class="nav-link" href="chat-inbox.html">Chat Inbox <span class="chat-nav-badge" style="display: none;"></span></a>
+		<a class="nav-link" href="chat-inbox.html">Chat Inbox <span class="chat-nav-badge"
+				style="display: none;"></span></a>
 	</nav>
 
 	<main class="simple-page home-form-page">
@@ -119,7 +125,8 @@
 					<button type="button" id="tabManualMode" class="btn-tab is-active" role="tab" aria-selected="true">
 						⌨️ Form Mode
 					</button>
-					<button type="button" id="tabVoiceMode" class="btn-tab btn-voice-tab" role="tab" aria-selected="false">
+					<button type="button" id="tabVoiceMode" class="btn-tab btn-voice-tab" role="tab"
+						aria-selected="false">
 						🎙️ Voice Tab (بول کر لکھیں)
 					</button>
 				</div>
@@ -148,7 +155,8 @@
 				</div>
 
 				<div id="voiceTranscriptDisplay" class="voice-transcript-box">
-					<i>مائیک کا بٹن دبا کر بولیں، مثلاً: "10 اگست ارشد محمود PASS مائلیج 250 اوورٹائم 4 آؤٹ ورڈ 101UP بیس بجے سے چار بجے اِن ورڈ 102DN بائیس بجے سے چھ بجے"</i>
+					<i>مائیک کا بٹن دبا کر بولیں، مثلاً: "10 اگست ارشد محمود PASS مائلیج 250 اوورٹائم 4 آؤٹ ورڈ 101UP
+						بیس بجے سے چار بجے اِن ورڈ 102DN بائیس بجے سے چھ بجے"</i>
 				</div>
 
 				<div class="voice-panel-footer">
@@ -161,23 +169,27 @@
 				<div class="field-grid">
 					<label>
 						Start Date <span class="required-star">*</span>
-						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+						<input type="text" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off"
+							inputmode="numeric" required>
 					</label>
 					<label>
 						End Date <span class="required-star">*</span>
-						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+						<input type="text" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off"
+							inputmode="numeric" required>
 					</label>
 					<label>
 						Employee 1 Name <span class="required-star">*</span>
 						<div class="autocomplete-wrapper">
-							<input type="text" name="employee1Name" placeholder="Type or use Up/Down arrow" autocomplete="off" required>
+							<input type="text" name="employee1Name" placeholder="Type or use Up/Down arrow"
+								autocomplete="off" required>
 							<ul class="employee-dropdown-list" id="employee1Dropdown" role="listbox" hidden></ul>
 						</div>
 					</label>
 					<label>
 						Employee 2 Name
 						<div class="autocomplete-wrapper">
-							<input type="text" name="employee2Name" placeholder="Type or use Up/Down arrow" autocomplete="off">
+							<input type="text" name="employee2Name" placeholder="Type or use Up/Down arrow"
+								autocomplete="off">
 							<ul class="employee-dropdown-list" id="employee2Dropdown" role="listbox" hidden></ul>
 						</div>
 					</label>
@@ -219,6 +231,7 @@
 							<option value="FORSHIFT">FORSHIFT</option>
 							<option value="DI">DI</option>
 							<option value="SMI">SMI</option>
+							<option value="ACCIDENT">ACCIDENT</option>
 							<option value="BOOK OFF">BOOK OFF</option>
 							<option value="HQ ENQ &amp; SEE TO DME">HQ ENQ &amp; SEE TO DME</option>
 						</select>
@@ -237,15 +250,18 @@
 							</label>
 							<label>
 								Duty Commenced
-								<input type="text" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+								<input type="text" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off"
+									inputmode="numeric">
 							</label>
 							<label>
 								Duration
-								<input type="number" name="outwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+								<input type="number" name="outwardDuration" min="0" max="5" step="1" inputmode="numeric"
+									value="0">
 							</label>
 							<label>
 								Duty Terminated
-								<input type="text" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+								<input type="text" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off"
+									inputmode="numeric">
 							</label>
 						</div>
 					</div>
@@ -259,15 +275,18 @@
 							</label>
 							<label>
 								Duty Commenced
-								<input type="text" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+								<input type="text" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off"
+									inputmode="numeric">
 							</label>
 							<label>
 								Duration
-								<input type="number" name="inwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+								<input type="number" name="inwardDuration" min="0" max="5" step="1" inputmode="numeric"
+									value="0">
 							</label>
 							<label>
 								Duty Terminated
-								<input type="text" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+								<input type="text" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off"
+									inputmode="numeric">
 							</label>
 						</div>
 					</div>
@@ -281,12 +300,16 @@
 				</div>
 
 				<div class="actions">
-					<button type="submit" id="submitBtn" class="btn-primary" title="Click or press Shift+Enter to submit">Submit</button>
+					<button type="submit" id="submitBtn" class="btn-primary"
+						title="Click or press Shift+Enter to submit">Submit</button>
 					<span class="submit-hint">(Click or Shift+Enter to submit)</span>
-					<button type="button" id="linkLoco18Btn" class="btn-outline btn-link-loco" aria-pressed="false" title="Click to permanently link data entries with Loco-18 sheet">Link with Loco-18</button>
+					<button type="button" id="linkLoco18Btn" class="btn-outline btn-link-loco" aria-pressed="false"
+						title="Click to permanently link data entries with Loco-18 sheet">Link with Loco-18</button>
 					<button type="button" id="clearForm" class="btn-outline">Clear Form</button>
 				</div>
-				<p id="formStatusNotice" style="display:none; margin-top:12px; padding:10px 14px; border-radius:6px; font-weight:600; font-size:0.95rem;"></p>
+				<p id="formStatusNotice"
+					style="display:none; margin-top:12px; padding:10px 14px; border-radius:6px; font-weight:600; font-size:0.95rem;">
+				</p>
 			</form>
 		</section>
 	</main>
@@ -295,4 +318,5 @@
 	<script src="Employee_Master.data.js"></script>
 	<script src="app.js"></script>
 </body>
+
 </html>

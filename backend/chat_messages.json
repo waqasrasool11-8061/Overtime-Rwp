@@ -556,5 +556,104 @@
     "text": "arsaln shahse rabta kren",
     "timestamp": "2026-09-27T11:35:29.948Z",
     "is_read": 1
+  },
+  {
+    "id": "msg_1790531523017_krhhbsi51",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Assalam-u-Alaikum Waqas Bhai.......",
+    "timestamp": "2026-09-27T17:52:03.017Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790531564450_fy41pn7my",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "meriii Aug me 3 leave hain un ka 55% missing ha.....",
+    "timestamp": "2026-09-27T17:52:44.450Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790531642435_8poe334mc",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Or Mera 13 Aug ka L2 separate ha Aftab Zaman k sath nhi ha ap ne un k sath add Kiya howa ha or mera 14 Aug ka day spare day tha......",
+    "timestamp": "2026-09-27T17:54:02.435Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790531675811_g98wiscip",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Plz yeh meriiii correction kr dijiyee ga O.T. me",
+    "timestamp": "2026-09-27T17:54:35.811Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790531692663_x75ubv58h",
+    "sender": "NIAZ HUSSAIN",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "Leave / 55% allowance missing in Amount Summary.",
+    "timestamp": "2026-09-27T17:54:52.663Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790531960214_7okt0i5n8",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "NIAZ HUSSAIN",
+    "text": "abi complete nai howa dear jb ho ga msg kro ga",
+    "timestamp": "2026-09-27T17:59:20.214Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790532005485_5gpdbqmjw",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "NIAZ HUSSAIN",
+    "text": "apne seperate l2 ki picture whatsapp kr dena",
+    "timestamp": "2026-09-27T18:00:05.485Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790552265208_01yx3bfa2",
+    "sender": "FAISAL KHALID",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "ok",
+    "timestamp": "2026-09-27T23:37:45.208Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790552283226_1r99p5hp5",
+    "sender": "FAISAL KHALID",
+    "sender_role": "employee",
+    "receiver": "Vicky Ch",
+    "text": "aur jo last month k missing tha us k lia?",
+    "timestamp": "2026-09-27T23:38:03.226Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790585020309_ri8pfd2em",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "FAISAL KHALID",
+    "text": "Missing ki details btao",
+    "timestamp": "2026-09-28T08:43:40.309Z",
+    "is_read": 1
+  },
+  {
+    "id": "msg_1790585184487_emma3s1lh",
+    "sender": "Vicky Ch",
+    "sender_role": "admin",
+    "receiver": "FAISAL KHALID",
+    "text": "Complete details btao kiya kiya missing hy or kiya correction hy",
+    "timestamp": "2026-09-28T08:46:24.487Z",
+    "is_read": 1
   }
 ]

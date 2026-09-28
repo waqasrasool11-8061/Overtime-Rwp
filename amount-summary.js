@@ -154,7 +154,8 @@ function getCustomDutyName(dutyStr) {
     { key: "SMAN", display: "S.MAN" },
     { key: "FORS", display: "FORS" },
     { key: "F OFFICE", display: "F.OFFICE" },
-    { key: "F.OFFICE", display: "F.OFFICE" }
+    { key: "F.OFFICE", display: "F.OFFICE" },
+    { key: "ACCIDENT", display: "ACCIDENT" }
   ];
 
   for (const item of customMap) {

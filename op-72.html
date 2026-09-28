@@ -43,7 +43,8 @@
     <a class="nav-link" href="employee-home.html">Employee Portal</a>
     <a class="nav-link" href="video.html">Video</a>
     <a class="nav-link" href="user-management.html">User Management</a>
-    <a class="nav-link" href="chat-inbox.html">Chat Inbox <span class="chat-nav-badge" style="display: none;"></span></a>
+    <a class="nav-link" href="chat-inbox.html">Chat Inbox <span class="chat-nav-badge"
+        style="display: none;"></span></a>
   </nav>
 
   <main class="simple-page">
@@ -124,7 +125,8 @@
       </div>
 
       <p class="op72-multi-instruction">
-        Is employee ki is date par 2 ya zyada entries paaye gaye hain. Niche me se entry select karein ya combine / manual option chunein:
+        Is employee ki is date par 2 ya zyada entries paaye gaye hain. Niche me se entry select karein ya combine /
+        manual option chunein:
       </p>
 
       <div class="op72-multi-cards-wrap" id="op72MultiCardsWrap">
@@ -175,7 +177,8 @@
       </div>
 
       <div class="op72-multi-footer">
-        <button type="button" id="op72MultiCombineAllBtn" class="btn-outline" title="Baaki tamaam multi-entries ko automatically Combine kar ke sheet fill karein">
+        <button type="button" id="op72MultiCombineAllBtn" class="btn-outline"
+          title="Baaki tamaam multi-entries ko automatically Combine kar ke sheet fill karein">
           Combine All Remaining
         </button>
         <button type="button" id="op72MultiApplyBtn" class="btn-primary">
@@ -193,12 +196,14 @@
           <div class="op72-empty-title">&#x1F4C5; Empty Dates Checker</div>
           <div class="op72-empty-meta" id="op72EmptyMeta">Group: — | Month: —</div>
         </div>
-        <button type="button" id="closeEmptyDatesBtn" class="op72-empty-close-btn" aria-label="Close dialog">&times;</button>
+        <button type="button" id="closeEmptyDatesBtn" class="op72-empty-close-btn"
+          aria-label="Close dialog">&times;</button>
       </div>
 
       <div class="op72-empty-summary-bar" id="op72EmptySummaryBar">
         <span id="op72EmptySummaryText">Loaded Group (10 Employees)</span>
-        <button type="button" id="refreshEmptyDatesBtn" class="op72-empty-refresh-btn" title="Sheet cells dobara scan karein">&#x21BB; Re-Scan</button>
+        <button type="button" id="refreshEmptyDatesBtn" class="op72-empty-refresh-btn"
+          title="Sheet cells dobara scan karein">&#x21BB; Re-Scan</button>
       </div>
 
       <div class="op72-empty-list" id="op72EmptyList">
@@ -207,7 +212,8 @@
 
       <div class="op72-empty-footer">
         <span class="helper-text" style="font-size: 0.82rem;">Click any date chip to fill data.</span>
-        <button type="button" id="emptyDatesReloadAllBtn" class="btn-primary" style="font-size: 0.82rem; padding: 6px 14px;">↻ Load Group &amp; Recalculate</button>
+        <button type="button" id="emptyDatesReloadAllBtn" class="btn-primary"
+          style="font-size: 0.82rem; padding: 6px 14px;">↻ Load Group &amp; Recalculate</button>
         <button type="button" id="closeEmptyDatesFooterBtn" class="btn-outline">Close</button>
       </div>
     </div>
@@ -221,33 +227,42 @@
           <strong class="op72-quick-title">&#x1F4DD; Quick Data Entry &mdash; Empty Date</strong>
           <span id="op72QuickMeta" class="op72-quick-meta">Employee &amp; Date info</span>
         </div>
-        <button type="button" id="closeQuickEntryBtn" class="op72-quick-close" aria-label="Close dialog">&times;</button>
+        <button type="button" id="closeQuickEntryBtn" class="op72-quick-close"
+          aria-label="Close dialog">&times;</button>
       </div>
 
       <form id="op72QuickEntryForm" class="op72-quick-form" autocomplete="off">
         <div class="op72-quick-grid">
           <label>
             Start Date <span class="required-star">*</span>
-            <input type="text" id="quickStartDate" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+            <input type="text" id="quickStartDate" name="startDate" placeholder="dd-mmm-yyyy" autocomplete="off"
+              inputmode="numeric" required>
           </label>
           <label>
             End Date <span class="required-star">*</span>
-            <input type="text" id="quickEndDate" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off" inputmode="numeric" required>
+            <input type="text" id="quickEndDate" name="endDate" placeholder="dd-mmm-yyyy" autocomplete="off"
+              inputmode="numeric" required>
           </label>
           <label>
             Employee 1 Name <span class="required-star">*</span>
             <div class="autocomplete-wrapper">
-              <input type="text" id="quickEmployee1" name="employee1Name" placeholder="Type or choose Employee 1" autocomplete="off" required>
-              <button type="button" id="quickEmployee1ToggleBtn" class="dropdown-trigger-btn" aria-label="Toggle employee 1 list" tabindex="-1">▾</button>
-              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee1Dropdown" role="listbox" hidden></ul>
+              <input type="text" id="quickEmployee1" name="employee1Name" placeholder="Type or choose Employee 1"
+                autocomplete="off" required>
+              <button type="button" id="quickEmployee1ToggleBtn" class="dropdown-trigger-btn"
+                aria-label="Toggle employee 1 list" tabindex="-1">▾</button>
+              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee1Dropdown" role="listbox"
+                hidden></ul>
             </div>
           </label>
           <label>
             Employee 2 Name (Optional)
             <div class="autocomplete-wrapper">
-              <input type="text" id="quickEmployee2" name="employee2Name" placeholder="Type or choose Employee 2" autocomplete="off">
-              <button type="button" id="quickEmployee2ToggleBtn" class="dropdown-trigger-btn" aria-label="Toggle employee 2 list" tabindex="-1">▾</button>
-              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee2Dropdown" role="listbox" hidden></ul>
+              <input type="text" id="quickEmployee2" name="employee2Name" placeholder="Type or choose Employee 2"
+                autocomplete="off">
+              <button type="button" id="quickEmployee2ToggleBtn" class="dropdown-trigger-btn"
+                aria-label="Toggle employee 2 list" tabindex="-1">▾</button>
+              <ul class="employee-dropdown-list op72-employee-dropdown" id="quickEmployee2Dropdown" role="listbox"
+                hidden></ul>
             </div>
           </label>
           <label>
@@ -280,6 +295,7 @@
               <option value="FORSHIFT">FORSHIFT</option>
               <option value="DI">DI</option>
               <option value="SMI">SMI</option>
+              <option value="ACCIDENT">ACCIDENT</option>
               <option value="BOOK OFF">BOOK OFF</option>
               <option value="HQ ENQ &amp; SEE TO DME">HQ ENQ &amp; SEE TO DME</option>
             </select>
@@ -303,13 +319,16 @@
                 <input type="text" id="quickOutwardDuty" name="outwardDuty" placeholder="e.g. 101UP">
               </label>
               <label>Commenced
-                <input type="text" id="quickOutwardCommenced" name="outwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+                <input type="text" id="quickOutwardCommenced" name="outwardDutyCommenced" placeholder="hh:mm"
+                  autocomplete="off" inputmode="numeric">
               </label>
               <label>Duration
-                <input type="number" id="quickOutwardDuration" name="outwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+                <input type="number" id="quickOutwardDuration" name="outwardDuration" min="0" max="5" step="1"
+                  inputmode="numeric" value="0">
               </label>
               <label>Terminated
-                <input type="text" id="quickOutwardTerminated" name="outwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+                <input type="text" id="quickOutwardTerminated" name="outwardDutyTerminated" placeholder="hh:mm"
+                  autocomplete="off" inputmode="numeric">
               </label>
             </div>
           </div>
@@ -322,13 +341,16 @@
                 <input type="text" id="quickInwardDuty" name="inwardDuty" placeholder="e.g. 102DN">
               </label>
               <label>Commenced
-                <input type="text" id="quickInwardCommenced" name="inwardDutyCommenced" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+                <input type="text" id="quickInwardCommenced" name="inwardDutyCommenced" placeholder="hh:mm"
+                  autocomplete="off" inputmode="numeric">
               </label>
               <label>Duration
-                <input type="number" id="quickInwardDuration" name="inwardDuration" min="0" max="5" step="1" inputmode="numeric" value="0">
+                <input type="number" id="quickInwardDuration" name="inwardDuration" min="0" max="5" step="1"
+                  inputmode="numeric" value="0">
               </label>
               <label>Terminated
-                <input type="text" id="quickInwardTerminated" name="inwardDutyTerminated" placeholder="hh:mm" autocomplete="off" inputmode="numeric">
+                <input type="text" id="quickInwardTerminated" name="inwardDutyTerminated" placeholder="hh:mm"
+                  autocomplete="off" inputmode="numeric">
               </label>
             </div>
           </div>
