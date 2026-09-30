@@ -425,3 +425,60 @@
     });
   }
 })();
+
+// ── Oracle Host Distinct Branding (Logo & Favicon) ──
+(function applyHostBranding() {
+  const isOracle = window.location.hostname.includes("ddns.net") || window.location.hostname.includes("137.23.");
+  if (!isOracle) return;
+
+  // 1. Update Favicon & Apple Touch Icon
+  const favicon = document.querySelector("link[rel*='icon']") || document.createElement("link");
+  favicon.type = "image/png";
+  favicon.rel = "shortcut icon";
+  favicon.href = "/oracle-favicon.png";
+  document.head.appendChild(favicon);
+
+  const appleIcon = document.querySelector("link[rel='apple-touch-icon']") || document.createElement("link");
+  appleIcon.rel = "apple-touch-icon";
+  appleIcon.href = "/icons/oracle-icon-192.png";
+  document.head.appendChild(appleIcon);
+
+  // 2. Inject Oracle Round Emblem Logo in Site Header & Login Box
+  function injectLogo() {
+    const siteHeader = document.querySelector(".site-header");
+    if (siteHeader && !document.getElementById("oracleSiteLogo")) {
+      const logoImg = document.createElement("img");
+      logoImg.id = "oracleSiteLogo";
+      logoImg.src = "/oracle-logo.png";
+      logoImg.alt = "Pakistan Railways Rawalpindi Logo";
+      logoImg.className = "oracle-header-logo";
+      
+      const banner = siteHeader.querySelector(".site-banner");
+      if (banner && banner.nextSibling) {
+        siteHeader.insertBefore(logoImg, banner.nextSibling);
+      } else {
+        siteHeader.prepend(logoImg);
+      }
+    }
+
+    const loginDialog = document.getElementById("loginDialog");
+    if (loginDialog && !document.getElementById("oracleLoginLogo")) {
+      const loginLogo = document.createElement("img");
+      loginLogo.id = "oracleLoginLogo";
+      loginLogo.src = "/oracle-logo.png";
+      loginLogo.alt = "Pakistan Railways Rawalpindi";
+      loginLogo.className = "oracle-login-logo";
+      const head = loginDialog.querySelector(".login-dialog-head") || loginDialog.firstElementChild;
+      if (head) {
+        loginDialog.insertBefore(loginLogo, head);
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectLogo);
+  } else {
+    injectLogo();
+  }
+})();
+

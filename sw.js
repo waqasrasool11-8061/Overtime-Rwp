@@ -9,6 +9,10 @@ const STATIC_ASSETS = [
   "/Employee_Master.data.js",
   "/pwa.js",
   "/manifest.json",
+  "/oracle-logo.png",
+  "/oracle-favicon.png",
+  "/icons/oracle-icon-192.png",
+  "/icons/oracle-icon-512.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png"
 ];

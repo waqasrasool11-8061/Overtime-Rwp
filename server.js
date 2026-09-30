@@ -1132,6 +1132,37 @@ app.get(/^\/google([a-zA-Z0-9_-]+)\.html$/, (req, res) => {
   res.send(`google-site-verification: ${fileName}`);
 });
 
+// Dynamic PWA Manifest for Host Branding (Distinct Oracle vs Render icon/title)
+app.get("/manifest.json", (req, res) => {
+  const host = String(req.headers.host || "");
+  const isOracle = host.includes("ddns.net") || host.includes("137.23.");
+  const manifest = {
+    name: isOracle ? "PR Overtime (Rawalpindi Cloud)" : "Pakistan Railways Overtime & Mileage - Rawalpindi Shed",
+    short_name: isOracle ? "PR Overtime [Cloud]" : "PR Overtime",
+    description: "Pakistan Railways Rawalpindi Shed Running Staff Overtime & Mileage Portal",
+    start_url: "/",
+    id: "/",
+    scope: "/",
+    display: "standalone",
+    orientation: "any",
+    background_color: "#0b192c",
+    theme_color: "#1e3e62",
+    categories: ["productivity", "utilities"],
+    icons: isOracle ? [
+      { src: "/icons/oracle-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/oracle-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/oracle-icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/oracle-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+    ] : [
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+    ]
+  };
+  return res.json(manifest);
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // Serve Trainz HTML page folder from sibling directory "TRS DEP PAK"
