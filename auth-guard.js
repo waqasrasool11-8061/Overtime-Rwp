@@ -290,8 +290,11 @@
       if (
         btn.closest(".nav-bar") ||
         btn.closest(".month-accordion-header") ||
+        btn.closest("#homeLoginForm") ||
+        btn.closest("#loginDialog") ||
         btn.classList.contains("month-btn-action") ||
         btn.classList.contains("btn-month-copy") ||
+        btn.id === "homeLoginSubmitBtn" ||
         btn.id === "loginToggleBtn" ||
         btn.id === "logoutBtn" ||
         btn.id === "closeCreateUserModalBtn" ||

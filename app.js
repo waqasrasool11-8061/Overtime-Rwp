@@ -1608,6 +1608,7 @@ try {
       window.location.replace("employee-home.html");
     } else if (cached?.role) {
       applyNavigationPermissions(cached);
+      setLandingMode(false);
     }
   } else {
     setLandingMode(true);

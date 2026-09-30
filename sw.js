@@ -1,9 +1,13 @@
-﻿const CACHE_NAME = "pr-overtime-v1";
+const CACHE_NAME = "pr-overtime-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/employee-home.html",
   "/app.css",
+  "/app.js",
+  "/auth-guard.js",
+  "/Employee_Master.data.js",
+  "/pwa.js",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png"
