@@ -92,6 +92,7 @@ const {
 } = require("./backend/rawDataRepository");
 
 const app = express();
+app.set("trust proxy", true);
 const PORT = Number(process.env.PORT || 3000);
 const envOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -641,7 +642,7 @@ app.use((req, res, next) => {
 
   return next();
 });
-function createSessionForUser(user, res) {
+function createSessionForUser(user, res, req) {
   const token = crypto.randomBytes(32).toString("hex");
   const sessionData = {
     userId: user.userId,
@@ -652,10 +653,13 @@ function createSessionForUser(user, res) {
     expiresAt: Date.now() + SESSION_TTL_MS,
   };
   sessions.set(token, sessionData);
-  const isProd = process.env.NODE_ENV === "production";
+  const isHttps = Boolean(
+    (req && (req.secure || req.headers["x-forwarded-proto"] === "https")) ||
+    process.env.FORCE_COOKIE_SECURE === "true"
+  );
   res.setHeader(
     "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${isProd ? "; Secure" : ""}`
+    `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${isHttps ? "; Secure" : ""}`
   );
   return sessionData;
 }
@@ -707,7 +711,7 @@ app.post("/api/auth/login", (req, res) => {
     return res.status(401).json({ message: "Invalid user or password." });
   }
 
-  createSessionForUser(user, res);
+  createSessionForUser(user, res, req);
   return res.json({ user: publicUser(user) });
 });
 
@@ -855,7 +859,7 @@ app.post("/api/auth/biometric/login-verify", async (req, res) => {
       return res.status(404).json({ message: `User account '${cred.user_id}' not found.` });
     }
 
-    createSessionForUser(user, res);
+    createSessionForUser(user, res, req);
     return res.json({
       success: true,
       message: `Welcome ${user.userId}! Biometric authentication successful.`,
