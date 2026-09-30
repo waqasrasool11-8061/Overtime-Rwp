@@ -429,35 +429,70 @@ async function replaceEmployeeMasterRows(db, rows) {
 
   await db.exec("BEGIN TRANSACTION");
   try {
-    // Delete existing data rows
-    await db.run(
-      `DELETE FROM employee_master_rows WHERE workbook_id = ? AND row_kind = 'data'`,
-      workbook.id
+    const existingRows = await db.all(
+      `SELECT id, row_index, row_values_json
+       FROM employee_master_rows
+       WHERE workbook_id = ? AND row_kind = 'data'
+       ORDER BY row_index ASC`,
+      [workbook.id]
     );
+    const existingMap = new Map();
+    for (const r of (existingRows || [])) {
+      existingMap.set(r.row_index, { id: r.id, json: r.row_values_json });
+    }
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      if (!Array.isArray(row)) continue;
-      const calculated = calculateEmployeeRates(row);
-      const sap = normalizeText(calculated[0]);
-      const name = normalizeText(calculated[1]).toUpperCase();
-      const desg = normalizeText(calculated[2]).toUpperCase();
-      const basic = parseNumeric(calculated[3]);
-      const cat = normalizeText(calculated[4]).toUpperCase();
+    let updateStmt = null;
+    let insertStmt = null;
 
-      await db.run(
-        `INSERT INTO employee_master_rows
-         (workbook_id, row_index, row_kind, sap_id, employee_name, designation, basic_pay, category, row_values_json, created_at, updated_at)
-         VALUES (?, ?, 'data', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        workbook.id,
-        headerRowCount + i,
-        sap,
-        name,
-        desg,
-        basic,
-        cat,
-        JSON.stringify(calculated)
-      );
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!Array.isArray(row)) continue;
+        const calculated = calculateEmployeeRates(row);
+        const sap = normalizeText(calculated[0]);
+        const name = normalizeText(calculated[1]).toUpperCase();
+        const desg = normalizeText(calculated[2]).toUpperCase();
+        const basic = parseNumeric(calculated[3]);
+        const cat = normalizeText(calculated[4]).toUpperCase();
+        const calculatedJson = JSON.stringify(calculated);
+        const rowIndex = headerRowCount + i;
+
+        const existing = existingMap.get(rowIndex);
+        if (existing) {
+          if (existing.json !== calculatedJson) {
+            if (!updateStmt) {
+              updateStmt = await db.prepare(
+                `UPDATE employee_master_rows
+                 SET sap_id = ?, employee_name = ?, designation = ?, basic_pay = ?, category = ?, row_values_json = ?, updated_at = datetime('now')
+                 WHERE id = ?`
+              );
+            }
+            await updateStmt.run(sap, name, desg, basic, cat, calculatedJson, existing.id);
+          }
+        } else {
+          if (!insertStmt) {
+            insertStmt = await db.prepare(
+              `INSERT INTO employee_master_rows
+               (workbook_id, row_index, row_kind, sap_id, employee_name, designation, basic_pay, category, row_values_json, created_at, updated_at)
+               VALUES (?, ?, 'data', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+            );
+          }
+          await insertStmt.run(workbook.id, rowIndex, sap, name, desg, basic, cat, calculatedJson);
+        }
+      }
+
+      const maxIncomingRowIndex = headerRowCount + rows.length - 1;
+      const surplus = (existingRows || []).filter((r) => r.row_index > maxIncomingRowIndex);
+      if (surplus.length > 0) {
+        await db.run(
+          `DELETE FROM employee_master_rows
+           WHERE workbook_id = ? AND row_kind = 'data' AND row_index > ?`,
+          [workbook.id, maxIncomingRowIndex]
+        );
+      }
+    } finally {
+      if (updateStmt) await updateStmt.finalize();
+      if (insertStmt) await insertStmt.finalize();
     }
 
     const allRecords = await db.all(

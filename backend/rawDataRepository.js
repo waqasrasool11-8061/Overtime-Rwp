@@ -259,23 +259,66 @@ async function replaceDataRows(db, workbookId, headerRowCount, dataRows) {
     ? dataRows.map((row) => (Array.isArray(row) ? row : []))
     : [];
 
-  await db.run(
-    `DELETE FROM raw_data_rows
-     WHERE workbook_id = ? AND row_kind = 'data'`,
+  // Fetch existing rows to calculate minimal diff (prevents burning 76,000+ writes on Turso Cloud)
+  const existingRows = await db.all(
+    `SELECT id, row_index, row_values_json
+     FROM raw_data_rows
+     WHERE workbook_id = ? AND row_kind = 'data'
+     ORDER BY row_index ASC`,
     [workbookId]
   );
 
-  const insertStmt = await db.prepare(
-    `INSERT INTO raw_data_rows (workbook_id, row_index, row_kind, row_values_json)
-     VALUES (?, ?, 'data', ?)`
-  );
+  const existingMap = new Map();
+  for (const r of (existingRows || [])) {
+    existingMap.set(r.row_index, { id: r.id, json: r.row_values_json });
+  }
+
+  let updateStmt = null;
+  let insertStmt = null;
 
   try {
     for (let i = 0; i < sanitizedRows.length; i += 1) {
-      await insertStmt.run(workbookId, headerRowCount + i, toJson(sanitizedRows[i]));
+      const rowIndex = headerRowCount + i;
+      const incomingJson = toJson(sanitizedRows[i]);
+      const existing = existingMap.get(rowIndex);
+
+      if (existing) {
+        // Only update row if the JSON content actually changed
+        if (existing.json !== incomingJson) {
+          if (!updateStmt) {
+            updateStmt = await db.prepare(
+              `UPDATE raw_data_rows
+               SET row_values_json = ?, updated_at = datetime('now')
+               WHERE id = ?`
+            );
+          }
+          await updateStmt.run(incomingJson, existing.id);
+        }
+      } else {
+        // New row appended
+        if (!insertStmt) {
+          insertStmt = await db.prepare(
+            `INSERT INTO raw_data_rows (workbook_id, row_index, row_kind, row_values_json, created_at, updated_at)
+             VALUES (?, ?, 'data', ?, datetime('now'), datetime('now'))`
+          );
+        }
+        await insertStmt.run(workbookId, rowIndex, incomingJson);
+      }
+    }
+
+    // Delete surplus rows only if incoming rows are fewer than what's currently in database
+    const maxIncomingRowIndex = headerRowCount + sanitizedRows.length - 1;
+    const surplusRows = (existingRows || []).filter((r) => r.row_index > maxIncomingRowIndex);
+    if (surplusRows.length > 0) {
+      await db.run(
+        `DELETE FROM raw_data_rows
+         WHERE workbook_id = ? AND row_kind = 'data' AND row_index > ?`,
+        [workbookId, maxIncomingRowIndex]
+      );
     }
   } finally {
-    await insertStmt.finalize();
+    if (updateStmt) await updateStmt.finalize();
+    if (insertStmt) await insertStmt.finalize();
   }
 
   return sanitizedRows.length;
