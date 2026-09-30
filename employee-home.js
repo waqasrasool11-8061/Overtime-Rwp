@@ -95,7 +95,11 @@ const chatInputText        = document.getElementById("chatInputText");
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeSession = null;
 let currentEmployeeName = "";
-let currentMonthStr = "2026-06"; // default June 2026
+function getCurrentCalendarMonthStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+let currentMonthStr = getCurrentCalendarMonthStr();
 let cachedMasterRows = [];
 let cachedHolidays = [];
 let op72CalculatedSummary = null;
@@ -354,7 +358,19 @@ if (tabBtnAmountSummary) tabBtnAmountSummary.addEventListener("click", () => swi
 if (tabBtnChat) tabBtnChat.addEventListener("click", () => switchTab("chat"));
 if (tabBtnChangePassword) tabBtnChangePassword.addEventListener("click", () => switchTab("changePassword"));
 
-// Month Pickers Sync
+// Month Pickers Sync & Dynamic Current Month Initialization
+if (op72MonthSelect) {
+  const hasMonthOpt = Array.from(op72MonthSelect.options).some((o) => o.value === currentMonthStr);
+  if (hasMonthOpt) {
+    op72MonthSelect.value = currentMonthStr;
+  } else if (op72MonthSelect.value) {
+    currentMonthStr = op72MonthSelect.value;
+  }
+}
+if (amtsMonthSelect) {
+  amtsMonthSelect.value = currentMonthStr;
+}
+
 op72MonthSelect.addEventListener("change", () => {
   currentMonthStr = op72MonthSelect.value;
   amtsMonthSelect.value = currentMonthStr;
